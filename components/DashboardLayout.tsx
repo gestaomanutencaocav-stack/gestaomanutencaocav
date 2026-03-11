@@ -14,7 +14,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#101822]">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <main className="flex-1 flex flex-col overflow-y-auto">
         <Header title={title} onMenuClick={() => setIsSidebarOpen(true)} />

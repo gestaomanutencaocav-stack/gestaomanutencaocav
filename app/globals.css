@@ -1,10 +1,45 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@theme {
+  --color-industrial-950: #0F172A;
+  --color-industrial-900: #1E293B;
+  --color-industrial-800: #334155;
+  --color-accent-amber: #F59E0B;
+  --color-status-green: #10B981;
+}
+
 @layer base {
-  body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-[#101822] dark:text-slate-100;
+  :root {
+    --background: #F8FAFC;
+    --foreground: #0F172A;
+    --card: #FFFFFF;
+    --card-foreground: #0F172A;
+    --popover: #FFFFFF;
+    --popover-foreground: #0F172A;
+    --primary: #F59E0B;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F1F5F9;
+    --secondary-foreground: #0F172A;
+    --muted: #F1F5F9;
+    --muted-foreground: #64748B;
+    --accent: #F59E0B;
+    --accent-foreground: #FFFFFF;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: #F59E0B;
   }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-amber-500/30;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+.font-mono {
+  font-family: var(--font-mono), monospace;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -13,4 +48,14 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Industrial glass effect - Light version */
+.glass-panel {
+  @apply bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm;
+}
+
+/* Technical data row */
+.data-row {
+  @apply border-b border-slate-100 hover:bg-slate-50 transition-colors duration-200;
 }
