@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   Clock, 
@@ -34,19 +35,14 @@ import {
   Cell
 } from 'recharts';
 
-const consumptionData = [
-  { name: 'Jan', estoque: 4500, finalistico: 2400 },
-  { name: 'Fev', estoque: 5200, finalistico: 1398 },
-  { name: 'Mar', estoque: 4800, finalistico: 9800 },
-  { name: 'Abr', estoque: 6100, finalistico: 3908 },
-  { name: 'Mai', estoque: 5900, finalistico: 4800 },
-  { name: 'Jun', estoque: 7200, finalistico: 3800 },
-];
+// Consumption data is now dynamic and fetched from the API
 import { motion } from 'motion/react';
 
 export default function Dashboard() {
   const [user, setUser] = React.useState<{ role: string } | null>(null);
   const [requests, setRequests] = React.useState<any[]>([]);
+  const [materialsEstoque, setMaterialsEstoque] = React.useState<any[]>([]);
+  const [materialsFinalistico, setMaterialsFinalistico] = React.useState<any[]>([]);
   const [filterMonth, setFilterMonth] = React.useState('');
   const [filterYear, setFilterYear] = React.useState('');
   const [filterDate, setFilterDate] = React.useState('');
@@ -61,7 +57,39 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(data => setRequests(data))
       .catch(() => setRequests([]));
+
+    fetch('/api/materials?type=estoque')
+      .then(res => res.json())
+      .then(data => setMaterialsEstoque(data))
+      .catch(() => setMaterialsEstoque([]));
+
+    fetch('/api/materials?type=finalistico')
+      .then(res => res.json())
+      .then(data => setMaterialsFinalistico(data))
+      .catch(() => setMaterialsFinalistico([]));
   }, []);
+
+  const getConsumptionByMonth = (materials: any[]) => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentYear = new Date().getFullYear();
+    
+    return months.map((month, index) => {
+      let total = 0;
+      materials.forEach(m => {
+        const records = m.consumptionRecords || [];
+        records.forEach((r: any) => {
+          const d = new Date(r.date);
+          if (d.getFullYear() === currentYear && d.getMonth() === index) {
+            total += r.quantity * m.valorUnitario;
+          }
+        });
+      });
+      return { name: month, value: total };
+    });
+  };
+
+  const estoqueChartData = React.useMemo(() => getConsumptionByMonth(materialsEstoque), [materialsEstoque]);
+  const finalisticoChartData = React.useMemo(() => getConsumptionByMonth(materialsFinalistico), [materialsFinalistico]);
 
   const filteredRequests = requests.filter(req => {
     const reqDate = req.createdAt ? new Date(req.createdAt) : new Date();
@@ -120,16 +148,51 @@ export default function Dashboard() {
     { name: 'Marcenaria', value: categoriesMap['Marcenaria'] || 0 },
   ];
 
-  const dynamicActivities = filteredRequests
-    .filter(req => req.status !== 'Novo') // Only show status changes
-    .slice(0, 5)
-    .map(req => ({
-      title: `Ordem de Serviço ${req.status}`,
-      description: `${req.description} • ${req.unit}`,
-      time: req.date,
-      icon: req.status === 'Autorizado' ? ShieldCheck : req.status === 'Negado' ? ShieldAlert : CheckCircle2,
-      color: req.status === 'Autorizado' ? 'emerald' : req.status === 'Negado' ? 'rose' : 'emerald'
-    }));
+  const dynamicActivities = requests
+    .slice(0, 6)
+    .map(req => {
+      let icon = CheckCircle2;
+      let color = 'slate';
+      
+      switch (req.status) {
+        case 'Novo':
+          icon = Plus;
+          color = 'blue';
+          break;
+        case 'Em Andamento':
+          icon = Clock;
+          color = 'amber';
+          break;
+        case 'Aguardando Aprovação':
+          icon = AlertCircle;
+          color = 'amber';
+          break;
+        case 'Autorizado':
+          icon = ShieldCheck;
+          color = 'emerald';
+          break;
+        case 'Negado':
+          icon = ShieldAlert;
+          color = 'rose';
+          break;
+        case 'Concluído':
+          icon = CheckSquare;
+          color = 'emerald';
+          break;
+        case 'Atrasado':
+          icon = AlertTriangle;
+          color = 'rose';
+          break;
+      }
+
+      return {
+        title: `Solicitação ${req.status}`,
+        description: `${req.description} • ${req.unit}`,
+        time: req.date,
+        icon,
+        color
+      };
+    });
 
   return (
     <DashboardLayout title="Visão Geral">
@@ -250,83 +313,126 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Materials Consumption Chart */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <LineChartIcon className="text-amber-600" size={20} />
-                    Consumo Mensal de Materiais
-                  </h3>
-                  <p className="text-sm text-slate-500 font-medium">Comparativo de consumo (R$) entre Estoque e Finalísticos</p>
+            {/* Materials Consumption Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Estoque Chart */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      <LineChartIcon className="text-amber-600" size={20} />
+                      Consumo Mensal: Estoque
+                    </h3>
+                    <p className="text-sm text-slate-500 font-medium">Consumo em R$ de materiais em estoque</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="size-3 rounded-full bg-amber-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estoque</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-3 rounded-full bg-slate-900" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Finalístico</span>
-                  </div>
+
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={estoqueChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorEstoque" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tickFormatter={(value) => `R$ ${value}`}
+                      />
+                      <Tooltip 
+                        formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))}
+                        contentStyle={{ 
+                          backgroundColor: '#FFF', 
+                          border: '1px solid #E2E8F0', 
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          fontSize: '12px',
+                          fontWeight: '700'
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        name="Consumo"
+                        stroke="#F59E0B" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorEstoque)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={consumptionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorEstoque" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorFinalistico" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0F172A" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#0F172A" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
-                      tickFormatter={(value) => `R$ ${value}`}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#FFF', 
-                        border: '1px solid #E2E8F0', 
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                        fontSize: '12px',
-                        fontWeight: '700'
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="estoque" 
-                      stroke="#F59E0B" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorEstoque)" 
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="finalistico" 
-                      stroke="#0F172A" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorFinalistico)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {/* Finalistico Chart */}
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      <LineChartIcon className="text-slate-900" size={20} />
+                      Consumo Mensal: Finalísticos
+                    </h3>
+                    <p className="text-sm text-slate-500 font-medium">Consumo em R$ de materiais finalísticos</p>
+                  </div>
+                </div>
+
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={finalisticoChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorFinalistico" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0F172A" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#0F172A" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tickFormatter={(value) => `R$ ${value}`}
+                      />
+                      <Tooltip 
+                        formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))}
+                        contentStyle={{ 
+                          backgroundColor: '#FFF', 
+                          border: '1px solid #E2E8F0', 
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                          fontSize: '12px',
+                          fontWeight: '700'
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        name="Consumo"
+                        stroke="#0F172A" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorFinalistico)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
@@ -352,7 +458,7 @@ export default function Dashboard() {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-black text-slate-900 tracking-tight">Atividade Recente</h3>
-              <button className="text-amber-600 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Tudo</button>
+              <Link href="/solicitacoes" className="text-amber-600 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Tudo</Link>
             </div>
             
             <div className="space-y-6">

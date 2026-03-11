@@ -15,7 +15,12 @@ import {
   MinusCircle,
   Calendar,
   X,
-  Plus
+  Plus,
+  Edit2,
+  Trash2,
+  History,
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, isSameMonth } from 'date-fns';
@@ -53,9 +58,14 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isConsumptionModalOpen, setIsConsumptionModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [consumptionQty, setConsumptionQty] = useState('');
   const [consumptionDate, setConsumptionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [editingRecordIndex, setEditingRecordIndex] = useState<number | null>(null);
+  
+  const [editingUnitValueId, setEditingUnitValueId] = useState<string | null>(null);
+  const [tempUnitValue, setTempUnitValue] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,13 +204,21 @@ export default function MaterialsManager({ title, description, type }: Materials
     const qty = Number(consumptionQty);
     if (isNaN(qty) || qty <= 0) return;
 
-    const newRecords = [
-      ...(selectedMaterial.consumptionRecords || []),
-      { date: consumptionDate, quantity: qty }
-    ];
+    let newRecords = [...(selectedMaterial.consumptionRecords || [])];
+    let newSaldoAtual = selectedMaterial.saldoAtual;
+
+    if (editingRecordIndex !== null) {
+      // Editing an existing record
+      const oldQty = newRecords[editingRecordIndex].quantity;
+      newRecords[editingRecordIndex] = { date: consumptionDate, quantity: qty };
+      newSaldoAtual = selectedMaterial.saldoAtual + oldQty - qty;
+    } else {
+      // Adding a new record
+      newRecords.push({ date: consumptionDate, quantity: qty });
+      newSaldoAtual = selectedMaterial.saldoAtual - qty;
+    }
 
     try {
-      const newSaldoAtual = selectedMaterial.saldoAtual - qty;
       const res = await fetch(`/api/materials/${selectedMaterial.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -214,6 +232,7 @@ export default function MaterialsManager({ title, description, type }: Materials
       if (res.ok) {
         fetchMaterials();
         setIsConsumptionModalOpen(false);
+        setEditingRecordIndex(null);
         setSelectedMaterial(null);
         setConsumptionQty('');
       }
@@ -222,14 +241,83 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
   };
 
+  const handleDeleteConsumption = async (index: number) => {
+    if (!selectedMaterial || !selectedMaterial.id) return;
+    if (!confirm('Tem certeza que deseja excluir este registro de saída?')) return;
+
+    const recordToDelete = selectedMaterial.consumptionRecords[index];
+    const newRecords = selectedMaterial.consumptionRecords.filter((_, i) => i !== index);
+    const newSaldoAtual = selectedMaterial.saldoAtual + recordToDelete.quantity;
+
+    try {
+      const res = await fetch(`/api/materials/${selectedMaterial.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          saldoAtual: newSaldoAtual,
+          valorTotal: newSaldoAtual * selectedMaterial.valorUnitario,
+          consumptionRecords: newRecords
+        }),
+      });
+
+      if (res.ok) {
+        // Update local state for the modal to reflect changes immediately if possible
+        const updatedMaterial = { 
+          ...selectedMaterial, 
+          saldoAtual: newSaldoAtual, 
+          consumptionRecords: newRecords 
+        };
+        setSelectedMaterial(updatedMaterial);
+        fetchMaterials();
+      }
+    } catch (error) {
+      console.error('Error deleting consumption:', error);
+    }
+  };
+
+  const handleUpdateUnitValue = async (material: Material) => {
+    if (!material.id) return;
+    const newVal = Number(tempUnitValue.replace(',', '.'));
+    if (isNaN(newVal)) return;
+
+    try {
+      const res = await fetch(`/api/materials/${material.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          valorUnitario: newVal,
+          valorTotal: material.saldoAtual * newVal
+        }),
+      });
+
+      if (res.ok) {
+        fetchMaterials();
+        setEditingUnitValueId(null);
+      }
+    } catch (error) {
+      console.error('Error updating unit value:', error);
+    }
+  };
+
   const filteredMaterials = useMemo(() => {
     return materials
-      .filter(m => 
-        m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      .filter(m => {
+        const matchesSearch = m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          m.descricao.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        if (!matchesSearch) return false;
+
+        if (selectedMonth !== 0) {
+          return m.consumptionRecords.some(record => {
+            const date = parseISO(record.date);
+            return date.getFullYear() === selectedYear && (date.getMonth() + 1) === selectedMonth;
+          });
+        }
+
+        return true;
+      })
       .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
-  }, [materials, searchTerm]);
+  }, [materials, searchTerm, selectedMonth, selectedYear]);
 
   const monthStats = useMemo(() => {
     let totalConsumedValue = 0;
@@ -413,7 +501,37 @@ export default function MaterialsManager({ title, description, type }: Materials
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right text-xs font-bold text-slate-600 font-mono">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valorUnitario)}
+                      {editingUnitValueId === item.id ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input 
+                            type="text"
+                            className="w-20 bg-white border border-amber-300 rounded px-1 py-0.5 text-right outline-none focus:ring-1 focus:ring-amber-500"
+                            value={tempUnitValue}
+                            onChange={(e) => setTempUnitValue(e.target.value)}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleUpdateUnitValue(item);
+                              if (e.key === 'Escape') setEditingUnitValueId(null);
+                            }}
+                          />
+                          <button onClick={() => handleUpdateUnitValue(item)} className="text-emerald-600 hover:text-emerald-700">
+                            <Check size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2 group/val">
+                          <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valorUnitario)}</span>
+                          <button 
+                            onClick={() => {
+                              setEditingUnitValueId(item.id || null);
+                              setTempUnitValue(item.valorUnitario.toString());
+                            }}
+                            className="opacity-0 group-hover/val:opacity-100 text-slate-400 hover:text-amber-600 transition-opacity"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right text-xs font-black text-slate-900 font-mono">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.saldoAtual * item.valorUnitario)}
@@ -431,18 +549,31 @@ export default function MaterialsManager({ title, description, type }: Materials
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => {
-                          setSelectedMaterial(item);
-                          setConsumptionQty('');
-                          setConsumptionDate(format(new Date(), 'yyyy-MM-dd'));
-                          setIsConsumptionModalOpen(true);
-                        }}
-                        className="p-2 bg-slate-50 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-slate-200 hover:border-amber-200"
-                        title="Registrar Saída"
-                      >
-                        <MinusCircle size={18} />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => {
+                            setSelectedMaterial(item);
+                            setIsHistoryModalOpen(true);
+                          }}
+                          className="p-2 bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-200"
+                          title="Ver Histórico"
+                        >
+                          <History size={18} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedMaterial(item);
+                            setConsumptionQty('');
+                            setConsumptionDate(format(new Date(), 'yyyy-MM-dd'));
+                            setEditingRecordIndex(null);
+                            setIsConsumptionModalOpen(true);
+                          }}
+                          className="p-2 bg-slate-50 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-slate-200 hover:border-amber-200"
+                          title="Registrar Saída"
+                        >
+                          <MinusCircle size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -471,10 +602,15 @@ export default function MaterialsManager({ title, description, type }: Materials
             >
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Registrar Saída</h3>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">
+                    {editingRecordIndex !== null ? 'Editar Saída' : 'Registrar Saída'}
+                  </h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{selectedMaterial.codigo} - {selectedMaterial.descricao}</p>
                 </div>
-                <button onClick={() => setIsConsumptionModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => {
+                  setIsConsumptionModalOpen(false);
+                  setEditingRecordIndex(null);
+                }} className="text-slate-400 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -486,17 +622,20 @@ export default function MaterialsManager({ title, description, type }: Materials
                     <Box className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
                       type="number"
+                      step="any"
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-16 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
                       placeholder="Ex: 5"
                       value={consumptionQty}
                       onChange={(e) => setConsumptionQty(e.target.value)}
-                      max={selectedMaterial.saldoAtual}
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       {selectedMaterial.unidadeMedida}
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-2 font-medium italic">Saldo disponível: {selectedMaterial.saldoAtual} {selectedMaterial.unidadeMedida}</p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-medium italic">
+                    Saldo disponível: {selectedMaterial.saldoAtual} {selectedMaterial.unidadeMedida}
+                    {editingRecordIndex !== null && ` (Original: ${selectedMaterial.consumptionRecords[editingRecordIndex].quantity})`}
+                  </p>
                 </div>
 
                 <div>
@@ -512,21 +651,122 @@ export default function MaterialsManager({ title, description, type }: Materials
                   </div>
                 </div>
 
-                  <div className="pt-4 flex gap-3">
-                    <button 
-                      onClick={() => setIsConsumptionModalOpen(false)}
-                      className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                    >
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={handleAddConsumption}
-                      disabled={!consumptionQty || !consumptionDate || Number(consumptionQty) <= 0 || Number(consumptionQty) > Number(selectedMaterial.saldoAtual)}
-                      className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Confirmar Saída
-                    </button>
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    onClick={() => {
+                      setIsConsumptionModalOpen(false);
+                      setEditingRecordIndex(null);
+                    }}
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleAddConsumption}
+                    disabled={!consumptionQty || !consumptionDate || Number(consumptionQty) <= 0 || (editingRecordIndex === null && Number(consumptionQty) > Number(selectedMaterial.saldoAtual))}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editingRecordIndex !== null ? 'Salvar Alteração' : 'Confirmar Saída'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* History Modal */}
+      <AnimatePresence>
+        {isHistoryModalOpen && selectedMaterial && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHistoryModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Histórico de Saídas</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{selectedMaterial.codigo} - {selectedMaterial.descricao}</p>
+                </div>
+                <button onClick={() => setIsHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto">
+                {selectedMaterial.consumptionRecords.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 italic text-sm">Nenhum registro de saída encontrado.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedMaterial.consumptionRecords
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((record, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 group">
+                          <div className="flex items-center gap-4">
+                            <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400">
+                              <Calendar size={16} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-slate-900">{format(parseISO(record.date), 'dd/MM/yyyy')}</p>
+                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Data da Retirada</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <p className="text-sm font-black text-amber-600 font-mono">{record.quantity} {selectedMaterial.unidadeMedida}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Quantidade</p>
+                            </div>
+                            
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => {
+                                  const realIdx = selectedMaterial.consumptionRecords.indexOf(record);
+                                  setEditingRecordIndex(realIdx);
+                                  setConsumptionQty(record.quantity.toString());
+                                  setConsumptionDate(record.date);
+                                  setIsHistoryModalOpen(false);
+                                  setIsConsumptionModalOpen(true);
+                                }}
+                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                title="Editar"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const realIdx = selectedMaterial.consumptionRecords.indexOf(record);
+                                  handleDeleteConsumption(realIdx);
+                                }}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Excluir"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                   </div>
+                )}
+              </div>
+
+              <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0">
+                <button 
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Fechar Histórico
+                </button>
               </div>
             </motion.div>
           </div>
