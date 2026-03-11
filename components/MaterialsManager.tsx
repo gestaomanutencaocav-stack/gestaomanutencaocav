@@ -109,33 +109,53 @@ export default function MaterialsManager({ title, description, type }: Materials
           return keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
         };
 
-        const mappedData: any[] = jsonData.map((item) => {
-          const codigoKey = findKey(item, ['código', 'codigo', 'cod', 'id']);
-          const descricaoKey = findKey(item, ['descrição', 'descricao', 'material', 'item', 'nome']);
-          const unidadeKey = findKey(item, ['unidade', 'u.m', 'um', 'medida']);
-          const quantidadeKey = findKey(item, ['quantidade', 'qtd', 'quant']);
-          const valorUnitarioKey = findKey(item, ['valor unitário', 'valor unitario', 'vlr unit', 'preço', 'preco']);
-          const saldoInicialKey = findKey(item, ['saldo inicial', 'inicial']);
-          const saldoAtualKey = findKey(item, ['saldo atual', 'atual', 'saldo']);
+        const parseCurrency = (val: any) => {
+          if (typeof val === 'number') return val;
+          if (!val) return 0;
+          // Remove R$, spaces, and handle PT-BR format (1.250,50 -> 1250.50)
+          const clean = String(val)
+            .replace(/R\$/g, '')
+            .replace(/\s/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+          return Number(clean) || 0;
+        };
 
-          const qty = Number(item[quantidadeKey || ''] || 0);
-          const unitVal = Number(item[valorUnitarioKey || ''] || 0);
-          const sInicial = Number(item[saldoInicialKey || ''] || 0);
-          const sAtual = Number(item[saldoAtualKey || ''] || item[quantidadeKey || ''] || 0);
+        const mappedData: any[] = jsonData
+          .map((item) => {
+            const codigoKey = findKey(item, ['código', 'codigo', 'cod', 'id']);
+            const descricaoKey = findKey(item, ['descrição', 'descricao', 'material', 'item', 'nome']);
+            const unidadeKey = findKey(item, ['unidade', 'u.m', 'um', 'medida']);
+            const quantidadeKey = findKey(item, ['quantidade', 'qtd', 'quant']);
+            const valorUnitarioKey = findKey(item, ['valor unitário', 'valor unitario', 'vlr unit', 'preço', 'preco']);
+            const saldoInicialKey = findKey(item, ['saldo inicial', 'inicial']);
+            const saldoAtualKey = findKey(item, ['saldo atual', 'atual', 'saldo']);
+            const valorTotalKey = findKey(item, ['valor total', 'vlr total']);
 
-          return {
-            codigo: String(item[codigoKey || ''] || 'N/A'),
-            descricao: String(item[descricaoKey || ''] || 'Sem descrição'),
-            unidadeMedida: String(item[unidadeKey || ''] || 'UN'),
-            quantidadeGeral: qty,
-            valorUnitario: unitVal,
-            valorTotal: qty * unitVal,
-            saldoInicial: sInicial || sAtual,
-            saldoAtual: sAtual,
-            type: type,
-            consumptionRecords: []
-          };
-        });
+            const codigo = String(item[codigoKey || ''] || '').trim();
+            const descricao = String(item[descricaoKey || ''] || '').trim();
+
+            if (!codigo || !descricao) return null;
+
+            const sInicial = parseCurrency(item[saldoInicialKey || ''] || 0);
+            const sAtual = parseCurrency(item[saldoAtualKey || ''] || item[quantidadeKey || ''] || sInicial || 0);
+            const unitVal = parseCurrency(item[valorUnitarioKey || ''] || 0);
+            const vTotal = parseCurrency(item[valorTotalKey || ''] || (sAtual * unitVal));
+
+            return {
+              codigo,
+              descricao,
+              unidadeMedida: String(item[unidadeKey || ''] || 'UN'),
+              quantidadeGeral: sInicial || sAtual,
+              valorUnitario: unitVal,
+              valorTotal: vTotal,
+              saldoInicial: sInicial || sAtual,
+              saldoAtual: sAtual,
+              type: type,
+              consumptionRecords: []
+            };
+          })
+          .filter(Boolean);
 
         const res = await fetch('/api/materials', {
           method: 'POST',
@@ -180,11 +200,13 @@ export default function MaterialsManager({ title, description, type }: Materials
     ];
 
     try {
+      const newSaldoAtual = selectedMaterial.saldoAtual - qty;
       const res = await fetch(`/api/materials/${selectedMaterial.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          saldoAtual: selectedMaterial.saldoAtual - qty,
+          saldoAtual: newSaldoAtual,
+          valorTotal: newSaldoAtual * selectedMaterial.valorUnitario,
           consumptionRecords: newRecords
         }),
       });
@@ -200,10 +222,14 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
   };
 
-  const filteredMaterials = materials.filter(m => 
-    m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMaterials = useMemo(() => {
+    return materials
+      .filter(m => 
+        m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.descricao.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
+  }, [materials, searchTerm]);
 
   const monthStats = useMemo(() => {
     let totalConsumedValue = 0;
@@ -212,7 +238,9 @@ export default function MaterialsManager({ title, description, type }: Materials
     materials.forEach(m => {
       const monthConsumption = m.consumptionRecords.filter(record => {
         const date = parseISO(record.date);
-        return date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
+        const isYearMatch = date.getFullYear() === selectedYear;
+        const isMonthMatch = selectedMonth === 0 || date.getMonth() + 1 === selectedMonth;
+        return isYearMatch && isMonthMatch;
       });
 
       const qty = monthConsumption.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -280,7 +308,9 @@ export default function MaterialsManager({ title, description, type }: Materials
               <div className="p-2 bg-white/20 rounded-lg">
                 <TrendingDown size={20} />
               </div>
-              <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">Consumo no Mês Selecionado</p>
+              <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">
+                Consumo {selectedMonth === 0 ? 'no Ano' : 'no Mês Selecionado'}
+              </p>
             </div>
             <p className="text-2xl font-black font-mono">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthStats.totalConsumedValue)}
@@ -299,6 +329,7 @@ export default function MaterialsManager({ title, description, type }: Materials
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
             >
+              <option value={0}>Todos os Meses</option>
               {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
                 <option key={m} value={i + 1}>{m}</option>
               ))}
@@ -341,7 +372,9 @@ export default function MaterialsManager({ title, description, type }: Materials
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo Atual</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">V. Unitário</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">V. Total (Saldo)</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Consumo no Mês</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                  Consumo {selectedMonth === 0 ? 'no Ano' : 'no Mês'}
+                </th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
               </tr>
             </thead>
@@ -361,7 +394,9 @@ export default function MaterialsManager({ title, description, type }: Materials
               ) : filteredMaterials.map((item) => {
                 const monthConsumption = item.consumptionRecords.filter(record => {
                   const date = parseISO(record.date);
-                  return date.getMonth() + 1 === selectedMonth && date.getFullYear() === selectedYear;
+                  const isYearMatch = date.getFullYear() === selectedYear;
+                  const isMonthMatch = selectedMonth === 0 || date.getMonth() + 1 === selectedMonth;
+                  return isYearMatch && isMonthMatch;
                 }).reduce((acc, curr) => acc + curr.quantity, 0);
 
                 return (

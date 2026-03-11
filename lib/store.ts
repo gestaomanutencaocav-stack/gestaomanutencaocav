@@ -76,7 +76,7 @@ export const getMaterials = async (type: 'estoque' | 'finalistico') => {
     .from('materials')
     .select('*')
     .eq('type', type)
-    .order('descricao', { ascending: true });
+    .order('codigo', { ascending: true });
   
   if (error) {
     console.error('Error fetching materials:', error);
