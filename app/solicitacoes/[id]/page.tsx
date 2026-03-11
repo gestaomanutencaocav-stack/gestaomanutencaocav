@@ -175,7 +175,7 @@ export default function RequestDetailsPage() {
               <RefreshCw size={18} className="text-amber-600" />
               Atualizar Status
             </button>
-            {userRole === 'gestao' && request.status === 'Novo' && (
+            {userRole && request.status === 'Novo' && (
               <div className="flex gap-2">
                 <button 
                   onClick={() => { setAuthAction('Autorizado'); setIsAuthModalOpen(true); }}

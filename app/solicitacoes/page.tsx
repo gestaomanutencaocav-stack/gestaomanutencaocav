@@ -16,10 +16,14 @@ import {
   Zap,
   Thermometer,
   Hammer,
+  ShieldCheck,
+  ShieldAlert,
+  X,
   Trash2
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface MaintenanceRequest {
   id: string;
@@ -53,18 +57,65 @@ export default function RequestsPage() {
   const [filterDate, setFilterDate] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Auth Modal State for Quick Action
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [authAction, setAuthAction] = useState<'Autorizado' | 'Negado'>('Autorizado');
+  const [authName, setAuthName] = useState('');
+  const [authPosition, setAuthPosition] = useState('');
+  const [authJustification, setAuthJustification] = useState('');
+  const [authUrgency, setAuthUrgency] = useState<'Baixa' | 'Média' | 'Alta' | 'Emergencial'>('Média');
 
   const fetchRequests = useCallback(async () => {
     try {
-      const res = await fetch(`/api/solicitacoes?t=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
-      setRequests(data);
+      const [reqRes, userRes] = await Promise.all([
+        fetch(`/api/solicitacoes?t=${Date.now()}`, { cache: 'no-store' }),
+        fetch('/api/auth/me')
+      ]);
+      
+      if (reqRes.ok) {
+        const data = await reqRes.json();
+        setRequests(data);
+      }
+
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setUserRole(userData.role);
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleAuthSubmit = async () => {
+    if (!selectedRequestId || !authName || !authPosition) return;
+    
+    try {
+      const res = await fetch(`/api/solicitacoes/${selectedRequestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: authAction, 
+          statusColor: authAction === 'Autorizado' ? 'emerald' : 'rose',
+          authorizedBy: authName,
+          authorizedPosition: authPosition,
+          authorizedJustification: authJustification,
+          urgency: authUrgency
+        }),
+      });
+      if (res.ok) {
+        setIsAuthModalOpen(false);
+        setSelectedRequestId(null);
+        fetchRequests();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -256,6 +307,32 @@ export default function RequestsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {userRole && req.status === 'Novo' && (
+                          <div className="flex gap-1 mr-2">
+                            <button 
+                              onClick={() => { 
+                                setSelectedRequestId(req.id); 
+                                setAuthAction('Autorizado'); 
+                                setIsAuthModalOpen(true); 
+                              }}
+                              className="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-colors border border-emerald-100"
+                              title="Autorizar"
+                            >
+                              <ShieldCheck size={16} />
+                            </button>
+                            <button 
+                              onClick={() => { 
+                                setSelectedRequestId(req.id); 
+                                setAuthAction('Negado'); 
+                                setIsAuthModalOpen(true); 
+                              }}
+                              className="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100 transition-colors border border-rose-100"
+                              title="Negar"
+                            >
+                              <ShieldAlert size={16} />
+                            </button>
+                          </div>
+                        )}
                         <button 
                           onClick={() => handleDelete(req.id)}
                           className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 border border-transparent hover:border-red-100"
@@ -296,6 +373,115 @@ export default function RequestsPage() {
         onClose={() => setIsModalOpen(false)} 
         onSuccess={fetchRequests} 
       />
+
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden"
+            >
+              <div className={`px-6 py-4 border-b border-slate-100 flex items-center justify-between ${
+                authAction === 'Autorizado' ? 'bg-emerald-50' : 'bg-rose-50'
+              }`}>
+                <div>
+                  <h3 className={`text-lg font-black tracking-tight uppercase ${
+                    authAction === 'Autorizado' ? 'text-emerald-700' : 'text-rose-700'
+                  }`}>
+                    {authAction === 'Autorizado' ? 'Autorizar Ordem de Serviço' : 'Negar Ordem de Serviço'}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Autenticação do Servidor Responsável</p>
+                </div>
+                <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Agente</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      placeholder="Seu nome completo"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cargo / Função</label>
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      placeholder="Ex: Gestor de Manutenção"
+                      value={authPosition}
+                      onChange={(e) => setAuthPosition(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nível de Urgência</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {['Baixa', 'Média', 'Alta', 'Emergencial'].map((u) => (
+                      <button
+                        key={u}
+                        onClick={() => setAuthUrgency(u as any)}
+                        className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                          authUrgency === u 
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20' 
+                            : 'bg-white text-slate-400 border-slate-200 hover:border-amber-200'
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Justificativa (Opcional)</label>
+                  <textarea 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all min-h-[100px]"
+                    placeholder="Descreva o motivo da decisão ou observações técnicas..."
+                    value={authJustification}
+                    onChange={(e) => setAuthJustification(e.target.value)}
+                  />
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    onClick={() => setIsAuthModalOpen(false)}
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleAuthSubmit}
+                    disabled={!authName || !authPosition}
+                    className={`flex-1 px-4 py-3 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                      authAction === 'Autorizado' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
+                    }`}
+                  >
+                    Confirmar {authAction}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
