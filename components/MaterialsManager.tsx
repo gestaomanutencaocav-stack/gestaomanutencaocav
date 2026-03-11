@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface ConsumptionRecord {
   date: string;
