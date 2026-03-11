@@ -10,7 +10,7 @@ export interface MaintenanceRequest {
   type: string;
   status: string;
   statusColor: string;
-  professional: string | null;
+  professionals: string[];
   avatar: string | null;
   details?: string;
   checklist?: { id: number; task: string; completed: boolean }[];
@@ -32,7 +32,9 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   type: req.type,
   status: req.status,
   statusColor: req.status_color,
-  professional: req.professional,
+  professionals: Array.isArray(req.professionals) 
+    ? req.professionals 
+    : (req.professional ? req.professional.split(', ').filter(Boolean) : []),
   avatar: req.avatar,
   details: req.details,
   checklist: req.checklist,
@@ -181,36 +183,69 @@ export const getRequestById = async (id: string) => {
 
 export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'date' | 'createdAt' | 'status' | 'statusColor'>) => {
   const now = new Date();
-  const id = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
+  // More unique ID to avoid collisions
+  const id = `REQ-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
   
-  const newRequest = {
+  const newRequest: any = {
     id,
-    description: request.description,
-    unit: request.unit,
-    responsible_server: request.responsibleServer,
+    description: request.description || 'Sem descrição',
+    unit: request.unit || 'Sem unidade',
+    responsible_server: request.responsibleServer || 'Não informado',
     date: now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
     created_at: now.toISOString(),
-    type: request.type,
+    type: request.type || 'Geral',
     status: 'Novo',
     status_color: 'blue',
-    professional: request.professional,
+    professional: (request.professionals || []).join(', '),
     avatar: request.avatar,
-    details: request.details,
+    details: request.details || '',
     checklist: request.checklist || [],
+  };
+
+  // Try to include new columns if they exist
+  const extendedRequest = {
+    ...newRequest,
+    professionals: request.professionals || [],
     images: request.images || [],
   };
 
-  const { data, error } = await supabase
-    .from('requests')
-    .insert([newRequest])
-    .select()
-    .single();
+  try {
+    console.log('Attempting to insert request:', id);
+    const { data, error } = await supabase
+      .from('requests')
+      .insert(extendedRequest)
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error adding request:', error);
+    if (error) {
+      console.error('Initial insert failed:', error);
+      // If it fails due to missing columns (42703), retry with basic fields
+      if (error.code === '42703') {
+        console.warn('New columns missing in DB, retrying with basic fields');
+        const { data: retryData, error: retryError } = await supabase
+          .from('requests')
+          .insert(newRequest)
+          .select()
+          .single();
+        
+        if (retryError) {
+          console.error('Retry insert failed:', retryError);
+          throw new Error(`Erro ao criar solicitação (retry): ${retryError.message}`);
+        }
+        return mapRequest(retryData);
+      }
+      throw new Error(`Erro ao criar solicitação: ${error.message} (Código: ${error.code})`);
+    }
+    
+    if (!data) {
+      throw new Error('Nenhum dado retornado após a inserção.');
+    }
+
+    return mapRequest(data);
+  } catch (error: any) {
+    console.error('Error in addRequest:', error);
     throw error;
   }
-  return mapRequest(data);
 };
 
 export const updateRequest = async (id: string, updates: Partial<MaintenanceRequest>) => {
@@ -224,7 +259,10 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
   if (updates.type) dbUpdates.type = updates.type;
   if (updates.status) dbUpdates.status = updates.status;
   if (updates.statusColor) dbUpdates.status_color = updates.statusColor;
-  if (updates.professional !== undefined) dbUpdates.professional = updates.professional;
+  if (updates.professionals !== undefined) {
+    dbUpdates.professionals = updates.professionals;
+    dbUpdates.professional = updates.professionals.join(', ');
+  }
   if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
   if (updates.details) dbUpdates.details = updates.details;
   if (updates.checklist) dbUpdates.checklist = updates.checklist;

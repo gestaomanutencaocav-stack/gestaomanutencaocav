@@ -34,7 +34,7 @@ interface MaintenanceRequest {
   type: string;
   status: string;
   statusColor: string;
-  professional: string | null;
+  professionals: string[];
   avatar: string | null;
 }
 
@@ -70,22 +70,29 @@ export default function RequestsPage() {
 
   const fetchRequests = useCallback(async () => {
     try {
+      const timestamp = Date.now();
       const [reqRes, userRes] = await Promise.all([
-        fetch(`/api/solicitacoes?t=${Date.now()}`, { cache: 'no-store' }),
-        fetch('/api/auth/me')
+        fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' })
       ]);
       
       if (reqRes.ok) {
         const data = await reqRes.json();
+        console.log('Fetched requests:', data.length);
         setRequests(data);
+      } else {
+        const errorData = await reqRes.json();
+        console.error('Failed to fetch requests:', errorData);
+        alert('Erro ao carregar solicitações. Por favor, recarregue a página.');
       }
-
+      
       if (userRes.ok) {
         const userData = await userRes.json();
         setUserRole(userData.role);
       }
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching requests:', error);
+      alert('Erro de conexão ao carregar solicitações.');
     } finally {
       setLoading(false);
     }
@@ -142,7 +149,7 @@ export default function RequestsPage() {
   const filteredRequests = requests.filter(req => {
     const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (req.professional?.toLowerCase().includes(searchTerm.toLowerCase()));
+      (req.professionals && req.professionals.some(p => p.toLowerCase().includes(searchTerm.toLowerCase())));
     
     const reqDate = req.createdAt ? new Date(req.createdAt) : new Date();
     
@@ -286,20 +293,31 @@ export default function RequestsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {req.professional ? (
+                      {req.professionals && req.professionals.length > 0 ? (
                         <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200">
-                            {req.avatar && (
-                              <Image 
-                                src={req.avatar} 
-                                alt={req.professional} 
-                                fill 
-                                className="object-cover transition-all"
-                                referrerPolicy="no-referrer"
-                              />
+                          <div className="flex -space-x-2 overflow-hidden">
+                            {req.professionals.slice(0, 3).map((p, i) => (
+                              <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-slate-100 overflow-hidden relative border border-slate-200">
+                                {req.avatar && (
+                                  <Image 
+                                    src={req.avatar} 
+                                    alt={p} 
+                                    fill 
+                                    className="object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                            {req.professionals.length > 3 && (
+                              <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-slate-200 text-[8px] font-black text-slate-600">
+                                +{req.professionals.length - 3}
+                              </div>
                             )}
                           </div>
-                          <span className="text-xs text-slate-600 font-bold tracking-tight">{req.professional}</span>
+                          <span className="text-xs text-slate-600 font-bold tracking-tight truncate max-w-[120px]">
+                            {req.professionals.join(', ')}
+                          </span>
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">Não atribuído</span>

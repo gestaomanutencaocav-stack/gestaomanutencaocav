@@ -42,7 +42,7 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
     unit: '',
     responsibleServer: '',
     type: 'Geral',
-    professional: [] as string[],
+    professionals: [] as string[],
   });
 
   useEffect(() => {
@@ -57,11 +57,11 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
 
   const toggleProfessional = (name: string) => {
     setFormData(prev => {
-      const current = prev.professional;
+      const current = prev.professionals;
       if (current.includes(name)) {
-        return { ...prev, professional: current.filter(p => p !== name) };
+        return { ...prev, professionals: current.filter(p => p !== name) };
       } else {
-        return { ...prev, professional: [...current, name] };
+        return { ...prev, professionals: [...current, name] };
       }
     });
   };
@@ -75,17 +75,20 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          professional: formData.professional.join(', '),
-          avatar: formData.professional.length > 0 ? 'https://picsum.photos/seed/tech/100/100' : null,
+          avatar: formData.professionals.length > 0 ? 'https://picsum.photos/seed/tech/100/100' : null,
         }),
       });
       if (res.ok) {
         onSuccess();
         onClose();
-        setFormData({ description: '', unit: '', responsibleServer: '', type: 'Geral', professional: [] });
+        setFormData({ description: '', unit: '', responsibleServer: '', type: 'Geral', professionals: [] });
+      } else {
+        const errorData = await res.json();
+        alert(`Erro ao criar solicitação: ${errorData.error || 'Erro desconhecido'}\nDetalhes: ${errorData.details || 'Nenhum detalhe disponível'}`);
       }
     } catch (error) {
       console.error(error);
+      alert('Erro de conexão ao criar solicitação.');
     } finally {
       setLoading(false);
     }
@@ -169,15 +172,15 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
               </div>
 
               <div className="relative" ref={dropdownRef}>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profissional (Opcional)</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profissionais Alocados (Opcional)</label>
                 <div 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500/50 outline-none font-medium cursor-pointer flex items-center justify-between transition-all hover:border-slate-300"
                 >
-                  <span className={formData.professional.length === 0 ? "text-slate-300" : "text-slate-900 truncate pr-4"}>
-                    {formData.professional.length === 0 
+                  <span className={formData.professionals.length === 0 ? "text-slate-300" : "text-slate-900 truncate pr-4"}>
+                    {formData.professionals.length === 0 
                       ? "Selecione os profissionais" 
-                      : formData.professional.join(', ')}
+                      : formData.professionals.join(', ')}
                   </span>
                   <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
@@ -196,10 +199,10 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
                           onClick={() => toggleProfessional(name)}
                           className="px-4 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
                         >
-                          <span className={`text-xs font-bold ${formData.professional.includes(name) ? 'text-amber-600' : 'text-slate-600'}`}>
+                          <span className={`text-xs font-bold ${formData.professionals.includes(name) ? 'text-amber-600' : 'text-slate-600'}`}>
                             {name}
                           </span>
-                          {formData.professional.includes(name) && (
+                          {formData.professionals.includes(name) && (
                             <Check size={14} className="text-amber-600" />
                           )}
                         </div>

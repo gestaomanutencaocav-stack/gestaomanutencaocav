@@ -32,7 +32,7 @@ interface MaintenanceRequest {
   type: string;
   status: string;
   statusColor: string;
-  professional: string | null;
+  professionals: string[];
   avatar: string | null;
   authorizedBy?: string;
   authorizedPosition?: string;
@@ -433,18 +433,26 @@ export default function RequestDetailsPage() {
               <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
                   <User className="text-amber-600" size={18} />
-                  Equipe Técnica
+                  Equipe Técnica Alocada
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                    <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-lg">
-                      {request.professional ? request.professional.substring(0, 2).toUpperCase() : 'NA'}
+                  {request.professionals && request.professionals.length > 0 ? (
+                    request.professionals.map((p, idx) => (
+                      <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                        <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-lg">
+                          {p.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{p}</p>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Técnico Alocado</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-8 text-center text-slate-400 italic text-xs">
+                      Nenhum profissional alocado a este serviço.
                     </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{request.professional || 'Não atribuído'}</p>
-                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Técnico Responsável</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </section>
             )}
@@ -507,18 +515,26 @@ export default function RequestDetailsPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Profissional Atribuído</p>
-                  <div className="flex items-center gap-2">
-                    {request.avatar ? (
-                      <div className="w-7 h-7 rounded overflow-hidden relative border border-slate-200">
-                        <Image src={request.avatar} alt={request.professional || ''} fill className="object-cover" referrerPolicy="no-referrer" />
-                      </div>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Equipe Técnica</p>
+                  <div className="flex flex-col gap-2">
+                    {request.professionals && request.professionals.length > 0 ? (
+                      request.professionals.map((p, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          {request.avatar ? (
+                            <div className="w-7 h-7 rounded overflow-hidden relative border border-slate-200">
+                              <Image src={request.avatar} alt={p} fill className="object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-amber-600 font-black text-[10px] uppercase">
+                              {p.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <p className="text-slate-700 text-xs font-bold truncate">{p}</p>
+                        </div>
+                      ))
                     ) : (
-                      <div className="w-7 h-7 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-amber-600 font-black text-[10px] uppercase">
-                        {request.professional ? request.professional.substring(0, 2).toUpperCase() : 'NA'}
-                      </div>
+                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Não atribuído</p>
                     )}
-                    <p className="text-slate-700 text-xs font-bold">{request.professional || 'Não atribuído'}</p>
                   </div>
                 </div>
               </div>

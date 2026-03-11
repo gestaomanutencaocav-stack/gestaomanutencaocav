@@ -48,25 +48,30 @@ export default function Dashboard() {
   const [filterDate, setFilterDate] = React.useState('');
 
   React.useEffect(() => {
-    fetch('/api/auth/me')
-      .then(res => res.json())
-      .then(data => setUser(data))
-      .catch(() => setUser(null));
+    const fetchData = async () => {
+      try {
+        const timestamp = Date.now();
+        const [authRes, reqRes, matEstRes, matFinRes] = await Promise.all([
+          fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
+          fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' }),
+          fetch(`/api/materials?type=estoque&t=${timestamp}`, { cache: 'no-store' }),
+          fetch(`/api/materials?type=finalistico&t=${timestamp}`, { cache: 'no-store' })
+        ]);
 
-    fetch('/api/solicitacoes')
-      .then(res => res.json())
-      .then(data => setRequests(data))
-      .catch(() => setRequests([]));
+        if (authRes.ok) setUser(await authRes.json());
+        if (reqRes.ok) {
+          const data = await reqRes.json();
+          console.log('Dashboard fetched requests:', data.length);
+          setRequests(data);
+        }
+        if (matEstRes.ok) setMaterialsEstoque(await matEstRes.json());
+        if (matFinRes.ok) setMaterialsFinalistico(await matFinRes.json());
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
 
-    fetch('/api/materials?type=estoque')
-      .then(res => res.json())
-      .then(data => setMaterialsEstoque(data))
-      .catch(() => setMaterialsEstoque([]));
-
-    fetch('/api/materials?type=finalistico')
-      .then(res => res.json())
-      .then(data => setMaterialsFinalistico(data))
-      .catch(() => setMaterialsFinalistico([]));
+    fetchData();
   }, []);
 
   const getConsumptionByMonth = (materials: any[]) => {
@@ -140,15 +145,15 @@ export default function Dashboard() {
   }, {});
 
   const dynamicCategories = [
+    { name: 'Geral', value: categoriesMap['Geral'] || 0 },
     { name: 'Civil', value: categoriesMap['Civil'] || 0 },
     { name: 'Hidráulico', value: categoriesMap['Hidráulico'] || 0 },
     { name: 'Elétrico', value: categoriesMap['Elétrico'] || 0 },
-    { name: 'Coberta', value: categoriesMap['Coberta'] || 0 },
-    { name: 'Pintura', value: categoriesMap['Pintura'] || 0 },
+    { name: 'Climatização', value: categoriesMap['Climatização'] || 0 },
     { name: 'Marcenaria', value: categoriesMap['Marcenaria'] || 0 },
   ];
 
-  const dynamicActivities = requests
+  const dynamicActivities = filteredRequests
     .slice(0, 6)
     .map(req => {
       let icon = CheckCircle2;
@@ -187,7 +192,7 @@ export default function Dashboard() {
 
       return {
         title: `Solicitação ${req.status}`,
-        description: `${req.description} • ${req.unit}`,
+        description: `${req.type} • ${req.description} • ${req.unit}`,
         time: req.date,
         icon,
         color
@@ -222,7 +227,7 @@ export default function Dashboard() {
             >
               <option value="" className="bg-white">Mês (Todos)</option>
               {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
-                <option key={m} value={i + 1} className="bg-white">{m}</option>
+                <option key={m} value={(i + 1).toString()} className="bg-white">{m}</option>
               ))}
             </select>
             <select 
