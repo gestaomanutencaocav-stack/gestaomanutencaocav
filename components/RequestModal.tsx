@@ -1,8 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, ChevronDown, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+const PROFESSIONALS = [
+  "ISRAEL GUILHERME - AUX. CARPINTEIRO",
+  "LEONARDO SILVA - AUX. ELETRICISTA",
+  "MAURICI DE SOUZA - AUX. ELETRICISTA",
+  "MARCELO DO NASCIMENTO - AUX. ENCANADOR",
+  "JOSÉ ROCHA - AUX. ENCANADOR",
+  "LEONARDO JOSÉ - AUX. MARCENARIA",
+  "CLEBER VILA NOVA - FERISTA",
+  "ANDRÉ WEVERTON - AUX. PEDREIRO",
+  "ELIDO SEVERINO - AUX. PEDREIRO",
+  "PAULO ROBERTO - AUX. PINTOR",
+  "WALISSON CARLOS - CARPINTEIRO",
+  "EDUARDO OLIVEIRA - ELETRICISTA",
+  "ISAEL LINO - ELETRICISTA",
+  "JOSÉ JÃO - ENCANADOR",
+  "TONY ANTÔNIO - ENCANADOR",
+  "SAMUEL JOSÉ - MARCENEIRO",
+  "ANTÔNIO FRANCISCO - FERISTA",
+  "MARCIEL JOSÉ - PEDREIRO",
+  "MARCONI JOSÉ - PEDREIRO",
+  "MANOEL DOS SANTOS - PINTOR"
+];
 
 interface RequestModalProps {
   isOpen: boolean;
@@ -12,13 +35,36 @@ interface RequestModalProps {
 
 export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModalProps) {
   const [loading, setLoading] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     description: '',
     unit: '',
     responsibleServer: '',
     type: 'Geral',
-    professional: '',
+    professional: [] as string[],
   });
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleProfessional = (name: string) => {
+    setFormData(prev => {
+      const current = prev.professional;
+      if (current.includes(name)) {
+        return { ...prev, professional: current.filter(p => p !== name) };
+      } else {
+        return { ...prev, professional: [...current, name] };
+      }
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,13 +75,14 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          avatar: formData.professional ? 'https://picsum.photos/seed/tech/100/100' : null,
+          professional: formData.professional.join(', '),
+          avatar: formData.professional.length > 0 ? 'https://picsum.photos/seed/tech/100/100' : null,
         }),
       });
       if (res.ok) {
         onSuccess();
         onClose();
-        setFormData({ description: '', unit: '', responsibleServer: '', type: 'Geral', professional: '' });
+        setFormData({ description: '', unit: '', responsibleServer: '', type: 'Geral', professional: [] });
       }
     } catch (error) {
       console.error(error);
@@ -121,15 +168,45 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
                 />
               </div>
 
-              <div>
+              <div className="relative" ref={dropdownRef}>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profissional (Opcional)</label>
-                <input
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500/50 outline-none font-medium placeholder:text-slate-300"
-                  placeholder="Nome do técnico"
-                  value={formData.professional}
-                  onChange={(e) => setFormData({ ...formData, professional: e.target.value })}
-                />
+                <div 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-1 focus:ring-amber-500/50 outline-none font-medium cursor-pointer flex items-center justify-between transition-all hover:border-slate-300"
+                >
+                  <span className={formData.professional.length === 0 ? "text-slate-300" : "text-slate-900 truncate pr-4"}>
+                    {formData.professional.length === 0 
+                      ? "Selecione os profissionais" 
+                      : formData.professional.join(', ')}
+                  </span>
+                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                <AnimatePresence>
+                  {isDropdownOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto no-scrollbar py-2"
+                    >
+                      {PROFESSIONALS.map((name) => (
+                        <div 
+                          key={name}
+                          onClick={() => toggleProfessional(name)}
+                          className="px-4 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
+                        >
+                          <span className={`text-xs font-bold ${formData.professional.includes(name) ? 'text-amber-600' : 'text-slate-600'}`}>
+                            {name}
+                          </span>
+                          {formData.professional.includes(name) && (
+                            <Check size={14} className="text-amber-600" />
+                          )}
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="pt-4 flex gap-4">

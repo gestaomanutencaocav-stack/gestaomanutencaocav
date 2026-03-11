@@ -18,6 +18,7 @@ export interface MaintenanceRequest {
   authorizedPosition?: string;
   authorizedJustification?: string;
   urgency?: 'Baixa' | 'Média' | 'Alta' | 'Emergencial';
+  images?: string[];
 }
 
 // Helper to map DB fields to interface
@@ -39,6 +40,7 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   authorizedPosition: req.authorized_position,
   authorizedJustification: req.authorized_justification,
   urgency: req.urgency,
+  images: req.images || [],
 });
 
 export const getRequests = async () => {
@@ -87,6 +89,7 @@ export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'date'
     avatar: request.avatar,
     details: request.details,
     checklist: request.checklist || [],
+    images: request.images || [],
   };
 
   const { data, error } = await supabase
@@ -121,6 +124,7 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
   if (updates.authorizedPosition) dbUpdates.authorized_position = updates.authorizedPosition;
   if (updates.authorizedJustification) dbUpdates.authorized_justification = updates.authorizedJustification;
   if (updates.urgency) dbUpdates.urgency = updates.urgency;
+  if (updates.images) dbUpdates.images = updates.images;
 
   const { data, error } = await supabase
     .from('requests')

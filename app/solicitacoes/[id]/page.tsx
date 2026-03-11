@@ -16,7 +16,8 @@ import {
   X,
   ShieldCheck,
   ShieldAlert,
-  AlertTriangle
+  AlertTriangle,
+  User
 } from 'lucide-react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -37,11 +38,13 @@ interface MaintenanceRequest {
   authorizedPosition?: string;
   authorizedJustification?: string;
   urgency?: 'Baixa' | 'Média' | 'Alta' | 'Emergencial';
+  images?: string[];
+  checklist?: { id: number; task: string; completed: boolean }[];
 }
 
-const checklist = [
-  { id: 1, task: 'Diagnóstico inicial do sistema e verificação de energia', completed: true },
-  { id: 2, task: 'Inspecionar suportes do compressor quanto a vibração', completed: true },
+const initialChecklist = [
+  { id: 1, task: 'Diagnóstico inicial do sistema e verificação de energia', completed: false },
+  { id: 2, task: 'Inspecionar suportes do compressor quanto a vibração', completed: false },
   { id: 3, task: 'Verificar níveis de pressão do refrigerante', completed: false },
   { id: 4, task: 'Limpar linha de drenagem de condensação', completed: false },
   { id: 5, task: 'Teste final de desempenho e limpeza', completed: false },
@@ -59,6 +62,10 @@ export default function RequestDetailsPage() {
   const [request, setRequest] = useState<MaintenanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'encarregado' | 'gestao' | null>(null);
+  const [activeTab, setActiveTab] = useState<'detalhes' | 'timeline' | 'equipe' | 'documentos'>('detalhes');
+  const [localChecklist, setLocalChecklist] = useState(initialChecklist);
+  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null);
+  const [editTaskValue, setEditTaskValue] = useState('');
   
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -79,6 +86,9 @@ export default function RequestDetailsPage() {
       if (reqRes.ok) {
         const data = await reqRes.json();
         setRequest(data);
+        if (data.checklist && data.checklist.length > 0) {
+          setLocalChecklist(data.checklist);
+        }
       }
       
       if (userRes.ok) {
@@ -114,6 +124,40 @@ export default function RequestDetailsPage() {
       }
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const toggleChecklistItem = (id: number) => {
+    const updatedChecklist = localChecklist.map(item => 
+      item.id === id ? { ...item, completed: !item.completed } : item
+    );
+    setLocalChecklist(updatedChecklist);
+    updateBackendChecklist(updatedChecklist);
+  };
+
+  const startEditingTask = (id: number, currentTask: string) => {
+    setEditingChecklistId(id);
+    setEditTaskValue(currentTask);
+  };
+
+  const saveTaskDescription = (id: number) => {
+    const updatedChecklist = localChecklist.map(item => 
+      item.id === id ? { ...item, task: editTaskValue } : item
+    );
+    setLocalChecklist(updatedChecklist);
+    setEditingChecklistId(null);
+    updateBackendChecklist(updatedChecklist);
+  };
+
+  const updateBackendChecklist = async (checklistData: any[]) => {
+    try {
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checklist: checklistData }),
+      });
+    } catch (error) {
+      console.error('Error saving checklist:', error);
     }
   };
 
@@ -199,100 +243,224 @@ export default function RequestDetailsPage() {
         {/* Tabs Navigation */}
         <div className="mb-6 border-b border-slate-200">
           <div className="flex gap-8 overflow-x-auto no-scrollbar">
-            <button className="flex flex-col items-center justify-center border-b-2 border-amber-500 text-amber-600 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max">Detalhes</button>
-            <button className="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-900 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max">Linha do Tempo</button>
-            <button className="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-900 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max">Equipe</button>
-            <button className="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-900 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max">Documentos</button>
+            <button 
+              onClick={() => setActiveTab('detalhes')}
+              className={`flex flex-col items-center justify-center border-b-2 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max transition-all ${
+                activeTab === 'detalhes' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Detalhes
+            </button>
+            <button 
+              onClick={() => setActiveTab('timeline')}
+              className={`flex flex-col items-center justify-center border-b-2 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max transition-all ${
+                activeTab === 'timeline' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Linha do Tempo
+            </button>
+            <button 
+              onClick={() => setActiveTab('equipe')}
+              className={`flex flex-col items-center justify-center border-b-2 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max transition-all ${
+                activeTab === 'equipe' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Equipe
+            </button>
+            <button 
+              onClick={() => setActiveTab('documentos')}
+              className={`flex flex-col items-center justify-center border-b-2 pb-3 font-black text-[10px] uppercase tracking-widest min-w-max transition-all ${
+                activeTab === 'documentos' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Documentos
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Details */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Service Description */}
-            <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
-                  <FileText className="text-amber-600" size={18} />
-                  Descrição do Serviço
-                </h3>
-                {request.urgency && (
-                  <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${
-                    request.urgency === 'Emergencial' ? 'bg-rose-500 text-white' :
-                    request.urgency === 'Alta' ? 'bg-rose-50 text-rose-600' :
-                    request.urgency === 'Média' ? 'bg-amber-50 text-amber-600' :
-                    'bg-emerald-50 text-emerald-600'
-                  }`}>
-                    <AlertTriangle size={12} />
-                    Urgência: {request.urgency}
-                  </span>
-                )}
-              </div>
-              <p className="text-slate-600 font-medium leading-relaxed mb-4">
-                {request.description}. Solicitação realizada para a unidade {request.unit}.
-              </p>
-              
-              {request.authorizedBy && (
-                <div className="mt-6 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dados da {request.status}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Agente Responsável</p>
-                      <p className="text-xs font-bold text-slate-700">{request.authorizedBy} • {request.authorizedPosition}</p>
-                    </div>
-                    {request.authorizedJustification && (
-                      <div>
-                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Justificativa</p>
-                        <p className="text-xs font-medium text-slate-600 italic">&quot;{request.authorizedJustification}&quot;</p>
-                      </div>
+            {activeTab === 'detalhes' && (
+              <>
+                {/* Service Description */}
+                <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex justify-between items-start mb-6">
+                    <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
+                      <FileText className="text-amber-600" size={18} />
+                      Descrição do Serviço
+                    </h3>
+                    {request.urgency && (
+                      <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${
+                        request.urgency === 'Emergencial' ? 'bg-rose-500 text-white' :
+                        request.urgency === 'Alta' ? 'bg-rose-50 text-rose-600' :
+                        request.urgency === 'Média' ? 'bg-amber-50 text-amber-600' :
+                        'bg-emerald-50 text-emerald-600'
+                      }`}>
+                        <AlertTriangle size={12} />
+                        Urgência: {request.urgency}
+                      </span>
                     )}
                   </div>
-                </div>
-              )}
+                  <p className="text-slate-600 font-medium leading-relaxed mb-4">
+                    {request.description}. Solicitação realizada para a unidade {request.unit}.
+                  </p>
+                  
+                  {request.authorizedBy && (
+                    <div className="mt-6 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Dados da {request.status}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Agente Responsável</p>
+                          <p className="text-xs font-bold text-slate-700">{request.authorizedBy} • {request.authorizedPosition}</p>
+                        </div>
+                        {request.authorizedJustification && (
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Justificativa</p>
+                            <p className="text-xs font-medium text-slate-600 italic">&quot;{request.authorizedJustification}&quot;</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                <div className="aspect-video bg-slate-50 rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200">
-                  <Image 
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWwOzsUrIyXCJM_g6j-JBzlAJ_MMLU2oaMKZA_rqFcSVFcDQKpc2wjP1gNWC6E3J-uJ7Yy5J5nBC3LdAPHLE5Uq2QPbVGCUmHw6RQcw3rQTxm6wiKQ_4T6LkcDwuhFL6ltFPh-Gn2ZRaO0EyII0HcAgVziXdn5hNtSkyEHG6hQnc087-QYg7uhcmcJ9rOjOgnd8Qg0xJEUsSg0LEp6wnET2rUTaob-7wafyy8LshunR4o-jIFbbYK5x0MqtlcBRkGxLGb5zBjFAws"
-                    alt="AC Unit"
-                    fill
-                    className="object-cover transition-all group-hover:scale-105"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-white text-[10px] font-black uppercase tracking-widest">Ver Foto</span>
+                  {request.images && request.images.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+                      {request.images.map((img, idx) => (
+                        <div key={idx} className="aspect-video bg-slate-50 rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200">
+                          <Image 
+                            src={img}
+                            alt={`Service image ${idx + 1}`}
+                            fill
+                            className="object-cover transition-all group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-white text-[10px] font-black uppercase tracking-widest">Ver Foto</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* Checklist Section */}
+                <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
+                      <CheckSquare className="text-amber-600" size={18} />
+                      Checklist de Manutenção
+                    </h3>
+                    <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded uppercase tracking-widest">
+                      {localChecklist.filter(i => i.completed).length} / {localChecklist.length} Tarefas
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {localChecklist.map((item) => (
+                      <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors group border border-transparent hover:border-slate-100">
+                        <div className="relative flex items-center">
+                          <input 
+                            type="checkbox" 
+                            checked={item.completed} 
+                            onChange={() => toggleChecklistItem(item.id)}
+                            className="h-4 w-4 rounded border-slate-300 bg-white text-amber-500 focus:ring-amber-500/50 cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          {editingChecklistId === item.id ? (
+                            <div className="flex gap-2">
+                              <input 
+                                type="text"
+                                className="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-amber-500/50"
+                                value={editTaskValue}
+                                onChange={(e) => setEditTaskValue(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => e.key === 'Enter' && saveTaskDescription(item.id)}
+                              />
+                              <button 
+                                onClick={() => saveTaskDescription(item.id)}
+                                className="text-[10px] font-black text-emerald-600 uppercase tracking-widest"
+                              >
+                                Salvar
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center">
+                              <span 
+                                onClick={() => toggleChecklistItem(item.id)}
+                                className={`text-xs font-bold cursor-pointer ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                              >
+                                {item.task}
+                              </span>
+                              <button 
+                                onClick={() => startEditingTask(item.id, item.task)}
+                                className="opacity-0 group-hover:opacity-100 text-[9px] font-black text-amber-600 uppercase tracking-widest transition-opacity"
+                              >
+                                Editar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {activeTab === 'timeline' && (
+              <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-8">
+                  <Timer className="text-amber-600" size={18} />
+                  Linha do Tempo Detalhada
+                </h3>
+                <div className="relative space-y-8 before:absolute before:left-2 before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-slate-100">
+                  {timeline.map((item, index) => (
+                    <div key={index} className="relative pl-10">
+                      <div className={`absolute left-0 top-1.5 h-4 w-4 rounded-full border-4 border-white ${item.active ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-200'}`}></div>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p className="text-[10px] text-slate-400 font-black font-mono mb-1 uppercase">{item.time}</p>
+                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.title}</p>
+                        {item.description && <p className="text-xs text-slate-500 font-medium mt-1">{item.description}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'equipe' && (
+              <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
+                  <User className="text-amber-600" size={18} />
+                  Equipe Técnica
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                    <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-lg">
+                      {request.professional ? request.professional.substring(0, 2).toUpperCase() : 'NA'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{request.professional || 'Não atribuído'}</p>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Técnico Responsável</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
-            {/* Checklist Section */}
-            <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
-                  <CheckSquare className="text-amber-600" size={18} />
-                  Checklist de Manutenção
+            {activeTab === 'documentos' && (
+              <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
+                  <FileText className="text-amber-600" size={18} />
+                  Documentos e Anexos
                 </h3>
-                <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded uppercase tracking-widest">2 / 5 Tarefas</span>
-              </div>
-              <div className="space-y-3">
-                {checklist.map((item) => (
-                  <label key={item.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group border border-transparent hover:border-slate-100">
-                    <div className="relative flex items-center">
-                      <input 
-                        type="checkbox" 
-                        checked={item.completed} 
-                        readOnly
-                        className="h-4 w-4 rounded border-slate-300 bg-white text-amber-500 focus:ring-amber-500/50"
-                      />
-                    </div>
-                    <span className={`text-xs font-bold ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                      {item.task}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
+                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
+                  <FileText className="mx-auto text-slate-200 mb-4" size={48} />
+                  <p className="text-slate-400 text-xs font-medium italic">Nenhum documento anexo a esta solicitação.</p>
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Right Column: Sidebar Info */}
