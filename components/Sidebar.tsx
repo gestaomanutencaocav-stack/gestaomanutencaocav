@@ -22,7 +22,6 @@ const navItems = [
   { name: 'Painel', icon: LayoutDashboard, href: '/' },
   { name: 'Solicitações', icon: ClipboardList, href: '/solicitacoes' },
   { name: 'Agenda', icon: Calendar, href: '/agenda' },
-  { name: 'Ativos', icon: Package, href: '/ativos' },
   { name: 'Materiais em Estoque', icon: Box, href: '/materiais' },
   { name: 'Materiais Finalísticos', icon: FileSpreadsheet, href: '/materiais-finalisticos' },
   { name: 'Relatórios', icon: BarChart3, href: '/relatorios' },
@@ -53,7 +52,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
           <div>
             <h1 className="text-slate-900 text-base font-black tracking-tight leading-none">Manutenção CAV</h1>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Industrial Portal</p>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Gestão Eficiente e Integrada</p>
           </div>
         </div>
         <button onClick={onClose} className="lg:hidden p-1 text-slate-400 hover:text-slate-900">
