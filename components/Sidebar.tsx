@@ -94,7 +94,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold truncate text-slate-900 uppercase tracking-tight">
-              {user?.role === 'gestao' ? 'Gestor de Manutenção' : user?.role === 'encarregado' ? 'Encarregado' : 'Carregando...'}
+              {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
             </p>
             <p className="text-[10px] text-slate-500 font-mono truncate">{user?.role || '...'}</p>
           </div>

@@ -6,24 +6,6 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { username, password } = body;
 
-  // Level 1: Encarregado de Manutenção (Hardcoded for legacy support)
-  if (username === 'encarregado' && password === 'senha123') {
-    await login('encarregado');
-    return NextResponse.json({ success: true });
-  }
-
-  // Level 2: Gestão (Hardcoded for legacy support)
-  if (username === 'gestao' && password === 'senha123') {
-    await login('gestao');
-    return NextResponse.json({ success: true });
-  }
-
-  // Legacy admin for convenience
-  if (username === 'admin' && password === 'admin123') {
-    await login('gestao');
-    return NextResponse.json({ success: true });
-  }
-
   // Supabase Auth Integration
   // We treat 'username' as 'email' for Supabase
   try {
@@ -37,8 +19,9 @@ export async function POST(request: Request) {
     }
 
     if (data.user) {
-      // Get role from user metadata, default to 'gestao' if not set
-      const role = (data.user.user_metadata?.role as 'encarregado' | 'gestao') || 'gestao';
+      // Only darleson.oliveira@hotmail.com is 'encarregado'
+      // All others are 'gestao' (Gestor Predial)
+      const role = data.user.email === 'darleson.oliveira@hotmail.com' ? 'encarregado' : 'gestao';
       await login(role);
       return NextResponse.json({ success: true });
     }

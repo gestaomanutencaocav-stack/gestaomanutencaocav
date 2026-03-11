@@ -137,7 +137,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Bem-vindo, {user?.role === 'gestao' ? 'Gestor' : user?.role === 'encarregado' ? 'Encarregado' : 'Carregando...'}
+              Bem-vindo, {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
             </h2>
             <p className="text-slate-500 font-medium">Aqui está o resumo das atividades de hoje.</p>
           </div>

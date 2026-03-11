@@ -434,6 +434,8 @@ export default function MaterialsManager({ title, description, type }: Materials
                       <button 
                         onClick={() => {
                           setSelectedMaterial(item);
+                          setConsumptionQty('');
+                          setConsumptionDate(format(new Date(), 'yyyy-MM-dd'));
                           setIsConsumptionModalOpen(true);
                         }}
                         className="p-2 bg-slate-50 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-slate-200 hover:border-amber-200"
@@ -510,21 +512,21 @@ export default function MaterialsManager({ title, description, type }: Materials
                   </div>
                 </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button 
-                    onClick={() => setIsConsumptionModalOpen(false)}
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleAddConsumption}
-                    disabled={!consumptionQty || Number(consumptionQty) <= 0 || Number(consumptionQty) > selectedMaterial.saldoAtual}
-                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Confirmar Saída
-                  </button>
-                </div>
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      onClick={() => setIsConsumptionModalOpen(false)}
+                      className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={handleAddConsumption}
+                      disabled={!consumptionQty || !consumptionDate || Number(consumptionQty) <= 0 || Number(consumptionQty) > Number(selectedMaterial.saldoAtual)}
+                      className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Confirmar Saída
+                    </button>
+                  </div>
               </div>
             </motion.div>
           </div>
