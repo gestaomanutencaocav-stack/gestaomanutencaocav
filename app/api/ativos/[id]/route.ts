@@ -5,10 +5,10 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-const { id } = await params
+  const { id } = await params;
   try {
     const assets = await getAssets();
-    const asset = assets.find(a => a.id === params.id);
+    const asset = assets.find(a => a.id === id);
     if (!asset) {
       return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
     }
@@ -18,26 +18,26 @@ const { id } = await params
   }
 }
 
-export async function PUT
+export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
+  const { id } = await params;
   try {
     const body = await request.json();
-    const updated = await updateAsset(params.id, body);
+    const updated = await updateAsset(id, body);
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update asset' }, { status: 500 });
   }
 }
 
-export async function PUT
+export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const id = params.id;
     await deleteAsset(id);
     return NextResponse.json({ success: true });
   } catch (error) {
