@@ -29,6 +29,7 @@ interface ConsumptionRecord {
 interface Material {
   codigo: string;
   descricao: string;
+  unidadeMedida: string;
   quantidadeGeral: number;
   valorUnitario: number;
   valorTotal: number;
@@ -69,6 +70,7 @@ export default function MaterialsManager({ title, description }: MaterialsManage
       const mappedData: Material[] = data.map((item) => ({
         codigo: item['Código'] || item['codigo'] || 'N/A',
         descricao: item['Descrição'] || item['descricao'] || 'Sem descrição',
+        unidadeMedida: item['Unidade'] || item['unidade'] || item['U.M.'] || 'UN',
         quantidadeGeral: Number(item['Quantidade'] || item['quantidade'] || 0),
         valorUnitario: Number(item['Valor Unitário'] || item['valor_unitario'] || 0),
         valorTotal: Number(item['Quantidade'] || 0) * Number(item['Valor Unitário'] || 0),
@@ -242,6 +244,7 @@ export default function MaterialsManager({ title, description }: MaterialsManage
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Código</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Descrição</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">U.M.</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo Inicial</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Saldo Atual</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">V. Unitário</th>
@@ -267,6 +270,7 @@ export default function MaterialsManager({ title, description }: MaterialsManage
                   <tr key={item.codigo} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 text-xs font-black text-amber-600 font-mono">{item.codigo}</td>
                     <td className="px-6 py-4 text-sm font-bold text-slate-900">{item.descricao}</td>
+                    <td className="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.unidadeMedida}</td>
                     <td className="px-6 py-4 text-center text-xs font-bold text-slate-400 font-mono">{item.saldoInicial}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black font-mono ${
@@ -347,14 +351,17 @@ export default function MaterialsManager({ title, description }: MaterialsManage
                     <Box className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
                       type="number"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-16 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
                       placeholder="Ex: 5"
                       value={consumptionQty}
                       onChange={(e) => setConsumptionQty(e.target.value)}
                       max={selectedMaterial.saldoAtual}
                     />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      {selectedMaterial.unidadeMedida}
+                    </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-2 font-medium italic">Saldo disponível: {selectedMaterial.saldoAtual} unidades</p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-medium italic">Saldo disponível: {selectedMaterial.saldoAtual} {selectedMaterial.unidadeMedida}</p>
                 </div>
 
                 <div>

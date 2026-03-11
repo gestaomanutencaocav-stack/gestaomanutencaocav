@@ -3,12 +3,11 @@ import { deleteAsset, getAssets, updateAsset } from '@/lib/store';
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const assets = await getAssets();
-    const asset = assets.find(a => a.id === id);
+    const asset = assets.find(a => a.id === params.id);
     if (!asset) {
       return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
     }
@@ -20,12 +19,11 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const body = await request.json();
-    const updated = await updateAsset(id, body);
+    const updated = await updateAsset(params.id, body);
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update asset' }, { status: 500 });
@@ -34,10 +32,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
+    const id = params.id;
     await deleteAsset(id);
     return NextResponse.json({ success: true });
   } catch (error) {
