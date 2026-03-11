@@ -3,8 +3,9 @@ import { deleteAsset, getAssets, updateAsset } from '@/lib/store';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+const { id } = await params
   try {
     const assets = await getAssets();
     const asset = assets.find(a => a.id === params.id);
@@ -17,10 +18,11 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+export async function PUT
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const body = await request.json();
     const updated = await updateAsset(params.id, body);
@@ -30,9 +32,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+export async function PUT
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const id = params.id;
