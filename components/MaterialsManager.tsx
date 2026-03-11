@@ -6,16 +6,20 @@ import {
   Upload, 
   FileSpreadsheet, 
   Search, 
+  TrendingUp, 
   TrendingDown, 
   Box,
   DollarSign,
   Package,
+  ArrowRight,
   MinusCircle,
   Calendar,
   X,
+  Plus
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
+import { format, parseISO, isSameMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ConsumptionRecord {
   date: string;
@@ -98,8 +102,10 @@ export default function MaterialsManager({ title, description, type }: Materials
 
         const findKey = (item: any, possibleKeys: string[]) => {
           const keys = Object.keys(item);
+          // Try exact match first
           let found = keys.find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
           if (found) return found;
+          // Then try partial match
           return keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
         };
 
@@ -246,6 +252,7 @@ export default function MaterialsManager({ title, description, type }: Materials
         </div>
       </div>
 
+      {/* Filters and Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -309,6 +316,7 @@ export default function MaterialsManager({ title, description, type }: Materials
         </div>
       </div>
 
+      {/* Search and Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100">
           <div className="relative">
@@ -407,6 +415,7 @@ export default function MaterialsManager({ title, description, type }: Materials
         </div>
       </div>
 
+      {/* Consumption Modal */}
       <AnimatePresence>
         {isConsumptionModalOpen && selectedMaterial && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
