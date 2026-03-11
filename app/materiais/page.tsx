@@ -10,6 +10,7 @@ export default function MateriaisEstoquePage() {
       <MaterialsManager 
         title="Materiais em Estoque" 
         description="Controle de insumos, peças e materiais armazenados no almoxarifado central."
+        type="estoque"
       />
     </DashboardLayout>
   );

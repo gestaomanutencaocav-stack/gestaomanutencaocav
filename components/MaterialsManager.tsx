@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, 
@@ -27,6 +27,7 @@ interface ConsumptionRecord {
 }
 
 interface Material {
+  id?: string;
   codigo: string;
   descricao: string;
   unidadeMedida: string;
@@ -41,10 +42,13 @@ interface Material {
 interface MaterialsManagerProps {
   title: string;
   description: string;
+  type: 'estoque' | 'finalistico';
 }
 
-export default function MaterialsManager({ title, description }: MaterialsManagerProps) {
+export default function MaterialsManager({ title, description, type }: MaterialsManagerProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -55,58 +59,145 @@ export default function MaterialsManager({ title, description }: MaterialsManage
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchMaterials = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/materials?type=${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMaterials(data);
+      }
+    } catch (error) {
+      console.error('Error fetching materials:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [type]);
+
+  React.useEffect(() => {
+    fetchMaterials();
+  }, [fetchMaterials]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploading(true);
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws) as any[];
+    reader.onload = async (evt) => {
+      try {
+        const data = evt.target?.result;
+        if (!data) throw new Error("Falha ao ler o arquivo.");
 
-      const mappedData: Material[] = data.map((item) => ({
-        codigo: item['Código'] || item['codigo'] || 'N/A',
-        descricao: item['Descrição'] || item['descricao'] || 'Sem descrição',
-        unidadeMedida: item['Unidade'] || item['unidade'] || item['U.M.'] || 'UN',
-        quantidadeGeral: Number(item['Quantidade'] || item['quantidade'] || 0),
-        valorUnitario: Number(item['Valor Unitário'] || item['valor_unitario'] || 0),
-        valorTotal: Number(item['Quantidade'] || 0) * Number(item['Valor Unitário'] || 0),
-        saldoInicial: Number(item['Saldo Inicial'] || item['saldo_inicial'] || 0),
-        saldoAtual: Number(item['Saldo Atual'] || item['saldo_atual'] || 0),
-        consumptionRecords: []
-      }));
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-      setMaterials(mappedData);
+        if (!jsonData || jsonData.length === 0) {
+          alert("A planilha parece estar vazia.");
+          setIsUploading(false);
+          return;
+        }
+
+        const findKey = (item: any, possibleKeys: string[]) => {
+          const keys = Object.keys(item);
+          // Try exact match first
+          let found = keys.find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
+          if (found) return found;
+          // Then try partial match
+          return keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
+        };
+
+        const mappedData: any[] = jsonData.map((item) => {
+          const codigoKey = findKey(item, ['código', 'codigo', 'cod', 'id']);
+          const descricaoKey = findKey(item, ['descrição', 'descricao', 'material', 'item', 'nome']);
+          const unidadeKey = findKey(item, ['unidade', 'u.m', 'um', 'medida']);
+          const quantidadeKey = findKey(item, ['quantidade', 'qtd', 'quant']);
+          const valorUnitarioKey = findKey(item, ['valor unitário', 'valor unitario', 'vlr unit', 'preço', 'preco']);
+          const saldoInicialKey = findKey(item, ['saldo inicial', 'inicial']);
+          const saldoAtualKey = findKey(item, ['saldo atual', 'atual', 'saldo']);
+
+          const qty = Number(item[quantidadeKey || ''] || 0);
+          const unitVal = Number(item[valorUnitarioKey || ''] || 0);
+          const sInicial = Number(item[saldoInicialKey || ''] || 0);
+          const sAtual = Number(item[saldoAtualKey || ''] || item[quantidadeKey || ''] || 0);
+
+          return {
+            codigo: String(item[codigoKey || ''] || 'N/A'),
+            descricao: String(item[descricaoKey || ''] || 'Sem descrição'),
+            unidadeMedida: String(item[unidadeKey || ''] || 'UN'),
+            quantidadeGeral: qty,
+            valorUnitario: unitVal,
+            valorTotal: qty * unitVal,
+            saldoInicial: sInicial || sAtual,
+            saldoAtual: sAtual,
+            type: type,
+            consumptionRecords: []
+          };
+        });
+
+        const res = await fetch('/api/materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ materials: mappedData }),
+        });
+
+        if (res.ok) {
+          await fetchMaterials();
+          alert("Importação concluída com sucesso!");
+        } else {
+          const err = await res.json();
+          const msg = err.details ? `${err.error} (${err.details})` : err.error;
+          alert(`Erro ao importar: ${msg || 'Erro desconhecido'}`);
+        }
+      } catch (error: any) {
+        console.error('Error processing file:', error);
+        alert(`Erro ao processar arquivo: ${error.message}`);
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
     };
-    reader.readAsBinaryString(file);
+
+    reader.onerror = () => {
+      alert("Erro ao ler o arquivo.");
+      setIsUploading(false);
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
-  const handleAddConsumption = () => {
-    if (!selectedMaterial || !consumptionQty || !consumptionDate) return;
+  const handleAddConsumption = async () => {
+    if (!selectedMaterial || !consumptionQty || !consumptionDate || !selectedMaterial.id) return;
 
     const qty = Number(consumptionQty);
     if (isNaN(qty) || qty <= 0) return;
 
-    setMaterials(prev => prev.map(m => {
-      if (m.codigo === selectedMaterial.codigo) {
-        return {
-          ...m,
-          saldoAtual: m.saldoAtual - qty,
-          consumptionRecords: [
-            ...m.consumptionRecords,
-            { date: consumptionDate, quantity: qty }
-          ]
-        };
-      }
-      return m;
-    }));
+    const newRecords = [
+      ...(selectedMaterial.consumptionRecords || []),
+      { date: consumptionDate, quantity: qty }
+    ];
 
-    setIsConsumptionModalOpen(false);
-    setSelectedMaterial(null);
-    setConsumptionQty('');
+    try {
+      const res = await fetch(`/api/materials/${selectedMaterial.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          saldoAtual: selectedMaterial.saldoAtual - qty,
+          consumptionRecords: newRecords
+        }),
+      });
+
+      if (res.ok) {
+        fetchMaterials();
+        setIsConsumptionModalOpen(false);
+        setSelectedMaterial(null);
+        setConsumptionQty('');
+      }
+    } catch (error) {
+      console.error('Error updating consumption:', error);
+    }
   };
 
   const filteredMaterials = materials.filter(m => 
@@ -152,10 +243,11 @@ export default function MaterialsManager({ title, description }: MaterialsManage
           />
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-50 shadow-sm"
+            disabled={isUploading}
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-50 shadow-sm disabled:opacity-50"
           >
-            <Upload size={18} className="text-amber-600" />
-            <span>Importar Planilha</span>
+            <Upload size={18} className={`${isUploading ? 'animate-bounce' : 'text-amber-600'}`} />
+            <span>{isUploading ? 'Processando...' : 'Importar Planilha'}</span>
           </button>
         </div>
       </div>
@@ -254,9 +346,15 @@ export default function MaterialsManager({ title, description }: MaterialsManage
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredMaterials.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-mono italic">
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-400 font-mono italic">
+                    Carregando dados...
+                  </td>
+                </tr>
+              ) : filteredMaterials.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-400 font-mono italic">
                     {materials.length === 0 ? 'Faça upload de uma planilha para visualizar os dados.' : 'Nenhum item encontrado para a busca.'}
                   </td>
                 </tr>

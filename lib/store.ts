@@ -43,6 +43,114 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   images: req.images || [],
 });
 
+export interface Material {
+  id?: string;
+  codigo: string;
+  descricao: string;
+  unidadeMedida: string;
+  quantidadeGeral: number;
+  valorUnitario: number;
+  valorTotal: number;
+  saldoInicial: number;
+  saldoAtual: number;
+  type: 'estoque' | 'finalistico';
+  consumptionRecords?: { date: string; quantity: number }[];
+}
+
+const mapMaterial = (m: any): Material => ({
+  id: m.id,
+  codigo: m.codigo,
+  descricao: m.descricao,
+  unidadeMedida: m.unidade_medida,
+  quantidadeGeral: m.quantidade_geral,
+  valorUnitario: m.valor_unitario,
+  valorTotal: m.valor_total,
+  saldoInicial: m.saldo_inicial,
+  saldoAtual: m.saldo_atual,
+  type: m.type,
+  consumptionRecords: m.consumption_records || [],
+});
+
+export const getMaterials = async (type: 'estoque' | 'finalistico') => {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('type', type)
+    .order('descricao', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching materials:', error);
+    return [];
+  }
+  return data.map(mapMaterial);
+};
+
+export const upsertMaterials = async (materials: Material[]) => {
+  const dbMaterials = materials.map(m => ({
+    codigo: m.codigo,
+    descricao: m.descricao,
+    unidade_medida: m.unidadeMedida,
+    quantidade_geral: m.quantidadeGeral,
+    valor_unitario: m.valorUnitario,
+    valor_total: m.valorTotal,
+    saldo_inicial: m.saldoInicial,
+    saldo_atual: m.saldoAtual,
+    type: m.type,
+    consumption_records: m.consumptionRecords || [],
+  }));
+
+  // Try upserting. If it fails due to missing constraint, we'll know from the error.
+  const { data, error } = await supabase
+    .from('materials')
+    .upsert(dbMaterials, { 
+      onConflict: 'codigo,type',
+      ignoreDuplicates: false 
+    })
+    .select();
+
+  if (error) {
+    console.error('Error upserting materials:', error);
+    // If the specific conflict target fails, try without it (will use PK if exists)
+    if (error.code === '42P10' || error.message.includes('constraint')) {
+       const { data: retryData, error: retryError } = await supabase
+        .from('materials')
+        .insert(dbMaterials)
+        .select();
+       
+       if (retryError) throw retryError;
+       return retryData.map(mapMaterial);
+    }
+    throw error;
+  }
+  return data.map(mapMaterial);
+};
+
+export const updateMaterial = async (id: string, updates: Partial<Material>) => {
+  const dbUpdates: any = {};
+  if (updates.codigo) dbUpdates.codigo = updates.codigo;
+  if (updates.descricao) dbUpdates.descricao = updates.descricao;
+  if (updates.unidadeMedida) dbUpdates.unidade_medida = updates.unidadeMedida;
+  if (updates.quantidadeGeral !== undefined) dbUpdates.quantidade_geral = updates.quantidadeGeral;
+  if (updates.valorUnitario !== undefined) dbUpdates.valor_unitario = updates.valorUnitario;
+  if (updates.valorTotal !== undefined) dbUpdates.valor_total = updates.valorTotal;
+  if (updates.saldoInicial !== undefined) dbUpdates.saldo_inicial = updates.saldoInicial;
+  if (updates.saldoAtual !== undefined) dbUpdates.saldo_atual = updates.saldoAtual;
+  if (updates.consumptionRecords) dbUpdates.consumption_records = updates.consumptionRecords;
+
+  const { data, error } = await supabase
+    .from('materials')
+    .update(dbUpdates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating material:', error);
+    return null;
+  }
+  return mapMaterial(data);
+};
+
 export const getRequests = async () => {
   const { data, error } = await supabase
     .from('requests')

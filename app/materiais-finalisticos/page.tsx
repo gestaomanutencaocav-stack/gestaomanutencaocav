@@ -10,6 +10,7 @@ export default function MateriaisFinalisticosPage() {
       <MaterialsManager 
         title="Lista de Materiais Finalísticos" 
         description="Gestão de materiais destinados à atividade fim e projetos específicos."
+        type="finalistico"
       />
     </DashboardLayout>
   );
