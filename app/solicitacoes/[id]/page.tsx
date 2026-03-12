@@ -78,9 +78,10 @@ export default function RequestDetailsPage() {
   const fetchRequest = useCallback(async () => {
     if (!id) return;
     try {
+      const timestamp = Date.now();
       const [reqRes, userRes] = await Promise.all([
-        fetch(`/api/solicitacoes/${id}`),
-        fetch('/api/auth/me')
+        fetch(`/api/solicitacoes/${id}?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' })
       ]);
       
       if (reqRes.ok) {

@@ -23,26 +23,26 @@ export interface MaintenanceRequest {
 
 // Helper to map DB fields to interface
 const mapRequest = (req: any): MaintenanceRequest => ({
-  id: req.id,
-  description: req.description,
-  unit: req.unit,
-  responsibleServer: req.responsible_server,
-  date: req.date,
-  createdAt: req.created_at,
-  type: req.type,
-  status: req.status,
-  statusColor: req.status_color,
+  id: req.id || '',
+  description: req.description || '',
+  unit: req.unit || '',
+  responsibleServer: req.responsible_server || '',
+  date: req.date || '',
+  createdAt: req.created_at || '',
+  type: req.type || 'Geral',
+  status: req.status || 'Novo',
+  statusColor: req.status_color || 'blue',
   professionals: Array.isArray(req.professionals) 
     ? req.professionals 
     : (req.professional ? req.professional.split(', ').filter(Boolean) : []),
   avatar: req.avatar,
-  details: req.details,
-  checklist: req.checklist,
+  details: req.details || '',
+  checklist: Array.isArray(req.checklist) ? req.checklist : [],
   authorizedBy: req.authorized_by,
   authorizedPosition: req.authorized_position,
   authorizedJustification: req.authorized_justification,
   urgency: req.urgency,
-  images: req.images || [],
+  images: Array.isArray(req.images) ? req.images : [],
 });
 
 export interface Material {
@@ -213,35 +213,51 @@ export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'date'
     console.log('Attempting to insert request:', id);
     const { data, error } = await supabase
       .from('requests')
-      .insert(extendedRequest)
-      .select()
-      .single();
+      .insert([extendedRequest])
+      .select();
 
     if (error) {
       console.error('Initial insert failed:', error);
       // If it fails due to missing columns (42703), retry with basic fields
-      if (error.code === '42703') {
+      if (error.code === '42703' || error.message.includes('column')) {
         console.warn('New columns missing in DB, retrying with basic fields');
         const { data: retryData, error: retryError } = await supabase
           .from('requests')
-          .insert(newRequest)
-          .select()
-          .single();
+          .insert([newRequest])
+          .select();
         
         if (retryError) {
           console.error('Retry insert failed:', retryError);
-          throw new Error(`Erro ao criar solicitação (retry): ${retryError.message}`);
+          // Third fallback: bare minimum fields
+          const bareMinimum = {
+            id,
+            description: request.description || 'Sem descrição',
+            unit: request.unit || 'Sem unidade',
+            type: request.type || 'Geral',
+            status: 'Novo',
+            created_at: now.toISOString(),
+          };
+          console.warn('Retrying with bare minimum fields');
+          const { data: finalData, error: finalError } = await supabase
+            .from('requests')
+            .insert([bareMinimum])
+            .select();
+            
+          if (finalError) {
+            throw new Error(`Erro fatal ao criar solicitação: ${finalError.message}`);
+          }
+          return mapRequest(finalData?.[0]);
         }
-        return mapRequest(retryData);
+        return mapRequest(retryData?.[0]);
       }
       throw new Error(`Erro ao criar solicitação: ${error.message} (Código: ${error.code})`);
     }
     
-    if (!data) {
+    if (!data || data.length === 0) {
       throw new Error('Nenhum dado retornado após a inserção.');
     }
 
-    return mapRequest(data);
+    return mapRequest(data[0]);
   } catch (error: any) {
     console.error('Error in addRequest:', error);
     throw error;
