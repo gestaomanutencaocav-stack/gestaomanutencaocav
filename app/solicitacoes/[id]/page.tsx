@@ -18,11 +18,40 @@ import {
   ShieldAlert,
   AlertTriangle,
   User,
-  Box
+  Box,
+  UserPlus,
+  Trash2,
+  Plus,
+  FileUp,
+  Download,
+  MessageSquare,
+  Paperclip,
+  Send
 } from 'lucide-react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
+
+interface TimelineEvent {
+  date: string;
+  action: string;
+  user: string;
+  type: 'auto' | 'manual';
+}
+
+interface Document {
+  name: string;
+  size: number;
+  url: string;
+  date: string;
+}
+
+interface Professional {
+  id: string;
+  name: string;
+  specialty: string;
+  photoUrl: string;
+}
 
 interface MaintenanceRequest {
   id: string;
@@ -51,6 +80,8 @@ interface MaintenanceRequest {
   dataFinalizacao?: string;
   servidorRepassou?: string;
   observacao?: string;
+  timeline?: TimelineEvent[];
+  documents?: Document[];
 }
 
 const initialChecklist = [
@@ -78,6 +109,12 @@ export default function RequestDetailsPage() {
   const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null);
   const [editTaskValue, setEditTaskValue] = useState('');
   
+  // New States
+  const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authAction, setAuthAction] = useState<'Autorizado' | 'Negado'>('Autorizado');
@@ -90,9 +127,10 @@ export default function RequestDetailsPage() {
     if (!id) return;
     try {
       const timestamp = Date.now();
-      const [reqRes, userRes] = await Promise.all([
+      const [reqRes, userRes, profRes] = await Promise.all([
         fetch(`/api/solicitacoes/${id}?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' })
+        fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/professionals?t=${timestamp}`, { cache: 'no-store' })
       ]);
       
       if (reqRes.ok) {
@@ -106,6 +144,11 @@ export default function RequestDetailsPage() {
       if (userRes.ok) {
         const userData = await userRes.json();
         setUserRole(userData.role);
+      }
+
+      if (profRes.ok) {
+        const profData = await profRes.json();
+        setAllProfessionals(profData);
       }
     } catch (error) {
       console.error(error);
@@ -170,6 +213,113 @@ export default function RequestDetailsPage() {
       });
     } catch (error) {
       console.error('Error saving checklist:', error);
+    }
+  };
+
+  const addTimelineEvent = async (action: string, type: 'auto' | 'manual' = 'auto') => {
+    if (!request) return;
+    const newEvent: TimelineEvent = {
+      date: new Date().toISOString(),
+      action,
+      user: authName || 'Usuário',
+      type
+    };
+    const updatedTimeline = [newEvent, ...(request.timeline || [])];
+    try {
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeline: updatedTimeline }),
+      });
+      setRequest({ ...request, timeline: updatedTimeline });
+    } catch (error) {
+      console.error('Error adding timeline event:', error);
+    }
+  };
+
+  const handleUpdateUrgency = async (newUrgency: 'Baixa' | 'Média' | 'Alta' | 'Emergencial') => {
+    if (!request) return;
+    try {
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urgency: newUrgency }),
+      });
+      setRequest({ ...request, urgency: newUrgency });
+      addTimelineEvent(`Urgência alterada para ${newUrgency}`);
+    } catch (error) {
+      console.error('Error updating urgency:', error);
+    }
+  };
+
+  const handleAssignProfessional = async (prof: Professional) => {
+    if (!request) return;
+    if (request.professionals.includes(prof.name)) return;
+    
+    const updatedProfs = [...request.professionals, prof.name];
+    try {
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ professionals: updatedProfs }),
+      });
+      setRequest({ ...request, professionals: updatedProfs });
+      addTimelineEvent(`Profissional ${prof.name} atribuído`);
+    } catch (error) {
+      console.error('Error assigning professional:', error);
+    }
+  };
+
+  const handleRemoveProfessional = async (profName: string) => {
+    if (!request) return;
+    const updatedProfs = request.professionals.filter(p => p !== profName);
+    try {
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ professionals: updatedProfs }),
+      });
+      setRequest({ ...request, professionals: updatedProfs });
+      addTimelineEvent(`Profissional ${profName} removido`);
+    } catch (error) {
+      console.error('Error removing professional:', error);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !request) return;
+    await addTimelineEvent(newComment, 'manual');
+    setNewComment('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !request) return;
+
+    setIsUploading(true);
+    try {
+      // Mock upload - in a real app we'd upload to Supabase Storage
+      const mockUrl = `https://example.com/files/${file.name}`;
+      const newDoc: Document = {
+        name: file.name,
+        size: file.size,
+        url: mockUrl,
+        date: new Date().toISOString()
+      };
+      const updatedDocs = [newDoc, ...(request.documents || [])];
+      
+      await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documents: updatedDocs }),
+      });
+      
+      setRequest({ ...request, documents: updatedDocs });
+      addTimelineEvent(`Documento ${file.name} anexado`);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -464,46 +614,147 @@ export default function RequestDetailsPage() {
 
             {activeTab === 'timeline' && (
               <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-8">
-                  <Timer className="text-amber-600" size={18} />
-                  Linha do Tempo Detalhada
-                </h3>
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
+                    <Timer className="text-amber-600" size={18} />
+                    Linha do Tempo Detalhada
+                  </h3>
+                </div>
+
+                {/* Manual Comment Input */}
+                <div className="mb-8 flex gap-3">
+                  <div className="flex-1 relative">
+                    <input 
+                      type="text"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all pr-12"
+                      placeholder="Adicionar um comentário ou atualização manual..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                    />
+                    <MessageSquare className="absolute right-4 top-3.5 text-slate-300" size={18} />
+                  </div>
+                  <button 
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim()}
+                    className="px-6 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                  >
+                    <Send size={16} />
+                    Enviar
+                  </button>
+                </div>
+
                 <div className="relative space-y-8 before:absolute before:left-2 before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-slate-100">
-                  {timeline.map((item, index) => (
-                    <div key={index} className="relative pl-10">
-                      <div className={`absolute left-0 top-1.5 h-4 w-4 rounded-full border-4 border-white ${item.active ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-200'}`}></div>
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p className="text-[10px] text-slate-400 font-black font-mono mb-1 uppercase">{item.time}</p>
-                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.title}</p>
-                        {item.description && <p className="text-xs text-slate-500 font-medium mt-1">{item.description}</p>}
+                  {request.timeline && request.timeline.length > 0 ? (
+                    request.timeline.map((item, index) => (
+                      <div key={index} className="relative pl-10">
+                        <div className={`absolute left-0 top-1.5 h-4 w-4 rounded-full border-4 border-white ${index === 0 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-200'}`}></div>
+                        <div className={`p-4 rounded-xl border ${item.type === 'manual' ? 'bg-amber-50/30 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="text-[10px] text-slate-400 font-black font-mono uppercase">
+                              {new Date(item.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${item.type === 'manual' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
+                              {item.type === 'manual' ? 'Comentário' : 'Sistema'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.action}</p>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 flex items-center gap-1">
+                            <User size={10} />
+                            Responsável: {item.user}
+                          </p>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="py-12 text-center text-slate-400 italic text-xs">
+                      Nenhum evento registrado na linha do tempo.
                     </div>
-                  ))}
+                  )}
                 </div>
               </section>
             )}
 
             {activeTab === 'equipe' && (
               <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
-                  <User className="text-amber-600" size={18} />
-                  Equipe Técnica Alocada
-                </h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
+                    <User className="text-amber-600" size={18} />
+                    Equipe Técnica Alocada
+                  </h3>
+                  <button 
+                    onClick={() => setIsAssigning(!isAssigning)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all"
+                  >
+                    <UserPlus size={14} />
+                    {isAssigning ? 'Fechar Busca' : 'Atribuir Profissional'}
+                  </button>
+                </div>
+
+                {isAssigning && (
+                  <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Selecione um profissional para atribuir:</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allProfessionals.map((prof) => (
+                        <button
+                          key={prof.id}
+                          onClick={() => handleAssignProfessional(prof)}
+                          disabled={request.professionals.includes(prof.name)}
+                          className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                            request.professionals.includes(prof.name)
+                              ? 'bg-slate-100 border-slate-200 opacity-50 cursor-not-allowed'
+                              : 'bg-white border-slate-200 hover:border-amber-500 hover:shadow-md'
+                          }`}
+                        >
+                          <div className="w-10 h-10 rounded-lg overflow-hidden relative border border-slate-100">
+                            <Image src={prof.photoUrl} alt={prof.name} fill className="object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{prof.name}</p>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{prof.specialty}</p>
+                          </div>
+                          {!request.professionals.includes(prof.name) && (
+                            <Plus size={16} className="ml-auto text-amber-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {request.professionals && request.professionals.length > 0 ? (
-                    request.professionals.map((p, idx) => (
-                      <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                        <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-lg">
-                          {p.substring(0, 2).toUpperCase()}
+                    request.professionals.map((pName, idx) => {
+                      const prof = allProfessionals.find(ap => ap.name === pName);
+                      return (
+                        <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50 group">
+                          <div className="w-12 h-12 rounded-lg bg-amber-500 overflow-hidden relative border border-white shadow-sm">
+                            {prof ? (
+                              <Image src={prof.photoUrl} alt={pName} fill className="object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white font-black text-lg">
+                                {pName.substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{pName}</p>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                              {prof?.specialty || 'Técnico Alocado'}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => handleRemoveProfessional(pName)}
+                            className="opacity-0 group-hover:opacity-100 p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                            title="Remover Profissional"
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{p}</p>
-                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Técnico Alocado</p>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
-                    <div className="col-span-full py-8 text-center text-slate-400 italic text-xs">
+                    <div className="col-span-full py-12 text-center text-slate-400 italic text-xs border-2 border-dashed border-slate-50 rounded-xl">
                       Nenhum profissional alocado a este serviço.
                     </div>
                   )}
@@ -513,13 +764,48 @@ export default function RequestDetailsPage() {
 
             {activeTab === 'documentos' && (
               <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
-                  <FileText className="text-amber-600" size={18} />
-                  Documentos e Anexos
-                </h3>
-                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
-                  <FileText className="mx-auto text-slate-200 mb-4" size={48} />
-                  <p className="text-slate-400 text-xs font-medium italic">Nenhum documento anexo a esta solicitação.</p>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest">
+                    <FileText className="text-amber-600" size={18} />
+                    Documentos e Anexos
+                  </h3>
+                  <label className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-amber-100 transition-all cursor-pointer">
+                    <FileUp size={14} />
+                    {isUploading ? 'Enviando...' : 'Anexar Documento'}
+                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} accept=".pdf,.doc,.docx,.xls,.xlsx" />
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  {request.documents && request.documents.length > 0 ? (
+                    request.documents.map((doc, idx) => (
+                      <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50 group">
+                        <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400">
+                          <Paperclip size={20} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{doc.name}</p>
+                          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">
+                            {(doc.size / 1024).toFixed(1)} KB • {new Date(doc.date).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <a 
+                          href={doc.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                          title="Baixar Documento"
+                        >
+                          <Download size={18} />
+                        </a>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
+                      <FileText className="mx-auto text-slate-200 mb-4" size={48} />
+                      <p className="text-slate-400 text-xs font-medium italic">Nenhum documento anexo a esta solicitação.</p>
+                    </div>
+                  )}
                 </div>
               </section>
             )}

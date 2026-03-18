@@ -1,5 +1,19 @@
 import { supabase } from './supabase';
 
+export interface TimelineEvent {
+  date: string;
+  action: string;
+  user: string;
+  type: 'auto' | 'manual';
+}
+
+export interface Document {
+  name: string;
+  size: number;
+  url: string;
+  date: string;
+}
+
 export interface MaintenanceRequest {
   id: string;
   description: string;
@@ -29,6 +43,8 @@ export interface MaintenanceRequest {
   dataFinalizacao?: string;
   servidorRepassou?: string;
   observacao?: string;
+  timeline?: TimelineEvent[];
+  documents?: Document[];
 }
 
 // Helper to map DB fields to interface
@@ -63,6 +79,8 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   dataFinalizacao: req.data_finalizacao || '',
   servidorRepassou: req.servidor_repassou || '',
   observacao: req.observacao || '',
+  timeline: Array.isArray(req.timeline) ? req.timeline : [],
+  documents: Array.isArray(req.documents) ? req.documents : [],
 });
 
 export interface Material {
@@ -173,6 +191,36 @@ export const updateMaterial = async (id: string, updates: Partial<Material>) => 
   return mapMaterial(data);
 };
 
+export interface Professional {
+  id: string;
+  name: string;
+  specialty: string;
+  photoUrl: string;
+}
+
+export const getProfessionals = async (): Promise<Professional[]> => {
+  const { data, error } = await supabase
+    .from('professionals')
+    .select('*')
+    .order('name', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching professionals:', error);
+    // Return mock data if table doesn't exist yet to avoid breaking UI
+    return [
+      { id: '1', name: 'João Silva', specialty: 'Eletricista', photoUrl: 'https://i.pravatar.cc/150?u=joao' },
+      { id: '2', name: 'Maria Santos', specialty: 'Hidráulica', photoUrl: 'https://i.pravatar.cc/150?u=maria' },
+      { id: '3', name: 'Pedro Costa', specialty: 'Ar Condicionado', photoUrl: 'https://i.pravatar.cc/150?u=pedro' },
+      { id: '4', name: 'Ana Oliveira', specialty: 'Pintura', photoUrl: 'https://i.pravatar.cc/150?u=ana' },
+    ];
+  }
+  return data.map(p => ({
+    id: p.id,
+    name: p.name,
+    specialty: p.specialty,
+    photoUrl: p.photo_url
+  }));
+};
 export const getRequests = async () => {
   const { data, error } = await supabase
     .from('requests')
@@ -230,6 +278,15 @@ export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'date'
     data_finalizacao: request.dataFinalizacao || '',
     servidor_repassou: request.servidorRepassou || '',
     observacao: request.observacao || '',
+    timeline: request.timeline || [
+      { 
+        date: now.toISOString(), 
+        action: 'Solicitação criada', 
+        user: request.responsibleServer || 'Sistema', 
+        type: 'auto' 
+      }
+    ],
+    documents: request.documents || [],
   };
 
   // Try to include new columns if they exist
@@ -327,6 +384,8 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
   if (updates.dataFinalizacao) dbUpdates.data_finalizacao = updates.dataFinalizacao;
   if (updates.servidorRepassou) dbUpdates.servidor_repassou = updates.servidorRepassou;
   if (updates.observacao) dbUpdates.observacao = updates.observacao;
+  if (updates.timeline) dbUpdates.timeline = updates.timeline;
+  if (updates.documents) dbUpdates.documents = updates.documents;
 
   const { data, error } = await supabase
     .from('requests')
