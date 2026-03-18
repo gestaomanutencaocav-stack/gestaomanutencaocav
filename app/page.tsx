@@ -46,33 +46,55 @@ export default function Dashboard() {
   const [filterMonth, setFilterMonth] = React.useState('');
   const [filterYear, setFilterYear] = React.useState('');
   const [filterDate, setFilterDate] = React.useState('');
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [syncMessage, setSyncMessage] = React.useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const timestamp = Date.now();
+      const [authRes, reqRes, matEstRes, matFinRes] = await Promise.all([
+        fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/materials?type=estoque&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/materials?type=finalistico&t=${timestamp}`, { cache: 'no-store' })
+      ]);
+
+      if (authRes.ok) setUser(await authRes.json());
+      if (reqRes.ok) {
+        const data = await reqRes.json();
+        console.log('Dashboard fetched requests:', data.length);
+        setRequests(data);
+      }
+      if (matEstRes.ok) setMaterialsEstoque(await matEstRes.json());
+      if (matFinRes.ok) setMaterialsFinalistico(await matFinRes.json());
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const timestamp = Date.now();
-        const [authRes, reqRes, matEstRes, matFinRes] = await Promise.all([
-          fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
-          fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' }),
-          fetch(`/api/materials?type=estoque&t=${timestamp}`, { cache: 'no-store' }),
-          fetch(`/api/materials?type=finalistico&t=${timestamp}`, { cache: 'no-store' })
-        ]);
-
-        if (authRes.ok) setUser(await authRes.json());
-        if (reqRes.ok) {
-          const data = await reqRes.json();
-          console.log('Dashboard fetched requests:', data.length);
-          setRequests(data);
-        }
-        if (matEstRes.ok) setMaterialsEstoque(await matEstRes.json());
-        if (matFinRes.ok) setMaterialsFinalistico(await matFinRes.json());
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      }
-    };
-
     fetchData();
   }, []);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch('/api/sync-forms', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`${data.imported} novas solicitações importadas`);
+        fetchData(); // Refresh data
+      } else {
+        setSyncMessage(`Erro: ${data.error || 'Falha na sincronização'}`);
+      }
+    } catch (error) {
+      setSyncMessage('Erro de conexão ao sincronizar');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
 
   const getConsumptionByMonth = (materials: any[]) => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -211,6 +233,23 @@ export default function Dashboard() {
           </div>
           
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+            {syncMessage && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${syncMessage.startsWith('Erro') ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}
+              >
+                {syncMessage}
+              </motion.div>
+            )}
+            <button 
+              onClick={handleSync}
+              disabled={isSyncing}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-600'}`}
+            >
+              <FileSpreadsheet className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Forms'}
+            </button>
             <div className="flex items-center gap-2 px-2 border-r border-slate-100">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</span>
               <input 

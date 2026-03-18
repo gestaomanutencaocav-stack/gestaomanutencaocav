@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
-  User
+  User,
+  Box
 } from 'lucide-react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -40,6 +41,16 @@ interface MaintenanceRequest {
   urgency?: 'Baixa' | 'Média' | 'Alta' | 'Emergencial';
   images?: string[];
   checklist?: { id: number; task: string; completed: boolean }[];
+  matriculaSiape?: string;
+  emailSolicitante?: string;
+  tombamento?: string;
+  modeloEquipamento?: string;
+  tipoEquipamento?: string;
+  btus?: string;
+  horaFinalizacao?: string;
+  dataFinalizacao?: string;
+  servidorRepassou?: string;
+  observacao?: string;
 }
 
 const initialChecklist = [
@@ -343,6 +354,48 @@ export default function RequestDetailsPage() {
                       ))}
                     </div>
                   )}
+
+                  {(request.tombamento || request.modeloEquipamento || request.tipoEquipamento || request.btus) && (
+                    <div className="mt-8 p-6 rounded-xl border border-amber-100 bg-amber-50/30">
+                      <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-4">
+                        <Box className="text-amber-600" size={18} />
+                        Dados do Equipamento
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {request.tombamento && (
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Tombamento</p>
+                            <p className="text-xs font-bold text-slate-700">{request.tombamento}</p>
+                          </div>
+                        )}
+                        {request.modeloEquipamento && (
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Modelo</p>
+                            <p className="text-xs font-bold text-slate-700">{request.modeloEquipamento}</p>
+                          </div>
+                        )}
+                        {request.tipoEquipamento && (
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Tipo</p>
+                            <p className="text-xs font-bold text-slate-700">{request.tipoEquipamento}</p>
+                          </div>
+                        )}
+                        {request.btus && (
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">BTUs</p>
+                            <p className="text-xs font-bold text-slate-700">{request.btus}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {request.observacao && (
+                    <div className="mt-6 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Observações Adicionais</h4>
+                      <p className="text-xs font-medium text-slate-600 italic">&quot;{request.observacao}&quot;</p>
+                    </div>
+                  )}
                 </section>
 
                 {/* Checklist Section */}
@@ -487,13 +540,30 @@ export default function RequestDetailsPage() {
                 </div>
                 <div>
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Servidor Responsável</p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 font-black text-[10px] uppercase">
-                      {request.responsibleServer ? request.responsibleServer.substring(0, 2).toUpperCase() : 'SR'}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 font-black text-[10px] uppercase">
+                        {request.responsibleServer ? request.responsibleServer.substring(0, 2).toUpperCase() : 'SR'}
+                      </div>
+                      <p className="text-slate-700 text-xs font-bold">{request.responsibleServer || 'Não informado'}</p>
                     </div>
-                    <p className="text-slate-700 text-xs font-bold">{request.responsibleServer || 'Não informado'}</p>
+                    {request.matriculaSiape && (
+                      <p className="text-[10px] text-slate-500 font-medium ml-9">SIAPE: {request.matriculaSiape}</p>
+                    )}
+                    {request.emailSolicitante && (
+                      <p className="text-[10px] text-slate-500 font-medium ml-9 truncate">{request.emailSolicitante}</p>
+                    )}
                   </div>
                 </div>
+                {request.servidorRepassou && (
+                  <div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Servidor que Repassou</p>
+                    <div className="flex items-center gap-2">
+                      <User className="text-slate-400" size={14} />
+                      <p className="text-slate-700 text-xs font-bold">{request.servidorRepassou}</p>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Data da Demanda</p>
                   <div className="flex items-center gap-2">
@@ -501,6 +571,17 @@ export default function RequestDetailsPage() {
                     <p className="text-slate-600 text-xs font-mono">{request.date}</p>
                   </div>
                 </div>
+                {(request.dataFinalizacao || request.horaFinalizacao) && (
+                  <div>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Finalização Prevista/Realizada</p>
+                    <div className="flex items-center gap-2">
+                      <Clock className="text-slate-400" size={14} />
+                      <p className="text-slate-700 text-xs font-bold">
+                        {request.dataFinalizacao} {request.horaFinalizacao}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">Tipo de Serviço</p>
                   <div className="flex items-center gap-2">

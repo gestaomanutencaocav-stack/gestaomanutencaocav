@@ -19,6 +19,16 @@ export interface MaintenanceRequest {
   authorizedJustification?: string;
   urgency?: 'Baixa' | 'Média' | 'Alta' | 'Emergencial';
   images?: string[];
+  matriculaSiape?: string;
+  emailSolicitante?: string;
+  tombamento?: string;
+  modeloEquipamento?: string;
+  tipoEquipamento?: string;
+  btus?: string;
+  horaFinalizacao?: string;
+  dataFinalizacao?: string;
+  servidorRepassou?: string;
+  observacao?: string;
 }
 
 // Helper to map DB fields to interface
@@ -43,6 +53,16 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   authorizedJustification: req.authorized_justification,
   urgency: req.urgency,
   images: Array.isArray(req.images) ? req.images : [],
+  matriculaSiape: req.matricula_siape || '',
+  emailSolicitante: req.email_solicitante || '',
+  tombamento: req.tombamento || '',
+  modeloEquipamento: req.modelo_equipamento || '',
+  tipoEquipamento: req.tipo_equipamento || '',
+  btus: req.btus || '',
+  horaFinalizacao: req.hora_finalizacao || '',
+  dataFinalizacao: req.data_finalizacao || '',
+  servidorRepassou: req.servidor_repassou || '',
+  observacao: req.observacao || '',
 });
 
 export interface Material {
@@ -200,6 +220,16 @@ export const addRequest = async (request: Omit<MaintenanceRequest, 'id' | 'date'
     avatar: request.avatar,
     details: request.details || '',
     checklist: request.checklist || [],
+    matricula_siape: request.matriculaSiape || '',
+    email_solicitante: request.emailSolicitante || '',
+    tombamento: request.tombamento || '',
+    modelo_equipamento: request.modeloEquipamento || '',
+    tipo_equipamento: request.tipoEquipamento || '',
+    btus: request.btus || '',
+    hora_finalizacao: request.horaFinalizacao || '',
+    data_finalizacao: request.dataFinalizacao || '',
+    servidor_repassou: request.servidorRepassou || '',
+    observacao: request.observacao || '',
   };
 
   // Try to include new columns if they exist
@@ -287,6 +317,16 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
   if (updates.authorizedJustification) dbUpdates.authorized_justification = updates.authorizedJustification;
   if (updates.urgency) dbUpdates.urgency = updates.urgency;
   if (updates.images) dbUpdates.images = updates.images;
+  if (updates.matriculaSiape) dbUpdates.matricula_siape = updates.matriculaSiape;
+  if (updates.emailSolicitante) dbUpdates.email_solicitante = updates.emailSolicitante;
+  if (updates.tombamento) dbUpdates.tombamento = updates.tombamento;
+  if (updates.modeloEquipamento) dbUpdates.modelo_equipamento = updates.modeloEquipamento;
+  if (updates.tipoEquipamento) dbUpdates.tipo_equipamento = updates.tipoEquipamento;
+  if (updates.btus) dbUpdates.btus = updates.btus;
+  if (updates.horaFinalizacao) dbUpdates.hora_finalizacao = updates.horaFinalizacao;
+  if (updates.dataFinalizacao) dbUpdates.data_finalizacao = updates.dataFinalizacao;
+  if (updates.servidorRepassou) dbUpdates.servidor_repassou = updates.servidorRepassou;
+  if (updates.observacao) dbUpdates.observacao = updates.observacao;
 
   const { data, error } = await supabase
     .from('requests')
