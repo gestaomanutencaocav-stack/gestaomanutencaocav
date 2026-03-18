@@ -413,3 +413,151 @@ export const deleteRequest = async (id: string) => {
     throw error;
   }
 };
+
+export interface Inspection {
+  id: string;
+  name: string;
+  area: string;
+  periodicity: 'diaria' | 'semanal' | 'quinzenal' | 'mensal';
+  description: string;
+  professionals: string[];
+  status: 'ativa' | 'inativa';
+  nextDate: string;
+  createdAt: string;
+}
+
+export interface InspectionRecord {
+  id: string;
+  inspectionId: string;
+  executionDate: string;
+  startTime: string;
+  endTime: string;
+  problemsFound: string;
+  problemsResolved: string;
+  problemsPending: string;
+  professionals: string[];
+  executionStatus: 'Realizada' | 'Parcial' | 'Não Realizada';
+  images: string[];
+  observations: string;
+  createdAt: string;
+}
+
+const mapInspection = (i: any): Inspection => ({
+  id: i.id,
+  name: i.name,
+  area: i.area,
+  periodicity: i.periodicity,
+  description: i.description,
+  professionals: Array.isArray(i.professionals) ? i.professionals : [],
+  status: i.status,
+  nextDate: i.next_date,
+  createdAt: i.created_at,
+});
+
+const mapInspectionRecord = (r: any): InspectionRecord => ({
+  id: r.id,
+  inspectionId: r.inspection_id,
+  executionDate: r.execution_date,
+  startTime: r.start_time,
+  endTime: r.end_time,
+  problemsFound: r.problems_found,
+  problemsResolved: r.problems_resolved,
+  problemsPending: r.problems_pending,
+  professionals: Array.isArray(r.professionals) 
+    ? r.professionals 
+    : (r.professional ? r.professional.split(', ').filter(Boolean) : []),
+  executionStatus: r.execution_status,
+  images: Array.isArray(r.images) ? r.images : [],
+  observations: r.observations,
+  createdAt: r.created_at,
+});
+
+export const getInspections = async () => {
+  const { data, error } = await supabase
+    .from('inspections')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching inspections:', error);
+    return [];
+  }
+  return data.map(mapInspection);
+};
+
+export const getInspectionRecords = async (inspectionId?: string) => {
+  let query = supabase.from('inspection_records').select('*').order('execution_date', { ascending: false });
+  if (inspectionId) {
+    query = query.eq('inspection_id', inspectionId);
+  }
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching records:', error);
+    return [];
+  }
+  return data.map(mapInspectionRecord);
+};
+
+export const addInspection = async (inspection: Omit<Inspection, 'id' | 'createdAt'>) => {
+  const { data, error } = await supabase
+    .from('inspections')
+    .insert([{
+      name: inspection.name,
+      area: inspection.area,
+      periodicity: inspection.periodicity,
+      description: inspection.description,
+      professionals: inspection.professionals,
+      status: inspection.status,
+      next_date: inspection.nextDate,
+    }])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return mapInspection(data);
+};
+
+export const updateInspection = async (id: string, updates: Partial<Inspection>) => {
+  const dbUpdates: any = {};
+  if (updates.name) dbUpdates.name = updates.name;
+  if (updates.area) dbUpdates.area = updates.area;
+  if (updates.periodicity) dbUpdates.periodicity = updates.periodicity;
+  if (updates.description) dbUpdates.description = updates.description;
+  if (updates.professionals) dbUpdates.professionals = updates.professionals;
+  if (updates.status) dbUpdates.status = updates.status;
+  if (updates.nextDate) dbUpdates.next_date = updates.nextDate;
+
+  const { data, error } = await supabase
+    .from('inspections')
+    .update(dbUpdates)
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return mapInspection(data);
+};
+
+export const addInspectionRecord = async (record: Omit<InspectionRecord, 'id' | 'createdAt'>) => {
+  const { data, error } = await supabase
+    .from('inspection_records')
+    .insert([{
+      inspection_id: record.inspectionId,
+      execution_date: record.executionDate,
+      start_time: record.startTime,
+      end_time: record.endTime,
+      problems_found: record.problemsFound,
+      problems_resolved: record.problemsResolved,
+      problems_pending: record.problemsPending,
+      professionals: record.professionals,
+      professional: record.professionals.join(', '), // Fallback for singular column
+      execution_status: record.executionStatus,
+      images: record.images,
+      observations: record.observations,
+    }])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return mapInspectionRecord(data);
+};

@@ -13,7 +13,8 @@ import {
   ChevronRight,
   X,
   Box,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
@@ -21,6 +22,7 @@ import Image from 'next/image';
 const navItems = [
   { name: 'Painel', icon: LayoutDashboard, href: '/' },
   { name: 'Solicitações', icon: ClipboardList, href: '/solicitacoes' },
+  { name: 'Rotinas de Inspeções', icon: ClipboardCheck, href: '/inspecoes' },
   { name: 'Agenda', icon: Calendar, href: '/agenda' },
   { name: 'Materiais em Estoque', icon: Box, href: '/materiais' },
   { name: 'Materiais Finalísticos', icon: FileSpreadsheet, href: '/materiais-finalisticos' },
