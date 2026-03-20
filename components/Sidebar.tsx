@@ -14,7 +14,8 @@ import {
   X,
   Box,
   FileSpreadsheet,
-  ClipboardCheck
+  ClipboardCheck,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
@@ -26,6 +27,7 @@ const navItems = [
   { name: 'Agenda', icon: Calendar, href: '/agenda' },
   { name: 'Materiais em Estoque', icon: Box, href: '/materiais' },
   { name: 'Materiais Finalísticos', icon: FileSpreadsheet, href: '/materiais-finalisticos' },
+  { name: 'Gestão Contratual', icon: FileText, href: '/gestao-contratual' },
   { name: 'Relatórios', icon: BarChart3, href: '/relatorios' },
 ];
 

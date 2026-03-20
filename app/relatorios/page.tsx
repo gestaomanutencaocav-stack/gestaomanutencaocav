@@ -36,14 +36,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  X
+  X,
+  DollarSign,
+  Briefcase,
+  Building2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO, subDays, startOfDay, endOfDay, differenceInMinutes, isValid } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO, subDays, startOfDay, endOfDay, differenceInMinutes, isValid, differenceInDays, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { supabase } from '@/lib/supabase';
 
 interface MaintenanceRequest {
   id: string;
@@ -84,6 +88,41 @@ interface InspectionRecord {
   createdAt: string;
 }
 
+interface ContractInfo {
+  id: string;
+  contract_number: string;
+  company_name: string;
+  cnpj: string;
+  start_date: string;
+  end_date: string;
+  renewals_count: number;
+  contracting_party: string;
+}
+
+interface FinancialRecord {
+  id: string;
+  year: number;
+  month: string;
+  invoice_number: string;
+  payment_value: number;
+  materials_value: number;
+  materials_citl_value: number;
+  total_invoice: number;
+  discounts: number;
+  total_after_discounts: number;
+  fiscal_note: string;
+  created_at?: string;
+}
+
+interface Repactuacao {
+  id: string;
+  process_number: string;
+  year: number;
+  date: string;
+  triggering_factor: string;
+  status: 'Em Análise' | 'Aprovado' | 'Negado' | 'Aguardando Documentação' | 'Concluído';
+}
+
 const COLORS = ['#f59e0b', '#10b981', '#64748b', '#ef4444', '#8b5cf6', '#ec4899', '#3b82f6'];
 const SLATE_COLOR = '#64748b';
 const AMBER_COLOR = '#f59e0b';
@@ -91,12 +130,15 @@ const EMERALD_COLOR = '#10b981';
 const RED_COLOR = '#ef4444';
 
 export default function RelatoriosPage() {
-  const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes'>('solicitacoes');
+  const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes' | 'gestao-contratual'>('solicitacoes');
   const [showAllRequests, setShowAllRequests] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [records, setRecords] = useState<InspectionRecord[]>([]);
+  const [contract, setContract] = useState<ContractInfo | null>(null);
+  const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
+  const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Maintenance Filters
@@ -113,20 +155,31 @@ export default function RelatoriosPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
+  // Contract Filters
+  const [contractFilterYear, setContractFilterYear] = useState('Todos');
+
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [reqRes, inspRes, recRes] = await Promise.all([
+        const [reqRes, inspRes, recRes, contractRes, financialRes, repactuacoesRes] = await Promise.all([
           fetch('/api/solicitacoes').then(res => res.json()),
           fetch('/api/inspecoes').then(res => res.json()),
-          fetch('/api/inspecoes/records').then(res => res.json())
+          fetch('/api/inspecoes/records').then(res => res.json()),
+          supabase.from('contract_info').select('*').single(),
+          supabase.from('financial_records').select('*').order('year', { ascending: false }).order('month', { ascending: false }),
+          supabase.from('repactuacoes').select('*').order('date', { ascending: false })
         ]);
+        
         setRequests(reqRes || []);
         setInspections(inspRes || []);
         setRecords(recRes || []);
+        
+        if (contractRes.data) setContract(contractRes.data);
+        if (financialRes.data) setFinancialRecords(financialRes.data);
+        if (repactuacoesRes.data) setRepactuacoes(repactuacoesRes.data);
       } catch (err) {
         console.error('Erro ao buscar dados:', err);
       } finally {
@@ -367,7 +420,7 @@ export default function RelatoriosPage() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitações");
       XLSX.writeFile(workbook, `Relatorio_Manutencao_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-    } else {
+    } else if (activeTab === 'inspecoes') {
       const workbook = XLSX.utils.book_new();
       
       // Sheet 1: KPIs
@@ -409,6 +462,50 @@ export default function RelatoriosPage() {
       XLSX.utils.book_append_sheet(workbook, wsHist, "Histórico de Execuções");
 
       XLSX.writeFile(workbook, `Relatorio_Inspecoes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    } else {
+      const workbook = XLSX.utils.book_new();
+      
+      // Sheet 1: Contract Info
+      if (contract) {
+        const contractData = [{
+          'Contrato nº': contract.contract_number,
+          'Empresa': contract.company_name,
+          'CNPJ': contract.cnpj,
+          'Início': contract.start_date,
+          'Fim': contract.end_date,
+          'Renovações': contract.renewals_count,
+          'Contratante': contract.contracting_party
+        }];
+        const wsContract = XLSX.utils.json_to_sheet(contractData);
+        XLSX.utils.book_append_sheet(workbook, wsContract, "Dados do Contrato");
+      }
+
+      // Sheet 2: Financial Records
+      const wsFinancial = XLSX.utils.json_to_sheet(financialRecords.map(r => ({
+        'Ano': r.year,
+        'Mês': r.month,
+        'Fatura nº': r.invoice_number,
+        'Valor Pagamento': r.payment_value,
+        'Materiais': r.materials_value,
+        'Materiais + CITL': r.materials_citl_value,
+        'Total Fatura': r.total_invoice,
+        'Descontos': r.discounts,
+        'Total Líquido': r.total_after_discounts,
+        'Nota Fiscal': r.fiscal_note
+      })));
+      XLSX.utils.book_append_sheet(workbook, wsFinancial, "Execução Financeira");
+
+      // Sheet 3: Yearly Summary
+      const wsSummary = XLSX.utils.json_to_sheet(yearlyCompositionData.map(row => ({
+        'Ano': row.year,
+        'Total Executado': row.total,
+        'Materiais': row.materiais,
+        'Descontos': row.descontos,
+        'Média Mensal': row.total / 12
+      })));
+      XLSX.utils.book_append_sheet(workbook, wsSummary, "Resumo Anual");
+
+      XLSX.writeFile(workbook, `Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     }
   };
 
@@ -453,7 +550,7 @@ export default function RelatoriosPage() {
           heightLeft -= pageHeight;
         }
 
-        pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : 'Inspecoes'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : activeTab === 'inspecoes' ? 'Inspecoes' : 'Contratual'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       } catch (error) {
         console.error('Erro ao gerar PDF:', error);
       } finally {
@@ -469,7 +566,7 @@ export default function RelatoriosPage() {
       setFilterType('Todos');
       setFilterStatus('Todos');
       setFilterUnit('Todos');
-    } else {
+    } else if (activeTab === 'inspecoes') {
       setInspPeriod('month');
       setInspArea('Todos');
       setInspPeriodicity('Todos');
@@ -477,7 +574,112 @@ export default function RelatoriosPage() {
       setInspProfessional('Todos');
       setCustomStartDate('');
       setCustomEndDate('');
+    } else {
+      setContractFilterYear('Todos');
     }
+  };
+
+  // --- Contract Dashboard Logic ---
+  const filteredFinancialRecords = useMemo(() => {
+    return financialRecords.filter(rec => {
+      return contractFilterYear === 'Todos' || rec.year.toString() === contractFilterYear;
+    });
+  }, [financialRecords, contractFilterYear]);
+
+  const contractYears = useMemo(() => {
+    const years = Array.from(new Set(financialRecords.map(r => r.year.toString()))).sort((a, b) => b.localeCompare(a));
+    return ['Todos', ...years];
+  }, [financialRecords]);
+
+  const contractKPIs = useMemo(() => {
+    const totalExecuted = financialRecords.reduce((sum, r) => sum + r.total_after_discounts, 0);
+    const currentYear = new Date().getFullYear();
+    const currentYearExecuted = financialRecords.filter(r => r.year === currentYear).reduce((sum, r) => sum + r.total_after_discounts, 0);
+    const avgInvoice = financialRecords.length > 0 ? totalExecuted / financialRecords.length : 0;
+    const totalDiscounts = financialRecords.reduce((sum, r) => sum + r.discounts, 0);
+    const maxInvoice = financialRecords.length > 0 ? Math.max(...financialRecords.map(r => r.total_after_discounts)) : 0;
+    const minInvoice = financialRecords.length > 0 ? Math.min(...financialRecords.map(r => r.total_after_discounts)) : 0;
+    const totalMaterials = financialRecords.reduce((sum, r) => sum + r.materials_value, 0);
+    const discountPercentage = totalExecuted > 0 ? (totalDiscounts / (totalExecuted + totalDiscounts)) * 100 : 0;
+    
+    let remainingDays = 0;
+    if (contract?.end_date) {
+      remainingDays = differenceInDays(parseISO(contract.end_date), new Date());
+    }
+
+    return {
+      totalExecuted,
+      currentYearExecuted,
+      avgInvoice,
+      totalDiscounts,
+      maxInvoice,
+      minInvoice,
+      totalMaterials,
+      discountPercentage,
+      remainingDays: Math.max(0, remainingDays)
+    };
+  }, [financialRecords, contract]);
+
+  const monthlyEvolutionData = useMemo(() => {
+    // Last 24 months evolution
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const data = [];
+    const now = new Date();
+    
+    for (let i = 23; i >= 0; i--) {
+      const d = subMonths(now, i);
+      const year = d.getFullYear();
+      const monthIdx = d.getMonth();
+      const monthName = months[monthIdx];
+      
+      const record = financialRecords.find(r => r.year === year && r.month === monthName);
+      data.push({
+        name: `${monthName}/${year.toString().slice(-2)}`,
+        valor: record ? record.total_after_discounts : 0,
+        materiais: record ? record.materials_value : 0,
+        servicos: record ? record.payment_value : 0
+      });
+    }
+    return data;
+  }, [financialRecords]);
+
+  const yearlyCompositionData = useMemo(() => {
+    const years = Array.from(new Set(financialRecords.map(r => r.year))).sort();
+    return years.map(year => {
+      const yearRecs = financialRecords.filter(r => r.year === year);
+      return {
+        year: year.toString(),
+        total: yearRecs.reduce((sum, r) => sum + r.total_after_discounts, 0),
+        materiais: yearRecs.reduce((sum, r) => sum + r.materials_value, 0),
+        descontos: yearRecs.reduce((sum, r) => sum + r.discounts, 0)
+      };
+    });
+  }, [financialRecords]);
+
+  const invoiceComponentData = useMemo(() => {
+    const totalPayment = financialRecords.reduce((sum, r) => sum + r.payment_value, 0);
+    const totalMaterials = financialRecords.reduce((sum, r) => sum + r.materials_value, 0);
+    const totalCITL = financialRecords.reduce((sum, r) => sum + r.materials_citl_value, 0);
+    
+    return [
+      { name: 'Mão de Obra / Fato Gerador', value: totalPayment },
+      { name: 'Materiais', value: totalMaterials },
+      { name: 'Materiais + CITL', value: totalCITL }
+    ];
+  }, [financialRecords]);
+
+  const topInvoicesData = useMemo(() => {
+    return [...financialRecords]
+      .sort((a, b) => b.total_after_discounts - a.total_after_discounts)
+      .slice(0, 5)
+      .map(r => ({
+        name: `${r.month}/${r.year}`,
+        valor: r.total_after_discounts
+      }));
+  }, [financialRecords]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
   return (
@@ -533,6 +735,19 @@ export default function RelatoriosPage() {
             Rotinas de Inspeções
             {activeTab === 'inspecoes' && (
               <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-amber-600 rounded-t-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('gestao-contratual')}
+            className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
+              activeTab === 'gestao-contratual' 
+                ? 'text-emerald-600' 
+                : 'text-slate-700 hover:text-slate-900'
+            }`}
+          >
+            Gestão Contratual
+            {activeTab === 'gestao-contratual' && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-600 rounded-t-full" />
             )}
           </button>
         </div>
@@ -791,7 +1006,7 @@ export default function RelatoriosPage() {
                   </div>
                 </div>
               </motion.div>
-            ) : (
+            ) : activeTab === 'inspecoes' ? (
               <motion.div
                 key="inspecoes"
                 initial={{ opacity: 0, y: 20 }}
@@ -1158,6 +1373,222 @@ export default function RelatoriosPage() {
                       </button>
                     </div>
                   )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="gestao-contratual"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                {/* Contract Filters */}
+                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
+                  <div className="flex items-center gap-2 mr-2">
+                    <Filter size={18} className="text-slate-400" />
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Ano de Exercício</label>
+                    <select 
+                      value={contractFilterYear}
+                      onChange={(e) => setContractFilterYear(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+
+                  <button 
+                    onClick={clearFilters}
+                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                  >
+                    Limpar
+                  </button>
+                </div>
+
+                {/* Contract KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { title: 'Total Executado', value: formatCurrency(contractKPIs.totalExecuted), icon: DollarSign, color: 'emerald' },
+                    { title: 'Executado Ano Atual', value: formatCurrency(contractKPIs.currentYearExecuted), icon: Calendar, color: 'blue' },
+                    { title: 'Média Mensal', value: formatCurrency(contractKPIs.avgInvoice), icon: Activity, color: 'slate' },
+                    { title: 'Total Descontos', value: formatCurrency(contractKPIs.totalDiscounts), icon: TrendingUp, color: 'amber' },
+                    { title: 'Maior Fatura', value: formatCurrency(contractKPIs.maxInvoice), icon: ChevronUp, color: 'emerald' },
+                    { title: 'Menor Fatura', value: formatCurrency(contractKPIs.minInvoice), icon: ChevronDown, color: 'red' },
+                    { title: 'Custo Materiais', value: formatCurrency(contractKPIs.totalMaterials), icon: Building2, color: 'slate' },
+                    { title: 'Dias para Vencimento', value: contractKPIs.remainingDays, icon: Clock, color: contractKPIs.remainingDays < 180 ? 'red' : 'emerald' },
+                  ].map((kpi, i) => (
+                    <motion.div 
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`p-2 rounded-lg ${
+                          kpi.color === 'slate' ? 'bg-slate-100 text-slate-600 dark:bg-slate-900/30' :
+                          kpi.color === 'amber' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' :
+                          kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' :
+                          kpi.color === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' :
+                          'bg-red-100 text-red-600 dark:bg-red-900/30'
+                        }`}>
+                          <kpi.icon size={16} />
+                        </div>
+                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                      </div>
+                      <p className="text-xl font-black text-slate-900 dark:text-white truncate">{kpi.value}</p>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Contract Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Chart 1: Evolution */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-8">
+                      <TrendingUp size={20} className="text-emerald-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Evolução de Faturamento (24 Meses)</h3>
+                    </div>
+                    <div className="h-80 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={monthlyEvolutionData}>
+                          <defs>
+                            <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
+                          />
+                          <Area type="monotone" dataKey="valor" stroke="#10b981" fillOpacity={1} fill="url(#colorValor)" strokeWidth={3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Chart 2: Yearly Composition */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-8">
+                      <BarChart3 size={20} className="text-blue-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Composição Anual de Faturamento</h3>
+                    </div>
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={yearlyCompositionData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
+                          />
+                          <Legend iconType="circle" />
+                          <Bar name="Materiais" dataKey="materiais" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                          <Bar name="Serviços" dataKey="total" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Chart 3: Invoice Components */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-8">
+                      <PieChartIcon size={20} className="text-amber-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Distribuição de Componentes</h3>
+                    </div>
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={invoiceComponentData}
+                            cx="40%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {invoiceComponentData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
+                          />
+                          <Legend 
+                            layout="vertical" 
+                            verticalAlign="middle" 
+                            align="right"
+                            iconType="circle"
+                            formatter={(value) => <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Chart 4: Top Invoices */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-8">
+                      <BarChart3 size={20} className="text-emerald-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Top 5 Maiores Faturas</h3>
+                    </div>
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={topInvoicesData}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} width={80} />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
+                          />
+                          <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={30} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Yearly Summary Table */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                  <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Resumo Anual de Execução</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Total Executado</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Materiais</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Descontos</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Média Mensal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {yearlyCompositionData.reverse().map((row) => (
+                          <tr key={row.year} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                            <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{row.year}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-emerald-600">{formatCurrency(row.total)}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-blue-600">{formatCurrency(row.materiais)}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-amber-600">{formatCurrency(row.descontos)}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-400">{formatCurrency(row.total / 12)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </motion.div>
             )}
