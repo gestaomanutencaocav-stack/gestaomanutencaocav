@@ -29,13 +29,30 @@ import {
   Paperclip,
   Send,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  GripVertical
 } from 'lucide-react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/lib/supabase';
-import Checklist from '@/components/Checklist';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -117,6 +134,79 @@ const getInitials = (name: string) => {
   return name.substring(0, 2).toUpperCase();
 };
 
+const SortableItem = ({ 
+  item, 
+  onToggle, 
+  onRemove, 
+  onTaskChange 
+}: { 
+  item: ChecklistItem; 
+  onToggle: (id: string) => void; 
+  onRemove: (id: string) => void; 
+  onTaskChange: (id: string, task: string) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group flex items-center gap-3 p-3 bg-white border rounded-xl transition-all ${
+        isDragging ? 'shadow-xl border-amber-200 scale-[1.02]' : 'border-slate-100 hover:border-slate-200 shadow-sm'
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-slate-500 transition-colors"
+      >
+        <GripVertical size={16} />
+      </button>
+
+      <button
+        onClick={() => onToggle(item.id)}
+        className={`flex-shrink-0 w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${
+          item.completed 
+            ? 'bg-amber-500 border-amber-500 text-white' 
+            : 'border-slate-200 hover:border-amber-500'
+        }`}
+      >
+        {item.completed && <CheckCircle2 size={12} strokeWidth={3} />}
+      </button>
+
+      <input
+        type="text"
+        value={item.task}
+        onChange={(e) => onTaskChange(item.id, e.target.value)}
+        placeholder="Descreva a tarefa..."
+        className={`flex-grow bg-transparent border-none focus:ring-0 text-sm font-bold uppercase tracking-tight transition-all ${
+          item.completed ? 'text-slate-400 line-through' : 'text-slate-700'
+        }`}
+      />
+
+      <button
+        onClick={() => onRemove(item.id)}
+        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+};
+
 export default function RequestDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -141,6 +231,15 @@ export default function RequestDetailsPage() {
   // Completion Modal State
   const [isConcluirModalOpen, setIsConcluirModalOpen] = useState(false);
   const [conclusaoObs, setConclusaoObs] = useState('');
+
+  // Checklist States
+  const [newItemTask, setNewItemTask] = useState('');
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -320,6 +419,52 @@ export default function RequestDetailsPage() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Checklist Handlers
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (!request) return;
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const items = request.checklist || [];
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      setRequest({ ...request, checklist: arrayMove(items, oldIndex, newIndex) });
+    }
+  };
+
+  const handleAddChecklistItem = () => {
+    if (!newItemTask.trim() || !request) return;
+    const newItem: ChecklistItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      task: newItemTask,
+      completed: false
+    };
+    setRequest({ ...request, checklist: [...(request.checklist || []), newItem] });
+    setNewItemTask('');
+  };
+
+  const handleToggleChecklistItem = (id: string) => {
+    if (!request) return;
+    const updatedChecklist = (request.checklist || []).map(item => 
+      item.id === id ? { ...item, completed: !item.completed } : item
+    );
+    setRequest({ ...request, checklist: updatedChecklist });
+  };
+
+  const handleRemoveChecklistItem = (id: string) => {
+    if (!request) return;
+    const updatedChecklist = (request.checklist || []).filter(item => item.id !== id);
+    setRequest({ ...request, checklist: updatedChecklist });
+  };
+
+  const handleTaskChange = (id: string, task: string) => {
+    if (!request) return;
+    const updatedChecklist = (request.checklist || []).map(item => 
+      item.id === id ? { ...item, task } : item
+    );
+    setRequest({ ...request, checklist: updatedChecklist });
   };
 
   const removePhoto = (idx: number) => {
@@ -668,10 +813,97 @@ export default function RequestDetailsPage() {
                       Checklist de Manutenção
                     </h3>
                   </div>
-                  <Checklist 
-                    items={request.checklist || []} 
-                    onChange={(items) => setRequest({ ...request, checklist: items })} 
-                  />
+                  
+                  <div className="space-y-6">
+                    {/* Progress Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+                          <CheckCircle2 size={18} />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Progresso da Manutenção</h4>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                            {(request.checklist || []).filter(i => i.completed).length} de {(request.checklist || []).length} tarefas concluídas
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-black text-amber-600 font-mono">
+                          {Math.round(((request.checklist || []).length > 0 
+                            ? ((request.checklist || []).filter(i => i.completed).length / (request.checklist || []).length) * 100 
+                            : 0))}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(request.checklist || []).length > 0 
+                          ? ((request.checklist || []).filter(i => i.completed).length / (request.checklist || []).length) * 100 
+                          : 0}%` }}
+                        className="h-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
+                      />
+                    </div>
+
+                    {/* Add Item Input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newItemTask}
+                        onChange={(e) => setNewItemTask(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                        placeholder="Adicionar nova tarefa ao checklist..."
+                        className="flex-grow bg-slate-50 border-slate-200 rounded-xl text-sm font-bold uppercase tracking-tight focus:ring-amber-500 focus:border-amber-500"
+                      />
+                      <button
+                        onClick={handleAddChecklistItem}
+                        className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
+                      >
+                        <Plus size={20} />
+                      </button>
+                    </div>
+
+                    {/* Sortable List */}
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={(request.checklist || []).map(i => i.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          <AnimatePresence>
+                            {(request.checklist || []).map((item) => (
+                              <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                layout
+                              >
+                                <SortableItem
+                                  item={item}
+                                  onToggle={handleToggleChecklistItem}
+                                  onRemove={handleRemoveChecklistItem}
+                                  onTaskChange={handleTaskChange}
+                                />
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                          {(request.checklist || []).length === 0 && (
+                            <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                              <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Nenhuma tarefa no checklist</p>
+                            </div>
+                          )}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  </div>
                 </section>
               </>
             )}
