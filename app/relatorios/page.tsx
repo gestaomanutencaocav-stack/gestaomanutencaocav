@@ -92,6 +92,8 @@ const RED_COLOR = '#ef4444';
 
 export default function RelatoriosPage() {
   const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes'>('solicitacoes');
+  const [showAllRequests, setShowAllRequests] = useState(false);
+  const [showAllRecords, setShowAllRecords] = useState(false);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [records, setRecords] = useState<InspectionRecord[]>([]);
@@ -100,12 +102,14 @@ export default function RelatoriosPage() {
   // Maintenance Filters
   const [filterType, setFilterType] = useState('Todos');
   const [filterStatus, setFilterStatus] = useState('Todos');
+  const [filterUnit, setFilterUnit] = useState('Todos');
 
   // Inspection Filters
   const [inspPeriod, setInspPeriod] = useState('month');
   const [inspArea, setInspArea] = useState('Todos');
   const [inspPeriodicity, setInspPeriodicity] = useState('Todos');
   const [inspStatus, setInspStatus] = useState('Todos');
+  const [inspProfessional, setInspProfessional] = useState('Todos');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -137,9 +141,15 @@ export default function RelatoriosPage() {
     return requests.filter(req => {
       const typeMatch = filterType === 'Todos' || req.type === filterType;
       const statusMatch = filterStatus === 'Todos' || req.status === filterStatus;
-      return typeMatch && statusMatch;
+      const unitMatch = filterUnit === 'Todos' || req.unit === filterUnit;
+      return typeMatch && statusMatch && unitMatch;
     });
-  }, [requests, filterType, filterStatus]);
+  }, [requests, filterType, filterStatus, filterUnit]);
+
+  const units = useMemo(() => {
+    const u = Array.from(new Set(requests.map(r => r.unit))).filter(Boolean);
+    return ['Todos', ...u.sort()];
+  }, [requests]);
 
   const typeData = useMemo(() => {
     return Object.entries(
@@ -222,10 +232,17 @@ export default function RelatoriosPage() {
       const areaMatch = inspArea === 'Todos' || rec.area === inspArea;
       const statusMatch = inspStatus === 'Todos' || rec.executionStatus === inspStatus;
       const periodicityMatch = inspPeriodicity === 'Todos' || rec.periodicity === inspPeriodicity;
+      const profMatch = inspProfessional === 'Todos' || rec.professionals.includes(inspProfessional);
 
-      return dateMatch && areaMatch && statusMatch && periodicityMatch;
+      return dateMatch && areaMatch && statusMatch && periodicityMatch && profMatch;
     });
-  }, [enrichedRecords, inspPeriod, inspArea, inspPeriodicity, inspStatus, customStartDate, customEndDate]);
+  }, [enrichedRecords, inspPeriod, inspArea, inspPeriodicity, inspStatus, inspProfessional, customStartDate, customEndDate]);
+
+  const allProfessionals = useMemo(() => {
+    const profs = new Set<string>();
+    records.forEach(r => r.professionals.forEach(p => profs.add(p)));
+    return ['Todos', ...Array.from(profs).sort()];
+  }, [records]);
 
   // KPIs Calculations
   const inspKPIs = useMemo(() => {
@@ -398,30 +415,66 @@ export default function RelatoriosPage() {
   const exportToPDF = async () => {
     if (!reportRef.current) return;
     
-    const canvas = await html2canvas(reportRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false
-    });
+    // Temporarily show all records for export if they are hidden
+    const prevShowAllRequests = showAllRequests;
+    const prevShowAllRecords = showAllRecords;
     
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : 'Inspecoes'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    if (activeTab === 'solicitacoes') setShowAllRequests(true);
+    else setShowAllRecords(true);
+
+    // Wait for state update and re-render
+    setTimeout(async () => {
+      try {
+        const canvas = await html2canvas(reportRef.current!, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#f8fafc' // slate-50
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        // If the report is longer than one A4 page, we might need multiple pages
+        // But for simplicity in this dashboard view, we'll just scale it to fit or add pages
+        let heightLeft = pdfHeight;
+        let position = 0;
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+
+        pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : 'Inspecoes'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+      } finally {
+        // Restore previous state
+        setShowAllRequests(prevShowAllRequests);
+        setShowAllRecords(prevShowAllRecords);
+      }
+    }, 500);
   };
 
   const clearFilters = () => {
     if (activeTab === 'solicitacoes') {
       setFilterType('Todos');
       setFilterStatus('Todos');
+      setFilterUnit('Todos');
     } else {
       setInspPeriod('month');
       setInspArea('Todos');
       setInspPeriodicity('Todos');
       setInspStatus('Todos');
+      setInspProfessional('Todos');
       setCustomStartDate('');
       setCustomEndDate('');
     }
@@ -434,12 +487,12 @@ export default function RelatoriosPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black tracking-widest text-slate-900 dark:text-white uppercase">Relatórios do Sistema</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Análise detalhada de desempenho e exportação de dados.</p>
+            <p className="text-slate-700 dark:text-slate-400 font-medium">Análise detalhada de desempenho e exportação de dados.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button 
               onClick={exportToExcel}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
             >
               <FileSpreadsheet size={18} />
               <span className="text-sm">Excel</span>
@@ -461,7 +514,7 @@ export default function RelatoriosPage() {
             className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
               activeTab === 'solicitacoes' 
                 ? 'text-blue-600' 
-                : 'text-slate-500 hover:text-slate-700'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Solicitações
@@ -474,7 +527,7 @@ export default function RelatoriosPage() {
             className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
               activeTab === 'inspecoes' 
                 ? 'text-amber-600' 
-                : 'text-slate-500 hover:text-slate-700'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Rotinas de Inspeções
@@ -498,11 +551,11 @@ export default function RelatoriosPage() {
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
                     <Filter size={18} className="text-slate-400" />
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Filtros</span>
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Categoria</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Categoria</label>
                     <select 
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
@@ -519,7 +572,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Status</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Status</label>
                     <select 
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
@@ -534,9 +587,20 @@ export default function RelatoriosPage() {
                     </select>
                   </div>
 
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Unidade</label>
+                    <select 
+                      value={filterUnit}
+                      onChange={(e) => setFilterUnit(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {units.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-400 hover:text-slate-600 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
                   >
                     Limpar
                   </button>
@@ -565,7 +629,7 @@ export default function RelatoriosPage() {
                           <stat.icon size={24} />
                         </div>
                       </div>
-                      <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest">{stat.title}</p>
+                      <p className="text-slate-700 dark:text-slate-400 text-xs font-black uppercase tracking-widest">{stat.title}</p>
                       <p className="text-4xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
                     </motion.div>
                   ))}
@@ -623,11 +687,107 @@ export default function RelatoriosPage() {
                             verticalAlign="bottom" 
                             height={36} 
                             iconType="circle"
-                            formatter={(value) => <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                            formatter={(value) => <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TrendingUp size={20} className="text-blue-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Resumo de Análise</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
+                        Com base nos dados filtrados, observamos que a categoria <span className="font-black text-blue-600">
+                          {typeData.sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
+                        </span> é a que possui maior volume de solicitações, representando <span className="font-black">
+                          {filteredRequests.length > 0 ? Math.round((typeData.sort((a, b) => b.value - a.value)[0]?.value / filteredRequests.length) * 100) : 0}%
+                        </span> do total.
+                      </p>
+                      <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
+                        Atualmente, <span className="font-black text-amber-600">
+                          {filteredRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length}
+                        </span> solicitações estão aguardando resolução, o que requer atenção da equipe técnica para evitar atrasos no cronograma.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Maintenance Detailed Table */}
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Listagem Detalhada de Solicitações</h3>
+                      <span className="text-[10px] font-black text-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
+                        {filteredRequests.length} registros encontrados
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">ID / Data</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Descrição</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Unidade</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Tipo</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissional</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                          {filteredRequests.length > 0 ? (
+                            (showAllRequests ? filteredRequests : filteredRequests.slice(0, 10)).map((req) => (
+                              <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-black text-slate-900 dark:text-white">#{req.id.slice(-4)}</span>
+                                    <span className="text-[10px] font-bold text-slate-500">{format(parseISO(req.date), 'dd/MM/yyyy')}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{req.description}</p>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{req.unit}</td>
+                                <td className="px-6 py-4">
+                                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg uppercase tracking-widest">
+                                    {req.type}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                                    req.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' :
+                                    req.status === 'Atrasado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30' :
+                                    'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
+                                  }`}>
+                                    {req.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">
+                                  {req.professional || <span className="italic opacity-50">Não atribuído</span>}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-12 text-center text-slate-700 font-medium italic">
+                                Nenhuma solicitação encontrada para os filtros aplicados.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {filteredRequests.length > 10 && (
+                      <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-center">
+                        <button 
+                          onClick={() => setShowAllRequests(!showAllRequests)}
+                          className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer"
+                        >
+                          {showAllRequests ? 'Ver menos' : 'Ver todos os registros'} <ArrowRight size={14} className={showAllRequests ? 'rotate-180' : ''} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -643,11 +803,11 @@ export default function RelatoriosPage() {
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
                     <Filter size={18} className="text-slate-400" />
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Filtros</span>
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Período</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Período</label>
                     <select 
                       value={inspPeriod}
                       onChange={(e) => setInspPeriod(e.target.value)}
@@ -664,7 +824,7 @@ export default function RelatoriosPage() {
                   {inspPeriod === 'custom' && (
                     <>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Início</label>
+                        <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Início</label>
                         <input 
                           type="date"
                           value={customStartDate}
@@ -673,7 +833,7 @@ export default function RelatoriosPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Fim</label>
+                        <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Fim</label>
                         <input 
                           type="date"
                           value={customEndDate}
@@ -685,7 +845,7 @@ export default function RelatoriosPage() {
                   )}
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Área</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Área</label>
                     <select 
                       value={inspArea}
                       onChange={(e) => setInspArea(e.target.value)}
@@ -701,7 +861,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Periodicidade</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Periodicidade</label>
                     <select 
                       value={inspPeriodicity}
                       onChange={(e) => setInspPeriodicity(e.target.value)}
@@ -715,9 +875,20 @@ export default function RelatoriosPage() {
                     </select>
                   </div>
 
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Profissional</label>
+                    <select 
+                      value={inspProfessional}
+                      onChange={(e) => setInspProfessional(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      {allProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-400 hover:text-slate-600 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
                   >
                     Limpar
                   </button>
@@ -752,7 +923,7 @@ export default function RelatoriosPage() {
                         }`}>
                           <kpi.icon size={16} />
                         </div>
-                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-widest leading-tight">{kpi.title}</p>
                       </div>
                       <p className="text-2xl font-black text-slate-900 dark:text-white">{kpi.value}</p>
                     </motion.div>
@@ -815,7 +986,7 @@ export default function RelatoriosPage() {
                             verticalAlign="middle" 
                             align="right"
                             iconType="circle"
-                            formatter={(value) => <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                            formatter={(value) => <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -894,13 +1065,34 @@ export default function RelatoriosPage() {
                       </ResponsiveContainer>
                     </div>
                   </div>
+
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TrendingUp size={20} className="text-amber-600" />
+                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Análise de Desempenho Operacional</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
+                          A taxa de conformidade atual é de <span className="font-black text-emerald-600">{inspKPIs.complianceRate}%</span>. 
+                          A área de <span className="font-black text-red-600">{topProblemAreasData[0]?.name || 'N/A'}</span> apresenta o maior índice de problemas detectados, sugerindo a necessidade de uma revisão preventiva mais profunda ou substituição de componentes críticos.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
+                          O tempo médio de execução das inspeções é de <span className="font-black text-blue-600">{inspKPIs.avgTime} minutos</span>. 
+                          Manter este indicador sob controle é fundamental para garantir que todas as rotinas diárias sejam cumpridas sem sobrecarregar a equipe.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Detailed Inspection Table */}
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                   <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                     <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Histórico Detalhado de Execuções</h3>
-                    <span className="text-[10px] font-black text-slate-500 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
+                    <span className="text-[10px] font-black text-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
                       {filteredRecords.length} registros encontrados
                     </span>
                   </div>
@@ -908,25 +1100,25 @@ export default function RelatoriosPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Inspeção</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Área</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Profissional</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Tempo</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Inspeção</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Área</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissional</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Tempo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                         {filteredRecords.length > 0 ? (
-                          filteredRecords.slice(0, 10).map((rec) => (
+                          (showAllRecords ? filteredRecords : filteredRecords.slice(0, 10)).map((rec) => (
                             <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
                               <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{rec.inspectionName}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-tighter">{rec.area}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-tighter">{rec.area}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">
                                 {format(parseISO(rec.executionDate), 'dd/MM/yyyy')}
                               </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{rec.professionals.join(', ')}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{rec.professionals.join(', ')}</td>
                               <td className="px-6 py-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">{rec.problemsFound}</span>
@@ -943,12 +1135,12 @@ export default function RelatoriosPage() {
                                   {rec.executionStatus}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{rec.executionTime} min</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{rec.executionTime} min</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium italic">
+                            <td colSpan={7} className="px-6 py-12 text-center text-slate-700 font-medium italic">
                               Nenhum registro encontrado para os filtros aplicados.
                             </td>
                           </tr>
@@ -958,8 +1150,11 @@ export default function RelatoriosPage() {
                   </div>
                   {filteredRecords.length > 10 && (
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-center">
-                      <button className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer">
-                        Ver todos os registros <ArrowRight size={14} />
+                      <button 
+                        onClick={() => setShowAllRecords(!showAllRecords)}
+                        className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer"
+                      >
+                        {showAllRecords ? 'Ver menos' : 'Ver todos os registros'} <ArrowRight size={14} className={showAllRecords ? 'rotate-180' : ''} />
                       </button>
                     </div>
                   )}

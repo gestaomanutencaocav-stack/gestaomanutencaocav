@@ -40,12 +40,12 @@ interface MaintenanceRequest {
 
 const getTypeColor = (type: string) => {
   switch (type) {
-    case 'Hidráulico': return 'bg-blue-50 text-blue-600 border-blue-100';
-    case 'Elétrico': return 'bg-amber-50 text-amber-600 border-amber-100';
-    case 'Climatização': return 'bg-slate-50 text-slate-600 border-slate-100';
-    case 'Civil': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
-    case 'Marcenaria': return 'bg-orange-50 text-orange-600 border-orange-100';
-    default: return 'bg-slate-50 text-slate-500 border-slate-100';
+    case 'Hidráulico': return 'bg-blue-50 text-slate-900 border-blue-100';
+    case 'Elétrico': return 'bg-amber-50 text-slate-900 border-amber-100';
+    case 'Climatização': return 'bg-slate-50 text-slate-900 border-slate-100';
+    case 'Civil': return 'bg-emerald-50 text-slate-900 border-emerald-100';
+    case 'Marcenaria': return 'bg-orange-50 text-slate-900 border-orange-100';
+    default: return 'bg-slate-50 text-slate-900 border-slate-100';
   }
 };
 
@@ -166,8 +166,8 @@ export default function RequestsPage() {
         {/* Page Header */}
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
-            <h1 className="text-slate-900 text-3xl font-black leading-tight tracking-tight uppercase">Solicitações</h1>
-            <p className="text-slate-500 font-medium mt-1">Gerencie e acompanhe todas as tarefas de manutenção das instalações</p>
+            <h1 className="text-slate-900 text-3xl font-black leading-tight tracking-widest uppercase">Solicitações</h1>
+            <p className="text-slate-800 font-medium mt-1">Gerencie e acompanhe todas as tarefas de manutenção das instalações</p>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
@@ -194,32 +194,32 @@ export default function RequestsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</span>
+                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Data</span>
                 <input 
                   type="date" 
-                  className="bg-transparent border-none text-sm outline-none text-slate-600 font-mono"
+                  className="bg-transparent border-none text-sm outline-none text-slate-800 font-mono"
                   value={filterDate}
                   onChange={(e) => setFilterDate(e.target.value)}
                 />
               </div>
               <select 
-                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-500 outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500/50"
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
               >
-                <option value="" className="bg-white">Mês (Todos)</option>
+                <option value="" className="bg-white text-slate-700">Mês (Todos)</option>
                 {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-                  <option key={m} value={i + 1} className="bg-white">{m}</option>
+                  <option key={m} value={i + 1} className="bg-white text-slate-800">{m}</option>
                 ))}
               </select>
               <select 
-                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-500 outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500/50"
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}
               >
-                <option value="" className="bg-white">Ano (Todos)</option>
+                <option value="" className="bg-white text-slate-700">Ano (Todos)</option>
                 {[2023, 2024, 2025, 2026].map(y => (
-                  <option key={y} value={y} className="bg-white">{y}</option>
+                  <option key={y} value={y} className="bg-white text-slate-800">{y}</option>
                 ))}
               </select>
               <button 
@@ -229,7 +229,7 @@ export default function RequestsPage() {
                   setFilterMonth('');
                   setFilterYear('');
                 }}
-                className="px-3 py-2.5 text-slate-500 hover:text-amber-600 text-[10px] font-black uppercase tracking-widest transition-colors"
+                className="px-3 py-2.5 text-slate-700 hover:text-amber-600 text-[10px] font-black uppercase tracking-widest transition-colors"
               >
                 Limpar Filtros
               </button>
@@ -243,14 +243,14 @@ export default function RequestsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Descrição</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidade</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Profissional</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"></th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">ID</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest min-w-[200px]">Descrição</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Unidade</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Data</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Tipo</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Profissional</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -269,13 +269,13 @@ export default function RequestsPage() {
                         {req.id}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">
+                    <td className="px-6 py-4 text-sm font-bold text-slate-800">
                       <Link href={`/solicitacoes/${req.id}`} className="hover:text-amber-600 transition-colors">
                         {req.description}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-500 font-medium uppercase tracking-tight">{req.unit}</td>
-                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">{req.date}</td>
+                    <td className="px-6 py-4 text-xs text-slate-700 font-medium uppercase tracking-tight">{req.unit}</td>
+                    <td className="px-6 py-4 text-xs text-slate-700 font-mono">{req.date}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter border ${getTypeColor(req.type)}`}>
                         {req.type}
@@ -289,7 +289,7 @@ export default function RequestsPage() {
                           req.status === 'Autorizado' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
                           'bg-slate-300'
                         }`}></span>
-                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{req.status}</span>
+                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{req.status}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -310,17 +310,17 @@ export default function RequestsPage() {
                               </div>
                             ))}
                             {req.professionals.length > 3 && (
-                              <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-slate-200 text-[8px] font-black text-slate-600">
+                              <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-slate-200 text-[8px] font-black text-slate-900">
                                 +{req.professionals.length - 3}
                               </div>
                             )}
                           </div>
-                          <span className="text-xs text-slate-600 font-bold tracking-tight truncate max-w-[120px]">
+                          <span className="text-xs text-slate-800 font-bold tracking-tight truncate max-w-[120px]">
                             {req.professionals.join(', ')}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">Não atribuído</span>
+                        <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest italic">Não atribuído</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -370,8 +370,8 @@ export default function RequestsPage() {
 
           {/* Pagination */}
           <div className="px-6 py-4 bg-slate-50 flex items-center justify-between border-t border-slate-200">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Exibindo <span className="text-slate-900">1</span> a <span className="text-slate-900">{filteredRequests.length}</span> de <span className="text-slate-900">{filteredRequests.length}</span> solicitações
+            <div className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+              Exibindo <span className="text-slate-900 font-black">1</span> a <span className="text-slate-900 font-black">{filteredRequests.length}</span> de <span className="text-slate-900 font-black">{filteredRequests.length}</span> solicitações
             </div>
             <div className="flex items-center gap-2">
               <button className="p-2 border border-slate-200 rounded-lg bg-white text-slate-300 cursor-not-allowed">
@@ -413,12 +413,12 @@ export default function RequestsPage() {
                 authAction === 'Autorizado' ? 'bg-emerald-50' : 'bg-rose-50'
               }`}>
                 <div>
-                  <h3 className={`text-lg font-black tracking-tight uppercase ${
+                  <h3 className={`text-lg font-black tracking-widest uppercase ${
                     authAction === 'Autorizado' ? 'text-emerald-700' : 'text-rose-700'
                   }`}>
                     {authAction === 'Autorizado' ? 'Autorizar Ordem de Serviço' : 'Negar Ordem de Serviço'}
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Autenticação do Servidor Responsável</p>
+                  <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Autenticação do Servidor Responsável</p>
                 </div>
                 <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
                   <X size={20} />
@@ -428,20 +428,20 @@ export default function RequestsPage() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nome do Agente</label>
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-2">Nome do Agente</label>
                     <input 
                       type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400"
                       placeholder="Seu nome completo"
                       value={authName}
                       onChange={(e) => setAuthName(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cargo / Função</label>
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-2">Cargo / Função</label>
                     <input 
                       type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400"
                       placeholder="Ex: Gestor de Manutenção"
                       value={authPosition}
                       onChange={(e) => setAuthPosition(e.target.value)}
@@ -450,16 +450,16 @@ export default function RequestsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nível de Urgência</label>
+                  <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-2">Nível de Urgência</label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {['Baixa', 'Média', 'Alta', 'Emergencial'].map((u) => (
                       <button
                         key={u}
                         onClick={() => setAuthUrgency(u as any)}
-                        className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all ${
                           authUrgency === u 
-                            ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20' 
-                            : 'bg-white text-slate-400 border-slate-200 hover:border-amber-200'
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20 font-black' 
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-amber-200'
                         }`}
                       >
                         {u}
@@ -469,9 +469,9 @@ export default function RequestsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Justificativa (Opcional)</label>
+                  <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-2">Justificativa (Opcional)</label>
                   <textarea 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all min-h-[100px]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all min-h-[100px] placeholder:text-slate-400"
                     placeholder="Descreva o motivo da decisão ou observações técnicas..."
                     value={authJustification}
                     onChange={(e) => setAuthJustification(e.target.value)}
@@ -481,7 +481,7 @@ export default function RequestsPage() {
                 <div className="pt-4 flex gap-3">
                   <button 
                     onClick={() => setIsAuthModalOpen(false)}
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
                   >
                     Cancelar
                   </button>

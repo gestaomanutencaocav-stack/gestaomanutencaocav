@@ -226,10 +226,10 @@ export default function Dashboard() {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-widest">
               Bem-vindo, {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
             </h2>
-            <p className="text-slate-500 font-medium">Aqui está o resumo das atividades de hoje.</p>
+            <p className="text-slate-700 font-bold">Aqui está o resumo das atividades de hoje.</p>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
@@ -237,7 +237,7 @@ export default function Dashboard() {
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${syncMessage.startsWith('Erro') ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${syncMessage.startsWith('Erro') ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}
               >
                 {syncMessage}
               </motion.div>
@@ -245,22 +245,22 @@ export default function Dashboard() {
             <button 
               onClick={handleSync}
               disabled={isSyncing}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-600'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-700'}`}
             >
               <FileSpreadsheet className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Sincronizando...' : 'Sincronizar Forms'}
             </button>
             <div className="flex items-center gap-2 px-2 border-r border-slate-100">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</span>
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</span>
               <input 
                 type="date" 
-                className="bg-transparent border-none text-xs outline-none text-slate-600 w-28 font-mono"
+                className="bg-transparent border-none text-xs outline-none text-slate-700 w-28 font-mono"
                 value={filterDate}
                 onChange={(e) => setFilterDate(e.target.value)}
               />
             </div>
             <select 
-              className="bg-transparent text-xs font-bold text-slate-500 outline-none cursor-pointer hover:text-amber-600 transition-colors"
+              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer hover:text-amber-700 transition-colors"
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
             >
@@ -270,7 +270,7 @@ export default function Dashboard() {
               ))}
             </select>
             <select 
-              className="bg-transparent text-xs font-bold text-slate-500 outline-none cursor-pointer hover:text-amber-600 transition-colors"
+              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer hover:text-amber-700 transition-colors"
               value={filterYear}
               onChange={(e) => setFilterYear(e.target.value)}
             >
@@ -282,7 +282,7 @@ export default function Dashboard() {
             {(filterDate || filterMonth || filterYear) && (
               <button 
                 onClick={() => { setFilterDate(''); setFilterMonth(''); setFilterYear(''); }}
-                className="text-[10px] font-black text-amber-500 hover:text-amber-400 uppercase ml-2 tracking-widest"
+                className="text-[10px] font-black text-amber-700 hover:text-amber-600 uppercase ml-2 tracking-widest"
               >
                 Limpar
               </button>
@@ -308,13 +308,13 @@ export default function Dashboard() {
                   <stat.icon size={20} />
                 </div>
                 <span className={`text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 uppercase tracking-tighter ${
-                  stat.trend === 'up' ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'
+                  stat.trend === 'up' ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
                 }`}>
                   {stat.trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                   {stat.change}
                 </span>
               </div>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{stat.title}</p>
+              <p className="text-slate-700 text-xs font-black uppercase tracking-widest">{stat.title}</p>
               <p className="text-3xl font-black mt-1 text-slate-900 font-mono tracking-tighter">{stat.value}</p>
             </motion.div>
           ))}
@@ -327,12 +327,12 @@ export default function Dashboard() {
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Status de Manutenção por Categoria</h3>
-                  <p className="text-sm text-slate-500 font-medium">Volume de ordens de serviço por especialidade</p>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Status de Manutenção por Categoria</h3>
+                  <p className="text-sm text-slate-700 font-bold">Volume de ordens de serviço por especialidade</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20">Semana</button>
-                  <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-500 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">Mês</button>
+                  <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">Mês</button>
                 </div>
               </div>
               
@@ -349,7 +349,7 @@ export default function Dashboard() {
                         {cat.value} ordens
                       </div>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase text-center leading-tight h-8 flex items-center tracking-tighter">
+                    <span className="text-[10px] font-black text-slate-700 uppercase text-center leading-tight h-8 flex items-center tracking-tighter">
                       {cat.name}
                     </span>
                   </div>
@@ -363,11 +363,11 @@ export default function Dashboard() {
               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                       <LineChartIcon className="text-amber-600" size={20} />
                       Consumo Mensal: Estoque
                     </h3>
-                    <p className="text-sm text-slate-500 font-medium">Consumo em R$ de materiais em estoque</p>
+                    <p className="text-sm text-slate-700 font-bold">Consumo em R$ de materiais em estoque</p>
                   </div>
                 </div>
 
@@ -423,11 +423,11 @@ export default function Dashboard() {
               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                       <LineChartIcon className="text-slate-900" size={20} />
                       Consumo Mensal: Finalísticos
                     </h3>
-                    <p className="text-sm text-slate-500 font-medium">Consumo em R$ de materiais finalísticos</p>
+                    <p className="text-sm text-slate-700 font-bold">Consumo em R$ de materiais finalísticos</p>
                   </div>
                 </div>
 
@@ -486,12 +486,12 @@ export default function Dashboard() {
                 <div className="absolute top-0 right-0 p-4 text-amber-500/10 group-hover:text-amber-500/20 transition-colors">
                   <AlertTriangle size={48} />
                 </div>
-                <h4 className="font-black text-lg mb-2 uppercase tracking-tight text-slate-900">Alertas de Estoque</h4>
+                <h4 className="font-black text-lg mb-2 uppercase tracking-widest text-slate-900">Alertas de Estoque</h4>
                 <div className="flex items-center gap-3 mt-4">
                   <AlertTriangle className="text-amber-600" size={24} />
-                  <p className="text-sm font-medium text-slate-600">4 Peças críticas atingiram o nível mínimo de segurança.</p>
+                  <p className="text-sm font-bold text-slate-800">4 Peças críticas atingiram o nível mínimo de segurança.</p>
                 </div>
-                <button className="mt-4 text-[10px] font-black text-amber-600 hover:text-amber-700 uppercase tracking-widest underline underline-offset-4 transition-colors">
+                <button className="mt-4 text-[10px] font-black text-amber-700 hover:text-amber-600 uppercase tracking-widest underline underline-offset-4 transition-colors">
                   Solicitar Insumos Agora
                 </button>
               </div>
@@ -501,14 +501,14 @@ export default function Dashboard() {
           {/* Activity Feed */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Atividade Recente</h3>
-              <Link href="/solicitacoes" className="text-amber-600 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Tudo</Link>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Atividade Recente</h3>
+              <Link href="/solicitacoes" className="text-amber-700 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Tudo</Link>
             </div>
             
             <div className="space-y-6">
               {dynamicActivities.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-slate-400 text-xs font-medium italic">Nenhuma atividade recente registrada.</p>
+                  <p className="text-slate-700 text-xs font-medium italic">Nenhuma atividade recente registrada.</p>
                 </div>
               ) : dynamicActivities.map((activity, index) => (
                 <div key={index} className="flex gap-4 relative">
@@ -525,9 +525,9 @@ export default function Dashboard() {
                     <activity.icon size={12} className="text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-slate-900 tracking-tight">{activity.title}</p>
-                    <p className="text-xs text-slate-500 mt-1 font-medium">{activity.description}</p>
-                    <p className="text-[10px] text-slate-400 mt-2 uppercase font-black font-mono tracking-widest">{activity.time}</p>
+                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{activity.title}</p>
+                    <p className="text-xs text-slate-700 mt-1 font-bold">{activity.description}</p>
+                    <p className="text-[10px] text-slate-700 mt-2 uppercase font-black font-mono tracking-widest">{activity.time}</p>
                   </div>
                 </div>
               ))}
@@ -535,10 +535,10 @@ export default function Dashboard() {
 
             <div className="mt-8 p-4 bg-amber-500/5 rounded-lg border border-amber-500/10">
               <div className="flex items-center gap-3 mb-2">
-                <Info className="text-amber-500" size={18} />
-                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Dica de Manutenção</h4>
+                <Info className="text-amber-700" size={18} />
+                <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Dica de Manutenção</h4>
               </div>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              <p className="text-xs text-slate-700 font-bold leading-relaxed">
                 Agende inspeções de HVAC 2 semanas antes do pico do verão para reduzir chamados de emergência em até 30%.
               </p>
             </div>

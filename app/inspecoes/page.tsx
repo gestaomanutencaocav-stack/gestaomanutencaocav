@@ -214,8 +214,8 @@ export default function InspecoesPage() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Rotinas de Inspeções</h1>
-            <p className="text-slate-500 font-medium mt-1">Gestão de vistorias preventivas e checklists de infraestrutura</p>
+            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-widest">Rotinas de Inspeções</h1>
+            <p className="text-slate-800 font-bold mt-1 uppercase tracking-tight">Gestão de vistorias preventivas e checklists de infraestrutura</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -223,7 +223,7 @@ export default function InspecoesPage() {
               <button 
                 onClick={() => setActiveTab('dashboard')}
                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                  activeTab === 'dashboard' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                  activeTab === 'dashboard' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-700 hover:text-slate-900'
                 }`}
               >
                 <Zap size={14} />
@@ -232,7 +232,7 @@ export default function InspecoesPage() {
               <button 
                 onClick={() => setActiveTab('lista')}
                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                  activeTab === 'lista' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                  activeTab === 'lista' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-700 hover:text-slate-900'
                 }`}
               >
                 <List size={14} />
@@ -241,7 +241,7 @@ export default function InspecoesPage() {
               <button 
                 onClick={() => setActiveTab('calendario')}
                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                  activeTab === 'calendario' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                  activeTab === 'calendario' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-700 hover:text-slate-900'
                 }`}
               >
                 <CalendarIcon size={14} />
@@ -276,7 +276,7 @@ export default function InspecoesPage() {
                   </div>
                   <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase tracking-tighter">Ativas</span>
                 </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Total de Inspeções</p>
+                <p className="text-slate-800 text-[10px] font-black uppercase tracking-widest">Total de Inspeções</p>
                 <p className="text-3xl font-black text-slate-900 font-mono tracking-tighter mt-1">{stats.active}</p>
               </div>
               
@@ -285,9 +285,9 @@ export default function InspecoesPage() {
                   <div className="size-10 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
                     <CheckCircle2 size={20} />
                   </div>
-                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase tracking-tighter">Este Mês</span>
+                  <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full uppercase tracking-tighter">Este Mês</span>
                 </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Realizadas</p>
+                <p className="text-slate-800 text-[10px] font-black uppercase tracking-widest">Realizadas</p>
                 <p className="text-3xl font-black text-slate-900 font-mono tracking-tighter mt-1">{stats.monthRecords}</p>
               </div>
 
@@ -296,9 +296,9 @@ export default function InspecoesPage() {
                   <div className="size-10 rounded-lg bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
                     <Clock size={20} />
                   </div>
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-tighter">Hoje</span>
+                  <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-tighter">Hoje</span>
                 </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Pendentes</p>
+                <p className="text-slate-800 text-[10px] font-black uppercase tracking-widest">Pendentes</p>
                 <p className="text-3xl font-black text-slate-900 font-mono tracking-tighter mt-1">{stats.pendingToday}</p>
               </div>
 
@@ -307,10 +307,10 @@ export default function InspecoesPage() {
                   <div className="size-10 rounded-lg bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20">
                     <AlertTriangle size={20} />
                   </div>
-                  <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-full uppercase tracking-tighter animate-pulse">Atenção</span>
+                  <span className="text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-1 rounded-full uppercase tracking-tighter animate-pulse">Atenção</span>
                 </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Atrasadas</p>
-                <p className="text-3xl font-black text-rose-600 font-mono tracking-tighter mt-1">{stats.delayed}</p>
+                <p className="text-slate-800 text-[10px] font-black uppercase tracking-widest">Atrasadas</p>
+                <p className="text-3xl font-black text-rose-700 font-mono tracking-tighter mt-1">{stats.delayed}</p>
               </div>
             </div>
 
@@ -318,38 +318,38 @@ export default function InspecoesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-amber-50 p-6 rounded-xl border border-amber-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                  <Zap className="text-amber-500" size={24} />
-                  <h3 className="text-xs font-black text-amber-700 uppercase tracking-widest">Elétrica</h3>
+                  <Zap className="text-amber-600" size={24} />
+                  <h3 className="text-xs font-black text-amber-800 uppercase tracking-widest">Elétrica</h3>
                 </div>
                 <p className="text-2xl font-black text-amber-900 font-mono">{areaStats.eletrica}</p>
-                <p className="text-[10px] font-bold text-amber-600 uppercase mt-1">Rotinas Ativas</p>
+                <p className="text-[10px] font-bold text-amber-700 uppercase mt-1">Rotinas Ativas</p>
               </div>
 
               <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                  <Droplets className="text-blue-500" size={24} />
-                  <h3 className="text-xs font-black text-blue-700 uppercase tracking-widest">Hidráulica</h3>
+                  <Droplets className="text-blue-600" size={24} />
+                  <h3 className="text-xs font-black text-blue-800 uppercase tracking-widest">Hidráulica</h3>
                 </div>
                 <p className="text-2xl font-black text-blue-900 font-mono">{areaStats.hidraulica}</p>
-                <p className="text-[10px] font-bold text-blue-600 uppercase mt-1">Rotinas Ativas</p>
+                <p className="text-[10px] font-bold text-blue-700 uppercase mt-1">Rotinas Ativas</p>
               </div>
 
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                  <Hammer className="text-slate-500" size={24} />
-                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">Civil</h3>
+                  <Hammer className="text-slate-700" size={24} />
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Civil</h3>
                 </div>
                 <p className="text-2xl font-black text-slate-900 font-mono">{areaStats.civil}</p>
-                <p className="text-[10px] font-bold text-slate-600 uppercase mt-1">Rotinas Ativas</p>
+                <p className="text-[10px] font-bold text-slate-700 uppercase mt-1">Rotinas Ativas</p>
               </div>
 
               <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                  <Wind className="text-emerald-500" size={24} />
-                  <h3 className="text-xs font-black text-emerald-700 uppercase tracking-widest">Climatização</h3>
+                  <Wind className="text-emerald-600" size={24} />
+                  <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest">Climatização</h3>
                 </div>
                 <p className="text-2xl font-black text-emerald-900 font-mono">{areaStats.climatizacao}</p>
-                <p className="text-[10px] font-bold text-emerald-600 uppercase mt-1">Rotinas Ativas</p>
+                <p className="text-[10px] font-bold text-emerald-700 uppercase mt-1">Rotinas Ativas</p>
               </div>
             </div>
 
@@ -373,8 +373,8 @@ export default function InspecoesPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{inspection?.name || 'Inspeção Deletada'}</p>
-                          <p className="text-[10px] text-slate-500 font-medium mt-1">
-                            Realizada por <span className="font-bold text-slate-700">{record.professionals.join(', ')}</span> em {format(parseISO(record.executionDate), 'dd/MM/yyyy')}
+                          <p className="text-[10px] text-slate-800 font-bold mt-1">
+                            Realizada por <span className="font-black text-slate-900">{record.professionals.join(', ')}</span> em {format(parseISO(record.executionDate), 'dd/MM/yyyy')}
                           </p>
                         </div>
                         <div className="text-right">
@@ -402,9 +402,9 @@ export default function InspecoesPage() {
                     return isBefore(parseISO(i.nextDate), startOfDay(new Date()));
                   }).slice(0, 4).map((i) => (
                     <div key={i.id} className="p-3 bg-white rounded-lg border border-rose-200 shadow-sm">
-                      <p className="text-[10px] font-black text-rose-900 uppercase tracking-tight">{i.name}</p>
+                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{i.name}</p>
                       <div className="flex justify-between items-center mt-2">
-                        <span className="text-[9px] font-bold text-rose-500 uppercase">Vencido em {format(parseISO(i.nextDate), 'dd/MM')}</span>
+                        <span className="text-[9px] font-bold text-slate-700 uppercase">Vencido em {format(parseISO(i.nextDate), 'dd/MM')}</span>
                         <button 
                           onClick={() => { setSelectedInspection(i); setShowExecutionModal(true); }}
                           className="text-[8px] font-black bg-rose-500 text-white px-2 py-1 rounded uppercase tracking-widest hover:bg-rose-600 transition-colors"
@@ -429,7 +429,7 @@ export default function InspecoesPage() {
                 <input 
                   type="text" 
                   placeholder="Buscar inspeções..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400 text-slate-800"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -446,12 +446,12 @@ export default function InspecoesPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50">
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Nome da Inspeção</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Área</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Periodicidade</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Próxima Data</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Ações</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100">Nome da Inspeção</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100">Área</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100">Periodicidade</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100">Próxima Data</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -472,20 +472,20 @@ export default function InspecoesPage() {
                             </div>
                             <div>
                               <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{i.name}</p>
-                              <p className="text-[9px] text-slate-400 font-medium mt-0.5 truncate max-w-[200px]">{i.description}</p>
+                              <p className="text-[9px] text-slate-700 font-bold mt-0.5 truncate max-w-[200px]">{i.description}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{i.area}</span>
+                          <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">{i.area}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{i.periodicity}</span>
+                          <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">{i.periodicity}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <CalendarIcon size={12} className={isDelayed ? 'text-rose-500' : 'text-slate-400'} />
-                            <span className={`text-[10px] font-black font-mono tracking-tighter ${isDelayed ? 'text-rose-600' : 'text-slate-600'}`}>
+                            <span className={`text-[10px] font-black font-mono tracking-tighter ${isDelayed ? 'text-rose-600' : 'text-slate-700'}`}>
                               {i.nextDate ? format(parseISO(i.nextDate), 'dd/MM/yyyy') : '--/--/----'}
                             </span>
                             {isDelayed && <span className="size-2 rounded-full bg-rose-500 animate-pulse" />}
@@ -493,7 +493,7 @@ export default function InspecoesPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-tighter ${
-                            i.status === 'ativa' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                            i.status === 'ativa' ? 'bg-emerald-100 text-slate-900' : 'bg-slate-100 text-slate-900'
                           }`}>
                             {i.status}
                           </span>
@@ -546,7 +546,7 @@ export default function InspecoesPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest">
                   {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
                 </h2>
                 <div className="flex gap-2">
@@ -573,7 +573,7 @@ export default function InspecoesPage() {
 
               <div className="grid grid-cols-7 border-b border-slate-100">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                  <div key={day} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <div key={day} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-700">
                     {day}
                   </div>
                 ))}
@@ -595,7 +595,7 @@ export default function InspecoesPage() {
                       <div className="flex justify-between items-start mb-1">
                         <span className={`text-[10px] font-black font-mono ${
                           isToday ? 'bg-amber-500 text-white size-5 flex items-center justify-center rounded shadow-lg shadow-amber-500/20' : 
-                          isCurrentMonth ? 'text-slate-600' : 'text-slate-300'
+                          isCurrentMonth ? 'text-slate-900' : 'text-slate-700'
                         }`}>
                           {format(day, 'd')}
                         </span>
@@ -606,7 +606,7 @@ export default function InspecoesPage() {
                           return (
                             <div 
                               key={rec.id}
-                              className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded border bg-emerald-50 text-emerald-600 border-emerald-100 truncate"
+                              className="px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded border bg-emerald-500 text-white border-emerald-600 truncate"
                             >
                               ✓ {insp?.name || 'Inspeção'}
                             </div>
@@ -620,7 +620,7 @@ export default function InspecoesPage() {
                             <div 
                               key={insp.id}
                               className={`px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded border truncate ${
-                                isDelayed ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                isDelayed ? 'bg-rose-500 text-white border-rose-600' : 'bg-amber-500 text-white border-amber-600'
                               }`}
                             >
                               ! {insp.name}
@@ -643,22 +643,22 @@ export default function InspecoesPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="size-3 rounded bg-emerald-500" />
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Realizada</span>
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Realizada</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="size-3 rounded bg-amber-500" />
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Pendente</span>
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Pendente</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="size-3 rounded bg-rose-500" />
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Atrasada</span>
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Atrasada</span>
                   </div>
                 </div>
               </div>
 
               <div className="bg-amber-500 p-6 rounded-xl text-white shadow-lg shadow-amber-500/20">
-                <h3 className="font-black text-xs uppercase tracking-widest mb-2">Dica Pro</h3>
-                <p className="text-xs font-bold leading-relaxed opacity-90">
+                <h3 className="font-black text-xs uppercase tracking-widest mb-2 text-white">Dica Pro</h3>
+                <p className="text-xs font-black leading-relaxed opacity-100 text-white">
                   Clique em uma inspeção atrasada no calendário para registrar sua execução imediatamente.
                 </p>
               </div>
@@ -685,7 +685,7 @@ export default function InspecoesPage() {
               className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">
                   {selectedInspection ? 'Editar Inspeção' : 'Nova Rotina de Inspeção'}
                 </h3>
                 <button onClick={() => setShowInspectionModal(false)} className="p-2 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-slate-900">
@@ -696,69 +696,69 @@ export default function InspecoesPage() {
               <form onSubmit={handleCreateInspection} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome da Inspeção</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nome da Inspeção</label>
                     <input 
                       name="name"
                       required
                       defaultValue={selectedInspection?.name}
                       placeholder="Ex: Inspeção Elétrica Bloco A"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400 text-slate-800"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Área de Infraestrutura</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Área de Infraestrutura</label>
                     <select 
                       name="area"
                       required
                       defaultValue={selectedInspection?.area}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all appearance-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all appearance-none text-slate-800"
                     >
                       {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Periodicidade</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Periodicidade</label>
                     <select 
                       name="periodicity"
                       required
                       defaultValue={selectedInspection?.periodicity}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all appearance-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all appearance-none text-slate-800"
                     >
                       {PERIODICITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Próxima Data Prevista</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Próxima Data Prevista</label>
                     <input 
                       name="nextDate"
                       type="date"
                       required
                       defaultValue={selectedInspection?.nextDate}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-mono text-slate-800"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalhamento do Serviço</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Detalhamento do Serviço</label>
                   <textarea 
                     name="description"
                     rows={4}
                     defaultValue={selectedInspection?.description}
                     placeholder="Descreva os itens a serem verificados..."
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none placeholder:text-slate-400 text-slate-800"
                   />
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Profissionais Designados</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissionais Designados</label>
                   <div className="flex gap-2">
                     <input 
                       type="text"
                       value={newProfessional}
                       onChange={(e) => setNewProfessional(e.target.value)}
                       placeholder="Nome do profissional"
-                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400 text-slate-800"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -784,15 +784,15 @@ export default function InspecoesPage() {
                   </div>
                   <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                     {selectedProfessionals.length === 0 && (
-                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest p-1">Nenhum profissional adicionado</span>
+                      <span className="text-[10px] text-slate-700 font-bold uppercase tracking-widest p-1">Nenhum profissional adicionado</span>
                     )}
                     {selectedProfessionals.map((p, idx) => (
-                      <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200">
+                      <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-600">
                         {p}
                         <button 
                           type="button"
                           onClick={() => setSelectedProfessionals(selectedProfessionals.filter((_, i) => i !== idx))}
-                          className="hover:text-rose-600 transition-colors"
+                          className="hover:text-rose-200 transition-colors"
                         >
                           <X size={12} />
                         </button>
@@ -802,7 +802,7 @@ export default function InspecoesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Inicial</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Status Inicial</label>
                   <div className="flex gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" name="status" value="ativa" defaultChecked={!selectedInspection || selectedInspection.status === 'ativa'} className="text-amber-600 focus:ring-amber-500" />
@@ -819,7 +819,7 @@ export default function InspecoesPage() {
                   <button 
                     type="button"
                     onClick={() => setShowInspectionModal(false)}
-                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
                   >
                     Cancelar
                   </button>
@@ -855,56 +855,56 @@ export default function InspecoesPage() {
             >
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-emerald-500 text-white">
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Registrar Execução</h3>
-                  <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{selectedInspection.name}</p>
+                  <h3 className="text-lg font-black uppercase tracking-widest text-white">Registrar Execução</h3>
+                  <p className="text-[10px] font-black opacity-100 uppercase tracking-widest text-white">{selectedInspection.name}</p>
                 </div>
                 <button onClick={() => setShowExecutionModal(false)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white">
                   <X size={20} />
                 </button>
               </div>
               
-              <form onSubmit={handleRecordExecution} className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              <form onSubmit={handleRecordExecution} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data de Realização</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data de Realização</label>
                     <input 
                       name="executionDate"
                       type="date"
                       required
                       defaultValue={format(new Date(), 'yyyy-MM-dd')}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono text-slate-800"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hora de Início</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Hora de Início</label>
                     <input 
                       name="startTime"
                       type="time"
                       required
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono text-slate-800"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hora de Término</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Hora de Término</label>
                     <input 
                       name="endTime"
                       type="time"
                       required
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono text-slate-800"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Profissionais Responsáveis</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissionais Responsáveis</label>
                     <div className="flex gap-2">
                       <input 
                         type="text"
                         value={newProfessional}
                         onChange={(e) => setNewProfessional(e.target.value)}
                         placeholder="Nome do profissional"
-                        className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400 text-slate-800"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -930,15 +930,15 @@ export default function InspecoesPage() {
                     </div>
                     <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                       {executionProfessionals.length === 0 && (
-                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest p-1">Nenhum profissional adicionado</span>
+                        <span className="text-[10px] text-slate-700 font-bold uppercase tracking-widest p-1">Nenhum profissional adicionado</span>
                       )}
                       {executionProfessionals.map((p, idx) => (
-                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200">
+                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-600">
                           {p}
                           <button 
                             type="button"
                             onClick={() => setExecutionProfessionals(executionProfessionals.filter((_, i) => i !== idx))}
-                            className="hover:text-rose-600 transition-colors"
+                            className="hover:text-emerald-200 transition-colors"
                           >
                             <X size={12} />
                           </button>
@@ -947,11 +947,11 @@ export default function InspecoesPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status da Execução</label>
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Status da Execução</label>
                     <select 
                       name="executionStatus"
                       required
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none text-slate-800"
                     >
                       <option value="Realizada">Realizada</option>
                       <option value="Parcial">Parcial</option>
@@ -962,7 +962,7 @@ export default function InspecoesPage() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                       <AlertTriangle size={14} className="text-amber-500" />
                       Problemas Encontrados
                     </label>
@@ -970,11 +970,11 @@ export default function InspecoesPage() {
                       name="problemsFound"
                       rows={2}
                       placeholder="Descreva eventuais falhas detectadas..."
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none placeholder:text-slate-400 text-slate-800"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                       <CheckCircle2 size={14} className="text-emerald-500" />
                       Problemas Resolvidos no Ato
                     </label>
@@ -982,11 +982,11 @@ export default function InspecoesPage() {
                       name="problemsResolved"
                       rows={2}
                       placeholder="O que foi corrigido durante a inspeção?"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none placeholder:text-slate-400 text-slate-800"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                       <Clock size={14} className="text-rose-500" />
                       Problemas Pendentes (Gerar OS)
                     </label>
@@ -994,13 +994,13 @@ export default function InspecoesPage() {
                       name="problemsPending"
                       rows={2}
                       placeholder="Itens que necessitam de intervenção posterior..."
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none placeholder:text-slate-400 text-slate-800"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                     <Camera size={14} />
                     Evidências Fotográficas
                   </label>
@@ -1008,8 +1008,8 @@ export default function InspecoesPage() {
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Camera className="w-8 h-8 mb-3 text-slate-400" />
-                        <p className="mb-2 text-xs text-slate-500 font-bold uppercase tracking-widest">Clique para anexar fotos</p>
-                        <p className="text-[10px] text-slate-400 uppercase font-mono">PNG, JPG ou GIF (MAX. 5MB)</p>
+                        <p className="mb-2 text-xs text-slate-700 font-bold uppercase tracking-widest">Clique para anexar fotos</p>
+                        <p className="text-[10px] text-slate-700 uppercase font-mono">PNG, JPG ou GIF (MAX. 5MB)</p>
                       </div>
                       <input type="file" className="hidden" multiple accept="image/*" />
                     </label>
@@ -1017,11 +1017,11 @@ export default function InspecoesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observações Gerais</label>
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Observações Gerais</label>
                   <textarea 
                     name="observations"
                     rows={3}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none text-slate-800"
                   />
                 </div>
 
@@ -1029,7 +1029,7 @@ export default function InspecoesPage() {
                   <button 
                     type="button"
                     onClick={() => setShowExecutionModal(false)}
-                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
                   >
                     Cancelar
                   </button>
@@ -1065,8 +1065,8 @@ export default function InspecoesPage() {
             >
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white">
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-tight">Histórico de Execuções</h3>
-                  <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">{selectedInspection.name}</p>
+                  <h3 className="text-lg font-black uppercase tracking-widest text-white">Histórico de Execuções</h3>
+                  <p className="text-[10px] font-black opacity-100 uppercase tracking-widest text-white">{selectedInspection.name}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white">
@@ -1083,7 +1083,7 @@ export default function InspecoesPage() {
                   {records.filter(r => r.inspectionId === selectedInspection.id).length === 0 ? (
                     <div className="py-12 text-center">
                       <History className="mx-auto text-slate-200 mb-4" size={48} />
-                      <p className="text-slate-400 text-xs font-medium italic">Nenhuma execução registrada para esta rotina.</p>
+                      <p className="text-slate-700 text-xs font-medium italic">Nenhuma execução registrada para esta rotina.</p>
                     </div>
                   ) : (
                     records.filter(r => r.inspectionId === selectedInspection.id).map((record, idx) => (
@@ -1096,44 +1096,44 @@ export default function InspecoesPage() {
                         </div>
                         <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-100 group-hover:border-slate-200 transition-all">
                           <div className="flex justify-between items-start mb-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest font-mono">
                               {format(parseISO(record.executionDate), 'dd/MM/yyyy')} • {record.startTime} - {record.endTime}
                             </span>
                             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
-                              record.executionStatus === 'Realizada' ? 'bg-emerald-100 text-emerald-700' : 
-                              record.executionStatus === 'Parcial' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                              record.executionStatus === 'Realizada' ? 'bg-emerald-500 text-white font-black' : 
+                              record.executionStatus === 'Parcial' ? 'bg-amber-500 text-white font-black' : 'bg-rose-500 text-white font-black'
                             }`}>
                               {record.executionStatus}
                             </span>
                           </div>
-                          <p className="text-xs font-bold text-slate-900 mb-3">Realizada por {record.professionals.join(', ')}</p>
+                          <p className="text-xs font-black text-slate-900 mb-3 uppercase tracking-widest">Realizada por {record.professionals.join(', ')}</p>
                           
                           {(record.problemsFound || record.problemsResolved || record.problemsPending) && (
                             <div className="space-y-2 pt-3 border-t border-slate-200">
                               {record.problemsFound && (
                                 <div className="flex gap-2">
                                   <AlertTriangle size={12} className="text-amber-500 mt-0.5 flex-shrink-0" />
-                                  <p className="text-[10px] text-slate-600 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Problemas:</span> {record.problemsFound}</p>
+                                  <p className="text-[10px] text-slate-700 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Problemas:</span> {record.problemsFound}</p>
                                 </div>
                               )}
                               {record.problemsResolved && (
                                 <div className="flex gap-2">
                                   <CheckCircle2 size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
-                                  <p className="text-[10px] text-slate-600 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Resolvido:</span> {record.problemsResolved}</p>
+                                  <p className="text-[10px] text-slate-700 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Resolvido:</span> {record.problemsResolved}</p>
                                 </div>
                               )}
                               {record.problemsPending && (
                                 <div className="flex gap-2">
                                   <Clock size={12} className="text-rose-500 mt-0.5 flex-shrink-0" />
-                                  <p className="text-[10px] text-slate-600 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Pendente:</span> {record.problemsPending}</p>
+                                  <p className="text-[10px] text-slate-700 leading-relaxed"><span className="font-black uppercase tracking-tighter text-slate-900">Pendente:</span> {record.problemsPending}</p>
                                 </div>
                               )}
                             </div>
                           )}
                           
                           {record.observations && (
-                            <p className="mt-3 text-[10px] italic text-slate-500 bg-white p-2 rounded border border-slate-100">
-                              &quot;{record.observations}&quot;
+                            <p className="mt-3 text-[10px] italic text-slate-700 bg-white p-2 rounded border border-slate-100">
+                              &apos;{record.observations}&apos;
                             </p>
                           )}
                         </div>

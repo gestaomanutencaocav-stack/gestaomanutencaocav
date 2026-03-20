@@ -54,7 +54,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
           <div>
             <h1 className="text-slate-900 text-base font-black tracking-tight leading-none">Manutenção CAV</h1>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Gestão Eficiente e Integrada</p>
+            <p className="text-slate-700 text-[10px] font-bold uppercase tracking-widest mt-1">Gestão Eficiente e Integrada</p>
           </div>
         </div>
         <button onClick={onClose} className="lg:hidden p-1 text-slate-400 hover:text-slate-900">
@@ -73,10 +73,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
                 isActive 
                   ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 shadow-sm' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <item.icon size={18} className={isActive ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'} />
+              <item.icon size={18} className={isActive ? 'text-amber-600' : 'text-slate-500 group-hover:text-slate-700'} />
               <span className="text-sm font-medium">{item.name}</span>
             </Link>
           );
@@ -98,7 +98,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <p className="text-xs font-bold truncate text-slate-900 uppercase tracking-tight">
               {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
             </p>
-            <p className="text-[10px] text-slate-500 font-mono truncate">{user?.role || '...'}</p>
+            <p className="text-[10px] text-slate-700 font-mono truncate">{user?.role || '...'}</p>
           </div>
         </div>
       </div>

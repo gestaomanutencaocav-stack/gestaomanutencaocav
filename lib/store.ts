@@ -14,6 +14,11 @@ export interface Document {
   date: string;
 }
 
+export interface Professional {
+  name: string;
+  role: string;
+}
+
 export interface MaintenanceRequest {
   id: string;
   description: string;
@@ -24,10 +29,10 @@ export interface MaintenanceRequest {
   type: string;
   status: string;
   statusColor: string;
-  professionals: string[];
+  professionals: Professional[];
   avatar: string | null;
   details?: string;
-  checklist?: { id: number; task: string; completed: boolean }[];
+  checklist?: { id: string; task: string; completed: boolean }[];
   authorizedBy?: string;
   authorizedPosition?: string;
   authorizedJustification?: string;
@@ -60,7 +65,7 @@ const mapRequest = (req: any): MaintenanceRequest => ({
   statusColor: req.status_color || 'blue',
   professionals: Array.isArray(req.professionals) 
     ? req.professionals 
-    : (req.professional ? req.professional.split(', ').filter(Boolean) : []),
+    : (req.professional ? req.professional.split(', ').map((p: string) => ({ name: p, role: 'Técnico' })) : []),
   avatar: req.avatar,
   details: req.details || '',
   checklist: Array.isArray(req.checklist) ? req.checklist : [],
@@ -191,36 +196,6 @@ export const updateMaterial = async (id: string, updates: Partial<Material>) => 
   return mapMaterial(data);
 };
 
-export interface Professional {
-  id: string;
-  name: string;
-  specialty: string;
-  photoUrl: string;
-}
-
-export const getProfessionals = async (): Promise<Professional[]> => {
-  const { data, error } = await supabase
-    .from('professionals')
-    .select('*')
-    .order('name', { ascending: true });
-  
-  if (error) {
-    console.error('Error fetching professionals:', error);
-    // Return mock data if table doesn't exist yet to avoid breaking UI
-    return [
-      { id: '1', name: 'João Silva', specialty: 'Eletricista', photoUrl: 'https://i.pravatar.cc/150?u=joao' },
-      { id: '2', name: 'Maria Santos', specialty: 'Hidráulica', photoUrl: 'https://i.pravatar.cc/150?u=maria' },
-      { id: '3', name: 'Pedro Costa', specialty: 'Ar Condicionado', photoUrl: 'https://i.pravatar.cc/150?u=pedro' },
-      { id: '4', name: 'Ana Oliveira', specialty: 'Pintura', photoUrl: 'https://i.pravatar.cc/150?u=ana' },
-    ];
-  }
-  return data.map(p => ({
-    id: p.id,
-    name: p.name,
-    specialty: p.specialty,
-    photoUrl: p.photo_url
-  }));
-};
 export const getRequests = async () => {
   const { data, error } = await supabase
     .from('requests')
@@ -364,7 +339,7 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
   if (updates.statusColor) dbUpdates.status_color = updates.statusColor;
   if (updates.professionals !== undefined) {
     dbUpdates.professionals = updates.professionals;
-    dbUpdates.professional = updates.professionals.join(', ');
+    dbUpdates.professional = updates.professionals.map(p => `${p.name} — ${p.role}`).join(', ');
   }
   if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
   if (updates.details) dbUpdates.details = updates.details;

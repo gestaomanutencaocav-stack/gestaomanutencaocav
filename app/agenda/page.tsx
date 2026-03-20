@@ -64,14 +64,14 @@ export default function AgendaPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div>
-            <h1 className="text-slate-900 text-3xl font-black leading-tight tracking-tight uppercase">Agenda</h1>
-            <p className="text-slate-500 font-medium mt-1">Cronograma de manutenções preventivas e corretivas</p>
+            <h1 className="text-slate-900 text-3xl font-black leading-tight tracking-widest uppercase">Agenda</h1>
+            <p className="text-slate-700 font-bold mt-1">Cronograma de manutenções preventivas e corretivas</p>
           </div>
           <div className="flex gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button 
               onClick={() => setView('month')}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                view === 'month' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                view === 'month' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-700 hover:text-slate-900'
               }`}
             >
               Mês
@@ -79,7 +79,7 @@ export default function AgendaPage() {
             <button 
               onClick={() => setView('week')}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                view === 'week' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                view === 'week' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-700 hover:text-slate-900'
               }`}
             >
               Semana
@@ -91,7 +91,7 @@ export default function AgendaPage() {
           {/* Calendar View */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+              <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest">
                 {view === 'month' 
                   ? format(currentDate, 'MMMM yyyy', { locale: ptBR })
                   : `Semana de ${format(calendarInterval.start, 'dd/MM')} a ${format(calendarInterval.end, 'dd/MM')}`
@@ -100,7 +100,7 @@ export default function AgendaPage() {
               <div className="flex gap-2">
                 <button 
                   onClick={() => setCurrentDate(view === 'month' ? subMonths(currentDate, 1) : new Date(currentDate.setDate(currentDate.getDate() - 7)))}
-                  className="p-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200"
+                  className="p-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 hover:text-slate-900 border border-transparent hover:border-slate-200"
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -112,7 +112,7 @@ export default function AgendaPage() {
                 </button>
                 <button 
                   onClick={() => setCurrentDate(view === 'month' ? addMonths(currentDate, 1) : new Date(currentDate.setDate(currentDate.getDate() + 7)))}
-                  className="p-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200"
+                  className="p-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 hover:text-slate-900 border border-transparent hover:border-slate-200"
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -121,7 +121,7 @@ export default function AgendaPage() {
 
             <div className="grid grid-cols-7 border-b border-slate-100">
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                <div key={day} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <div key={day} className="py-3 text-center text-[10px] font-black uppercase tracking-widest text-slate-700">
                   {day}
                 </div>
               ))}
@@ -143,7 +143,7 @@ export default function AgendaPage() {
                     <div className="flex justify-between items-start mb-1">
                       <span className={`text-[10px] font-black font-mono ${
                         isToday ? 'bg-amber-500 text-white size-5 flex items-center justify-center rounded shadow-lg shadow-amber-500/20' : 
-                        (view === 'month' && isCurrentMonth) || view === 'week' ? 'text-slate-600' : 'text-slate-300'
+                        (view === 'month' && isCurrentMonth) || view === 'week' ? 'text-slate-700' : 'text-slate-700'
                       }`}>
                         {format(day, 'd')}
                       </span>
@@ -179,9 +179,9 @@ export default function AgendaPage() {
               
               <div className="space-y-4">
                 {loading ? (
-                  <div className="py-8 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest font-mono italic">Carregando...</div>
+                  <div className="py-8 text-center text-slate-800 text-[10px] font-black uppercase tracking-widest font-mono italic">Carregando...</div>
                 ) : upcomingEvents.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest font-mono italic">Nenhuma manutenção programada.</div>
+                  <div className="py-8 text-center text-slate-800 text-[10px] font-black uppercase tracking-widest font-mono italic">Nenhuma manutenção programada.</div>
                 ) : (
                   upcomingEvents.map((event: any) => (
                     <Link 
@@ -196,14 +196,14 @@ export default function AgendaPage() {
                         <span className="text-[8px] font-black text-amber-600 font-mono ml-2">{event.id}</span>
                       </div>
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-black uppercase tracking-widest font-mono">
-                          <Clock size={12} className="text-slate-400" />
+                        <div className="flex items-center gap-2 text-[10px] text-slate-800 font-black uppercase tracking-widest font-mono">
+                          <Clock size={12} className="text-slate-700" />
                           <span>
                             {event.date}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-black uppercase tracking-widest">
-                          <MapPin size={12} className="text-slate-400" />
+                        <div className="flex items-center gap-2 text-[10px] text-slate-800 font-black uppercase tracking-widest">
+                          <MapPin size={12} className="text-slate-700" />
                           <span className="truncate">{event.unit}</span>
                         </div>
                       </div>
@@ -215,7 +215,7 @@ export default function AgendaPage() {
 
             <div className="bg-amber-500 rounded-2xl p-6 text-white shadow-lg shadow-amber-500/20">
               <h3 className="font-black text-xs uppercase tracking-widest mb-2">Programação Local</h3>
-              <p className="text-xs font-bold leading-relaxed opacity-90">
+              <p className="text-xs font-black leading-relaxed">
                 A agenda agora está integrada diretamente com as solicitações de manutenção do sistema.
               </p>
             </div>
