@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';  // ← adicionar aqui
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   FileText, 
