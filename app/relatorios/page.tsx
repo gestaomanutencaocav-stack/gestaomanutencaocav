@@ -1488,7 +1488,7 @@ export default function RelatoriosPage() {
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
+                            formatter={(value) => formatCurrency(Number(value))}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
                           <Area type="monotone" dataKey="valor" stroke="#10b981" fillOpacity={1} fill="url(#colorValor)" strokeWidth={3} />
@@ -1510,7 +1510,7 @@ export default function RelatoriosPage() {
                           <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
+                            formatter={(value) => formatCurrency(Number(value))}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
                           <Legend iconType="circle" />
@@ -1544,7 +1544,7 @@ export default function RelatoriosPage() {
                             ))}
                           </Pie>
                           <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
+                            formatter={(value) => formatCurrency(Number(value))}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
                           <Legend 
@@ -1572,7 +1572,7 @@ export default function RelatoriosPage() {
                           <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={80} />
                           <Tooltip 
-                            formatter={(value: number) => formatCurrency(value)}
+                            formatter={(value) => formatCurrency(Number(value))}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
                           <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={30} />
