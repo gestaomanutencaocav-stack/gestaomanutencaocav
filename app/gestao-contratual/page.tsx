@@ -314,34 +314,74 @@ export default function GestaoContratualPage() {
 
   // --- Import/Export ---
 
-  const handleImportSpreadsheet = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsImporting(true);
     const reader = new FileReader();
-    
-    reader.onload = async (evt) => {
+
+    reader.onload = (evt) => {
       try {
         const data = evt.target?.result;
-        if (!data) throw new Error('Falha ao ler o arquivo');
+        if (!data) throw new Error('Falha ao ler arquivo');
 
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { 
+          type: 'array',
+          cellDates: true,
+          cellNF: false,
+          cellText: false
+        });
+        
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
-        console.log('Dados brutos da planilha:', JSON.stringify(jsonData[0], null, 2));
+        
+        // Lê como array para pegar cabeçalhos exatos
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          raw: false,
+          defval: ''
+        }) as any[][];
 
-        if (!jsonData || jsonData.length === 0) {
-          alert('A planilha parece estar vazia.');
+        if (!rawData || rawData.length < 2) {
+          alert('Planilha vazia ou sem dados.');
+          setIsImporting(false);
+          return;
+        }
+
+        // Pega cabeçalhos da primeira linha
+        // Remove espaços extras e normaliza
+        const headers = rawData[0].map((h: any) => 
+          String(h || '').trim()
+        );
+
+        console.log('Cabeçalhos encontrados:', headers);
+
+        // Converte as demais linhas em objetos
+        const jsonData = rawData.slice(1)
+          .filter(row => row.some(cell => cell !== ''))
+          .map(row => {
+            const obj: any = {};
+            headers.forEach((header, idx) => {
+              obj[header] = row[idx] ?? '';
+            });
+            return obj;
+          });
+
+        console.log('Primeiro registro:', 
+          JSON.stringify(jsonData[0], null, 2));
+
+        if (jsonData.length === 0) {
+          alert('Nenhum dado encontrado na planilha.');
           setIsImporting(false);
           return;
         }
 
         setImportPreviewData(jsonData);
         setIsImportPreviewOpen(true);
+
       } catch (error: any) {
-        console.error('Erro na importação:', error);
+        console.error('Erro ao ler planilha:', error);
         alert(`Erro ao processar arquivo: ${error.message}`);
       } finally {
         setIsImporting(false);
@@ -800,7 +840,7 @@ export default function GestaoContratualPage() {
               <input
                 type="file"
                 ref={importFileRef}
-                onChange={handleImportSpreadsheet}
+                onChange={handleImportExcel}
                 className="hidden"
                 accept=".xlsx,.xls,.csv"
               />
