@@ -13,7 +13,6 @@ import {
   Save, 
   X, 
   TrendingUp,
-  ChevronUp,
   Filter,
   Clock,
   Briefcase
@@ -61,17 +60,20 @@ interface Repactuacao {
   status: 'Em Análise' | 'Aprovado' | 'Negado' | 'Aguardando Documentação' | 'Concluído';
 }
 
-// ─── Utilitários de importação ───────────────────────────────────────────────
+// ─── Utilitários de importação ────────────────────────────────────────────────
 
 const parseValue = (val: any): number => {
   if (!val && val !== 0) return 0;
-  const str = String(val)
-    .replace(/R\$\s?/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .trim();
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
+  // Se já for número (vindo do Excel como número), retorna diretamente
+  if (typeof val === 'number') return val;
+  const str = String(val).replace(/R\$\s?/g, '').trim();
+  // Detecta formato brasileiro: tem ponto de milhar (ex: 1.234,56)
+  const hasBrFormat = /\d\.\d{3}/.test(str) || (str.includes(',') && str.includes('.'));
+  if (hasBrFormat) {
+    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  // Formato decimal simples (ex: 1234.56 ou 1234,56)
+  return parseFloat(str.replace(',', '.')) || 0;
 };
 
 const getField = (row: any, keys: string[]): any => {
@@ -104,8 +106,8 @@ const extractRowValues = (row: any) => {
   ]));
 
   const materials = parseValue(getField(row, [
-    'VALOR MATERIAIS  REQUISITADOS',  // dois espaços
-    'VALOR MATERIAIS REQUISITADOS',   // um espaço
+    'VALOR MATERIAIS  REQUISITADOS',
+    'VALOR MATERIAIS REQUISITADOS',
     'Valor Materiais Requisitados',
     'materials_value'
   ]));
@@ -123,9 +125,7 @@ const extractRowValues = (row: any) => {
   const totalFromSheet = parseValue(getField(row, [
     'TOTAL DA FATURA', 'Total da Fatura', 'total_invoice'
   ]));
-  const total = totalFromSheet > 0
-    ? totalFromSheet
-    : payment + materials + citl;
+  const total = totalFromSheet > 0 ? totalFromSheet : payment + materials + citl;
 
   const totalAfterFromSheet = parseValue(getField(row, [
     'TOTAL DA FATURA APÓS DESCONTOS',
@@ -133,33 +133,23 @@ const extractRowValues = (row: any) => {
     'Total da Fatura após descontos',
     'total_after_discounts'
   ]));
-  const totalAfter = totalAfterFromSheet > 0
-    ? totalAfterFromSheet
-    : total - discounts;
+  const totalAfter = totalAfterFromSheet > 0 ? totalAfterFromSheet : total - discounts;
 
-  const rawMonth = String(getField(row, [
-    'MÊS', 'MES', 'Mês', 'month'
-  ])).trim().toUpperCase();
+  const rawMonth = String(getField(row, ['MÊS', 'MES', 'Mês', 'month'])).trim().toUpperCase();
   const month = mesesMap[rawMonth] || Number(rawMonth) || new Date().getMonth() + 1;
 
   return {
     year: Number(getField(row, ['ANO', 'Ano', 'year']) || new Date().getFullYear()),
     month,
-    invoice_number: String(getField(row, [
-      'NÚMERO DA FATURA', 'Número da Fatura', 'invoice_number'
-    ])).trim(),
-    process_number: String(getField(row, [
-      'NÚMERO DO PROCESSO', 'Número do Processo', 'process_number'
-    ])).trim(),
+    invoice_number: String(getField(row, ['NÚMERO DA FATURA', 'Número da Fatura', 'invoice_number'])).trim(),
+    process_number: String(getField(row, ['NÚMERO DO PROCESSO', 'Número do Processo', 'process_number'])).trim(),
     payment_value: payment,
     materials_value: materials,
     materials_citl_value: citl,
     total_invoice: total,
     discounts: discounts,
     total_after_discounts: totalAfter,
-    fiscal_note_number: String(getField(row, [
-      'NÚMERO DA NOTA FISCAL', 'Número da Nota Fiscal', 'NF', 'fiscal_note_number'
-    ])).trim(),
+    fiscal_note_number: String(getField(row, ['NÚMERO DA NOTA FISCAL', 'Número da Nota Fiscal', 'NF', 'fiscal_note_number'])).trim(),
   };
 };
 
@@ -329,18 +319,16 @@ export default function GestaoContratualPage() {
         if (!data) throw new Error('Falha ao ler arquivo');
         const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: false, cellText: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: '' }) as any[][];
         if (!rawData || rawData.length < 2) { alert('Planilha vazia.'); setIsImporting(false); return; }
         const headers = rawData[0].map((h: any) => String(h || '').trim());
-        console.log('Cabeçalhos encontrados:', headers);
         const jsonData = rawData.slice(1)
-          .filter(row => row.some(cell => cell !== ''))
+          .filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined))
           .map(row => {
             const obj: any = {};
             headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
             return obj;
           });
-        console.log('Primeiro registro:', JSON.stringify(jsonData[0], null, 2));
         if (jsonData.length === 0) { alert('Nenhum dado encontrado.'); setIsImporting(false); return; }
         setImportPreviewData(jsonData);
         setIsImportPreviewOpen(true);
@@ -442,7 +430,6 @@ export default function GestaoContratualPage() {
     <DashboardLayout title="Gestão Contratual">
       <div className="space-y-8" id="pdf-content">
 
-        {/* Notificação */}
         <AnimatePresence>
           {notification && (
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
@@ -592,12 +579,12 @@ export default function GestaoContratualPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4"><input className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.invoice_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'invoice_number', e.target.value)} /></td>
-                    <td className="px-4 py-4"><input className="w-32 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.process_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'process_number', e.target.value)} /></td>
-                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.payment_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'payment_value', Number(e.target.value))} /></td>
-                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.materials_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'materials_value', Number(e.target.value))} /></td>
-                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.materials_citl_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'materials_citl_value', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><input className="w-40 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.process_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'process_number', e.target.value)} /></td>
+                    <td className="px-4 py-4"><span className="text-xs font-bold text-slate-900">{fmt(record.payment_value)}</span></td>
+                    <td className="px-4 py-4"><span className="text-xs font-bold text-slate-900">{fmt(record.materials_value)}</span></td>
+                    <td className="px-4 py-4"><span className="text-xs font-bold text-slate-900">{fmt(record.materials_citl_value)}</span></td>
                     <td className="px-4 py-4"><span className="text-xs font-black text-slate-900">{fmt(record.total_invoice)}</span></td>
-                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-rose-600 p-0" value={record.discounts ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'discounts', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><span className="text-xs font-bold text-rose-600">{fmt(record.discounts)}</span></td>
                     <td className="px-4 py-4"><span className="text-xs font-black text-emerald-600">{fmt(record.total_after_discounts)}</span></td>
                     <td className="px-4 py-4"><input className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.fiscal_note_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'fiscal_note_number', e.target.value)} /></td>
                     <td className="px-4 py-4 text-right">
