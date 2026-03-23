@@ -183,7 +183,7 @@ export default function RequestsPage() {
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
                 <input 
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400" 
                   placeholder="Buscar por ID, descrição ou profissional..."
@@ -256,11 +256,11 @@ export default function RequestsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-mono">Carregando solicitações...</td>
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-700 font-mono">Carregando solicitações...</td>
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-mono">Nenhuma solicitação encontrada.</td>
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-700 font-mono">Nenhuma solicitação encontrada.</td>
                   </tr>
                 ) : filteredRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-50 transition-colors group">
@@ -353,11 +353,11 @@ export default function RequestsPage() {
                         )}
                         <button 
                           onClick={() => handleDelete(req.id)}
-                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-400 hover:text-red-500 border border-transparent hover:border-red-100"
+                          className="p-1.5 hover:bg-red-50 rounded transition-colors text-slate-700 hover:text-red-500 border border-transparent hover:border-red-100"
                         >
                           <Trash2 size={16} />
                         </button>
-                        <button className="p-1.5 hover:bg-slate-100 rounded transition-colors text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-200">
+                        <button className="p-1.5 hover:bg-slate-100 rounded transition-colors text-slate-700 hover:text-slate-900 border border-transparent hover:border-slate-200">
                           <MoreVertical size={16} />
                         </button>
                       </div>
@@ -374,7 +374,7 @@ export default function RequestsPage() {
               Exibindo <span className="text-slate-900 font-black">1</span> a <span className="text-slate-900 font-black">{filteredRequests.length}</span> de <span className="text-slate-900 font-black">{filteredRequests.length}</span> solicitações
             </div>
             <div className="flex items-center gap-2">
-              <button className="p-2 border border-slate-200 rounded-lg bg-white text-slate-300 cursor-not-allowed">
+              <button className="p-2 border border-slate-200 rounded-lg bg-white text-slate-800 cursor-not-allowed">
                 <ChevronLeft size={18} />
               </button>
               <button className="h-8 w-8 flex items-center justify-center rounded-lg bg-amber-500 text-white font-black text-xs">1</button>
@@ -420,7 +420,7 @@ export default function RequestsPage() {
                   </h3>
                   <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Autenticação do Servidor Responsável</p>
                 </div>
-                <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>

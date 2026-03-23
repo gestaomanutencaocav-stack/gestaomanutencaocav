@@ -20,7 +20,10 @@ import {
   Trash2,
   History,
   Check,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle2,
+  Percent
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, isSameMonth } from 'date-fns';
@@ -67,7 +70,27 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [editingUnitValueId, setEditingUnitValueId] = useState<string | null>(null);
   const [tempUnitValue, setTempUnitValue] = useState('');
   
+  // Monetary Correction State
+  const [correctionPercentage, setCorrectionPercentage] = useState('');
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
+  const [correctionHistory, setCorrectionHistory] = useState<any[]>([]);
+  const [isApplyingCorrection, setIsApplyingCorrection] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/price-corrections?type=${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCorrectionHistory(data);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    }
+  }, [type]);
 
   const fetchMaterials = useCallback(async () => {
     setLoading(true);
@@ -86,7 +109,44 @@ export default function MaterialsManager({ title, description, type }: Materials
 
   React.useEffect(() => {
     fetchMaterials();
-  }, [fetchMaterials]);
+    if (type === 'finalistico') {
+      fetchHistory();
+    }
+  }, [fetchMaterials, fetchHistory, type]);
+
+  const handleApplyCorrection = async () => {
+    if (!correctionPercentage || isApplyingCorrection) return;
+    
+    setIsApplyingCorrection(true);
+    try {
+      const res = await fetch('/api/price-corrections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          percentage: Number(correctionPercentage),
+          appliedBy: 'Sistema'
+        }),
+      });
+
+      if (res.ok) {
+        await fetchMaterials();
+        await fetchHistory();
+        setIsConfirmModalOpen(false);
+        setIsPreviewModalOpen(false);
+        setCorrectionPercentage('');
+        alert(`Correção de ${correctionPercentage}% aplicada com sucesso!`);
+      } else {
+        const err = await res.json();
+        alert(`Erro ao aplicar correção: ${err.error}`);
+      }
+    } catch (error) {
+      console.error('Error applying correction:', error);
+      alert('Erro ao aplicar correção monetária.');
+    } finally {
+      setIsApplyingCorrection(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -367,6 +427,118 @@ export default function MaterialsManager({ title, description, type }: Materials
           </button>
         </div>
       </div>
+
+      {/* Monetary Correction Section */}
+      {type === 'finalistico' && (
+        <div className="space-y-4">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                <TrendingUp size={20} />
+              </div>
+              <h2 className="text-slate-900 text-lg font-black uppercase tracking-widest">Correção Monetária</h2>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-6">
+              <div className="flex-1 min-w-[280px]">
+                <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Percentual de Ajuste</label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
+                  <input 
+                    type="number"
+                    step="0.01"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-12 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                    placeholder="Ex: 10.5 para aumento ou -5.2 para redução"
+                    value={correctionPercentage}
+                    onChange={(e) => setCorrectionPercentage(e.target.value)}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-800">%</div>
+                </div>
+                {correctionPercentage && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`text-[10px] font-black uppercase tracking-widest mt-2 ${Number(correctionPercentage) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                  >
+                    {Number(correctionPercentage) >= 0 ? `Aumento de ${correctionPercentage}%` : `Redução de ${Math.abs(Number(correctionPercentage))}%`}
+                  </motion.p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsPreviewModalOpen(true)}
+                  disabled={!correctionPercentage || isNaN(Number(correctionPercentage))}
+                  className="px-6 py-3 bg-white border border-amber-500 text-amber-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Visualizar Impacto
+                </button>
+                <button 
+                  onClick={() => setIsConfirmModalOpen(true)}
+                  disabled={!correctionPercentage || isNaN(Number(correctionPercentage))}
+                  className="px-6 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Aplicar Correção
+                </button>
+              </div>
+            </div>
+
+            {/* History Toggle */}
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <button 
+                onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+                className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-widest hover:text-slate-900 transition-colors"
+              >
+                <History size={14} />
+                <span>Histórico de Correções</span>
+                <ChevronRight size={14} className={`transition-transform ${!isHistoryCollapsed ? 'rotate-90' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {!isHistoryCollapsed && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-4 space-y-2">
+                      {correctionHistory.length === 0 ? (
+                        <p className="text-[10px] text-slate-500 italic font-bold uppercase tracking-widest py-4">Nenhuma correção aplicada anteriormente.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-100">
+                                <th className="py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Data</th>
+                                <th className="py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Percentual</th>
+                                <th className="py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Itens Afetados</th>
+                                <th className="py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {correctionHistory.map((h) => (
+                                <tr key={h.id} className="text-[10px] font-bold text-slate-700">
+                                  <td className="py-2">{format(parseISO(h.appliedAt), 'dd/MM/yyyy HH:mm')}</td>
+                                  <td className={`py-2 ${h.percentage >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    {h.percentage > 0 ? '+' : ''}{h.percentage}%
+                                  </td>
+                                  <td className="py-2">{h.itemsAffected} itens</td>
+                                  <td className="py-2">{h.appliedBy}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters and Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -767,6 +939,192 @@ export default function MaterialsManager({ title, description, type }: Materials
                 >
                   Fechar Histórico
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Correction Preview Modal */}
+      <AnimatePresence>
+        {isPreviewModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPreviewModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Preview de Impacto ({correctionPercentage}%)</h3>
+                  <p className="text-[10px] text-slate-800 font-bold uppercase tracking-widest">Visualização dos primeiros 10 itens</p>
+                </div>
+                <button onClick={() => setIsPreviewModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Código</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest">Descrição</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Valor Atual</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Novo Valor</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Diferença</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {materials.slice(0, 10).map((m) => {
+                        const factor = 1 + (Number(correctionPercentage) / 100);
+                        const newValue = m.valorUnitario * factor;
+                        const diff = newValue - m.valorUnitario;
+                        return (
+                          <tr key={m.codigo} className="text-xs font-bold text-slate-700">
+                            <td className="px-4 py-3 font-mono text-amber-600">{m.codigo}</td>
+                            <td className="px-4 py-3">{m.descricao}</td>
+                            <td className="px-4 py-3 text-right font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valorUnitario)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newValue)}</td>
+                            <td className={`px-4 py-3 text-right font-mono ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {diff > 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(diff)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Valor Total Atual</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValueInStock)}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Valor Total Após Correção</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValueInStock * (1 + Number(correctionPercentage) / 100))}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Diferença Total</p>
+                    <p className="text-lg font-black text-amber-600 font-mono">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValueInStock * (Number(correctionPercentage) / 100))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-3">
+                <button 
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Fechar Preview
+                </button>
+                <button 
+                  onClick={() => {
+                    setIsPreviewModalOpen(false);
+                    setIsConfirmModalOpen(true);
+                  }}
+                  className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Aplicar Correção
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {isConfirmModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isApplyingCorrection && setIsConfirmModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md relative z-10 overflow-hidden"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle size={32} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Confirmar Correção</h3>
+                <p className="text-sm text-slate-600 font-bold mb-6">
+                  Você está prestes a aplicar uma correção de <span className={Number(correctionPercentage) >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{correctionPercentage}%</span> em todos os <span className="text-slate-900">{materials.length}</span> itens.
+                </p>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 text-left">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Exemplo de Impacto:</p>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center flex-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Atual</p>
+                      <p className="text-sm font-black text-slate-700 font-mono">R$ 100,00</p>
+                    </div>
+                    <ArrowRight size={16} className="text-slate-300 mx-2" />
+                    <div className="text-center flex-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase">Novo</p>
+                      <p className="text-sm font-black text-emerald-600 font-mono">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(100 * (1 + Number(correctionPercentage) / 100))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-3 text-left mb-6">
+                  <AlertTriangle size={20} className="text-amber-600 shrink-0" />
+                  <p className="text-[10px] text-amber-800 font-bold leading-relaxed uppercase tracking-wider">
+                    Esta ação alterará o valor unitário de todos os {materials.length} itens da lista. Esta operação não pode ser desfeita automaticamente.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsConfirmModalOpen(false)}
+                    disabled={isApplyingCorrection}
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleApplyCorrection}
+                    disabled={isApplyingCorrection}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isApplyingCorrection ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Aplicando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={16} />
+                        <span>Confirmar Correção</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -39,11 +39,13 @@ import {
   X,
   DollarSign,
   Briefcase,
-  Building2
+  Building2,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO, subDays, startOfDay, endOfDay, differenceInMinutes, isValid, differenceInDays, isAfter } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, subDays, startOfDay, endOfDay, differenceInMinutes, isValid, differenceInDays, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -130,6 +132,26 @@ const EMERALD_COLOR = '#10b981';
 const RED_COLOR = '#ef4444';
 
 export default function RelatoriosPage() {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
+    try {
+      // Tenta ISO primeiro (createdAt)
+      const isoDate = new Date(dateStr);
+      if (!isNaN(isoDate.getTime())) {
+        return format(isoDate, 'dd/MM/yyyy');
+      }
+      return dateStr;
+    } catch {
+      return dateStr || 'N/A';
+    }
+  };
+
+  const safeParseDate = (dateStr: string) => {
+    if (!dateStr) return new Date(0);
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  };
+
   const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes' | 'gestao-contratual'>('solicitacoes');
   const [showAllRequests, setShowAllRequests] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
@@ -232,16 +254,16 @@ export default function RelatoriosPage() {
       if (rec.startTime && rec.endTime) {
         try {
           // If they are full ISO strings
-          const start = parseISO(rec.startTime);
-          const end = parseISO(rec.endTime);
-          if (isValid(start) && isValid(end)) {
+          const start = safeParseDate(rec.startTime);
+          const end = safeParseDate(rec.endTime);
+          if (isValid(start) && isValid(end) && start.getTime() !== 0) {
             execTime = differenceInMinutes(end, start);
           } else {
             // If they are just "HH:mm" strings, we use the executionDate
             const dateStr = rec.executionDate.split('T')[0];
-            const startFull = parseISO(`${dateStr}T${rec.startTime}`);
-            const endFull = parseISO(`${dateStr}T${rec.endTime}`);
-            if (isValid(startFull) && isValid(endFull)) {
+            const startFull = safeParseDate(`${dateStr}T${rec.startTime}`);
+            const endFull = safeParseDate(`${dateStr}T${rec.endTime}`);
+            if (isValid(startFull) && isValid(endFull) && startFull.getTime() !== 0) {
               execTime = differenceInMinutes(endFull, startFull);
             }
           }
@@ -264,7 +286,7 @@ export default function RelatoriosPage() {
     return enrichedRecords.filter(rec => {
       // Period filter
       let dateMatch = true;
-      const recDate = parseISO(rec.executionDate);
+      const recDate = safeParseDate(rec.createdAt || rec.executionDate);
       const now = new Date();
 
       if (inspPeriod === 'week') {
@@ -277,8 +299,8 @@ export default function RelatoriosPage() {
         dateMatch = isWithinInterval(recDate, { start: subMonths(now, 12), end: now });
       } else if (inspPeriod === 'custom' && customStartDate && customEndDate) {
         dateMatch = isWithinInterval(recDate, { 
-          start: startOfDay(parseISO(customStartDate)), 
-          end: endOfDay(parseISO(customEndDate)) 
+          start: startOfDay(safeParseDate(customStartDate)), 
+          end: endOfDay(safeParseDate(customEndDate)) 
         });
       }
 
@@ -301,7 +323,7 @@ export default function RelatoriosPage() {
   const inspKPIs = useMemo(() => {
     const now = new Date();
     const currentMonthRecords = enrichedRecords.filter(r => {
-      const d = parseISO(r.executionDate);
+      const d = safeParseDate(r.createdAt || r.executionDate);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
 
@@ -338,7 +360,7 @@ export default function RelatoriosPage() {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
       const monthRecords = enrichedRecords.filter(r => {
-        const d = parseISO(r.executionDate);
+        const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
       });
       const realized = monthRecords.filter(r => r.executionStatus === 'Concluído').length;
@@ -376,7 +398,7 @@ export default function RelatoriosPage() {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
       const realized = enrichedRecords.filter(r => {
-        const d = parseISO(r.executionDate);
+        const d = safeParseDate(r.createdAt || r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear() && r.executionStatus === 'Concluído';
       }).length;
       const predicted = realized + 2; // Mocked
@@ -393,7 +415,7 @@ export default function RelatoriosPage() {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
       const monthRecords = enrichedRecords.filter(r => {
-        const d = parseISO(r.executionDate);
+        const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
       });
       const found = monthRecords.reduce((s, r) => s + (r.problemsFound || 0), 0);
@@ -451,7 +473,7 @@ export default function RelatoriosPage() {
       const wsHist = XLSX.utils.json_to_sheet(filteredRecords.map(r => ({
         'Inspeção': r.inspectionName,
         'Área': r.area,
-        'Data': format(parseISO(r.executionDate), 'dd/MM/yyyy'),
+        'Data': formatDate(r.createdAt || r.executionDate),
         'Profissionais': r.professionals.join(', '),
         'Status': r.executionStatus,
         'Problemas Enc.': r.problemsFound,
@@ -604,7 +626,7 @@ export default function RelatoriosPage() {
     
     let remainingDays = 0;
     if (contract?.end_date) {
-      remainingDays = differenceInDays(parseISO(contract.end_date), new Date());
+      remainingDays = differenceInDays(safeParseDate(contract.end_date), new Date());
     }
 
     return {
@@ -689,7 +711,7 @@ export default function RelatoriosPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black tracking-widest text-slate-900 dark:text-white uppercase">Relatórios do Sistema</h2>
-            <p className="text-slate-700 dark:text-slate-400 font-medium">Análise detalhada de desempenho e exportação de dados.</p>
+            <p className="text-slate-900 dark:text-slate-200 font-bold">Análise detalhada de desempenho e exportação de dados.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button 
@@ -765,12 +787,12 @@ export default function RelatoriosPage() {
                 {/* Maintenance Filters */}
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
-                    <Filter size={18} className="text-slate-400" />
+                    <Filter size={18} className="text-slate-700" />
                     <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Categoria</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Categoria</label>
                     <select 
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
@@ -787,7 +809,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Status</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Status</label>
                     <select 
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
@@ -803,7 +825,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Unidade</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Unidade</label>
                     <select 
                       value={filterUnit}
                       onChange={(e) => setFilterUnit(e.target.value)}
@@ -815,7 +837,7 @@ export default function RelatoriosPage() {
 
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 dark:text-slate-200 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
                   >
                     Limpar
                   </button>
@@ -844,7 +866,7 @@ export default function RelatoriosPage() {
                           <stat.icon size={24} />
                         </div>
                       </div>
-                      <p className="text-slate-700 dark:text-slate-400 text-xs font-black uppercase tracking-widest">{stat.title}</p>
+                      <p className="text-slate-900 dark:text-white text-xs font-black uppercase tracking-widest">{stat.title}</p>
                       <p className="text-4xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
                     </motion.div>
                   ))}
@@ -902,7 +924,7 @@ export default function RelatoriosPage() {
                             verticalAlign="bottom" 
                             height={36} 
                             iconType="circle"
-                            formatter={(value) => <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                            formatter={(value) => <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tighter">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -917,9 +939,9 @@ export default function RelatoriosPage() {
                     <div className="space-y-4">
                       <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
                         Com base nos dados filtrados, observamos que a categoria <span className="font-black text-blue-600">
-                          {typeData.sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
+                          {[...typeData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
                         </span> é a que possui maior volume de solicitações, representando <span className="font-black">
-                          {filteredRequests.length > 0 ? Math.round((typeData.sort((a, b) => b.value - a.value)[0]?.value / filteredRequests.length) * 100) : 0}%
+                          {filteredRequests.length > 0 ? Math.round(([...typeData].sort((a, b) => b.value - a.value)[0]?.value / filteredRequests.length) * 100) : 0}%
                         </span> do total.
                       </p>
                       <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
@@ -934,7 +956,7 @@ export default function RelatoriosPage() {
                   <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                     <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                       <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Listagem Detalhada de Solicitações</h3>
-                      <span className="text-[10px] font-black text-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
+                      <span className="text-[10px] font-black text-slate-900 dark:text-slate-200 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
                         {filteredRequests.length} registros encontrados
                       </span>
                     </div>
@@ -942,12 +964,12 @@ export default function RelatoriosPage() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">ID / Data</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Descrição</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Unidade</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Tipo</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissional</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">ID / Data</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Descrição</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Unidade</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Tipo</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Profissional</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -957,13 +979,13 @@ export default function RelatoriosPage() {
                                 <td className="px-6 py-4">
                                   <div className="flex flex-col">
                                     <span className="text-xs font-black text-slate-900 dark:text-white">#{req.id.slice(-4)}</span>
-                                    <span className="text-[10px] font-bold text-slate-500">{format(parseISO(req.date), 'dd/MM/yyyy')}</span>
+                                    <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200">{formatDate(req.createdAt || req.date)}</span>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
                                   <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{req.description}</p>
                                 </td>
-                                <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{req.unit}</td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{req.unit}</td>
                                 <td className="px-6 py-4">
                                   <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg uppercase tracking-widest">
                                     {req.type}
@@ -1017,12 +1039,12 @@ export default function RelatoriosPage() {
                 {/* Inspection Filters */}
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
-                    <Filter size={18} className="text-slate-400" />
-                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
+                    <Filter size={18} className="text-slate-900" />
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Filtros</span>
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Período</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Período</label>
                     <select 
                       value={inspPeriod}
                       onChange={(e) => setInspPeriod(e.target.value)}
@@ -1039,7 +1061,7 @@ export default function RelatoriosPage() {
                   {inspPeriod === 'custom' && (
                     <>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Início</label>
+                        <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Início</label>
                         <input 
                           type="date"
                           value={customStartDate}
@@ -1048,7 +1070,7 @@ export default function RelatoriosPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Fim</label>
+                        <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Fim</label>
                         <input 
                           type="date"
                           value={customEndDate}
@@ -1060,7 +1082,7 @@ export default function RelatoriosPage() {
                   )}
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Área</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Área</label>
                     <select 
                       value={inspArea}
                       onChange={(e) => setInspArea(e.target.value)}
@@ -1076,7 +1098,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Periodicidade</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Periodicidade</label>
                     <select 
                       value={inspPeriodicity}
                       onChange={(e) => setInspPeriodicity(e.target.value)}
@@ -1091,7 +1113,7 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Profissional</label>
+                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Profissional</label>
                     <select 
                       value={inspProfessional}
                       onChange={(e) => setInspProfessional(e.target.value)}
@@ -1103,7 +1125,7 @@ export default function RelatoriosPage() {
 
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 dark:text-slate-200 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
                   >
                     Limpar
                   </button>
@@ -1138,7 +1160,7 @@ export default function RelatoriosPage() {
                         }`}>
                           <kpi.icon size={16} />
                         </div>
-                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                        <p className="text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest leading-tight">{kpi.title}</p>
                       </div>
                       <p className="text-2xl font-black text-slate-900 dark:text-white">{kpi.value}</p>
                     </motion.div>
@@ -1201,7 +1223,7 @@ export default function RelatoriosPage() {
                             verticalAlign="middle" 
                             align="right"
                             iconType="circle"
-                            formatter={(value) => <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                            formatter={(value) => <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1218,8 +1240,8 @@ export default function RelatoriosPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={topProblemAreasData}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} width={100} />
+                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
+                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={100} />
                           <Tooltip 
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
@@ -1239,8 +1261,8 @@ export default function RelatoriosPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={complianceEvolutionData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
+                          <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <Tooltip 
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
@@ -1267,8 +1289,8 @@ export default function RelatoriosPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={problemsStatusData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <Tooltip 
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
                           />
@@ -1315,13 +1337,13 @@ export default function RelatoriosPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Inspeção</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Área</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Profissional</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Tempo</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Inspeção</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Área</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Data</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Profissional</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Status</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Tempo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -1331,9 +1353,9 @@ export default function RelatoriosPage() {
                               <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{rec.inspectionName}</td>
                               <td className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-tighter">{rec.area}</td>
                               <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">
-                                {format(parseISO(rec.executionDate), 'dd/MM/yyyy')}
+                                {formatDate(rec.createdAt || rec.executionDate)}
                               </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{rec.professionals.join(', ')}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{rec.professionals.join(', ')}</td>
                               <td className="px-6 py-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">{rec.problemsFound}</span>
@@ -1350,7 +1372,7 @@ export default function RelatoriosPage() {
                                   {rec.executionStatus}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">{rec.executionTime} min</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{rec.executionTime} min</td>
                             </tr>
                           ))
                         ) : (
@@ -1386,7 +1408,7 @@ export default function RelatoriosPage() {
                 {/* Contract Filters */}
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
-                    <Filter size={18} className="text-slate-400" />
+                    <Filter size={18} className="text-slate-700" />
                     <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
                   
@@ -1438,7 +1460,7 @@ export default function RelatoriosPage() {
                         }`}>
                           <kpi.icon size={16} />
                         </div>
-                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                        <p className="text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest leading-tight">{kpi.title}</p>
                       </div>
                       <p className="text-xl font-black text-slate-900 dark:text-white truncate">{kpi.value}</p>
                     </motion.div>
@@ -1463,8 +1485,8 @@ export default function RelatoriosPage() {
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <Tooltip 
                             formatter={(value: number) => formatCurrency(value)}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
@@ -1485,8 +1507,8 @@ export default function RelatoriosPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={yearlyCompositionData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <Tooltip 
                             formatter={(value: number) => formatCurrency(value)}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
@@ -1530,7 +1552,7 @@ export default function RelatoriosPage() {
                             verticalAlign="middle" 
                             align="right"
                             iconType="circle"
-                            formatter={(value) => <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{value}</span>}
+                            formatter={(value) => <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1547,8 +1569,8 @@ export default function RelatoriosPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={topInvoicesData}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} width={80} />
+                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
+                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={80} />
                           <Tooltip 
                             formatter={(value: number) => formatCurrency(value)}
                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
@@ -1569,11 +1591,11 @@ export default function RelatoriosPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Total Executado</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Materiais</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Descontos</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Média Mensal</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Ano</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Total Executado</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Materiais</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Descontos</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Média Mensal</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -1583,7 +1605,7 @@ export default function RelatoriosPage() {
                             <td className="px-6 py-4 text-sm font-bold text-emerald-600">{formatCurrency(row.total)}</td>
                             <td className="px-6 py-4 text-sm font-bold text-blue-600">{formatCurrency(row.materiais)}</td>
                             <td className="px-6 py-4 text-sm font-bold text-amber-600">{formatCurrency(row.descontos)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-400">{formatCurrency(row.total / 12)}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(row.total / 12)}</td>
                           </tr>
                         ))}
                       </tbody>

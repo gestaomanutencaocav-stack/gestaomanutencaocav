@@ -116,6 +116,83 @@ const mapMaterial = (m: any): Material => ({
   consumptionRecords: m.consumption_records || [],
 });
 
+export interface PriceCorrection {
+  id: string;
+  materialType: string;
+  percentage: number;
+  itemsAffected: number;
+  appliedAt: string;
+  appliedBy: string;
+}
+
+const mapPriceCorrection = (pc: any): PriceCorrection => ({
+  id: pc.id,
+  materialType: pc.material_type,
+  percentage: Number(pc.percentage),
+  itemsAffected: Number(pc.items_affected),
+  appliedAt: pc.applied_at,
+  appliedBy: pc.applied_by,
+});
+
+export const getPriceCorrections = async (type: string = 'finalistico') => {
+  const { data, error } = await supabase
+    .from('price_corrections')
+    .select('*')
+    .eq('material_type', type)
+    .order('applied_at', { ascending: false })
+    .limit(10);
+  
+  if (error) {
+    console.error('Error fetching price corrections:', error);
+    return [];
+  }
+  return data.map(mapPriceCorrection);
+};
+
+export const applyPriceCorrection = async (type: 'estoque' | 'finalistico', percentage: number, appliedBy: string = 'Sistema') => {
+  // 1. Get all materials of the specified type
+  const { data: materials, error: fetchError } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('type', type);
+
+  if (fetchError) throw fetchError;
+  if (!materials || materials.length === 0) return { count: 0 };
+
+  const factor = 1 + (percentage / 100);
+
+  // 2. Update each material
+  const updates = materials.map(m => {
+    const newValue = Number(m.valor_unitario || 0) * factor;
+    const newTotal = newValue * Number(m.quantidade_geral || 0);
+    return {
+      ...m,
+      valor_unitario: newValue,
+      valor_total: newTotal
+    };
+  });
+
+  const { error: updateError } = await supabase
+    .from('materials')
+    .upsert(updates, { onConflict: 'id' });
+
+  if (updateError) throw updateError;
+
+  // 3. Log the correction
+  const { error: logError } = await supabase
+    .from('price_corrections')
+    .insert([{
+      material_type: type,
+      percentage: percentage,
+      items_affected: materials.length,
+      applied_by: appliedBy
+    }]);
+
+  if (logError) console.error('Error logging price correction:', logError);
+
+  return { count: materials.length };
+};
+
 export const getMaterials = async (type: 'estoque' | 'finalistico') => {
   const { data, error } = await supabase
     .from('materials')

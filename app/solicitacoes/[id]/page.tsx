@@ -823,7 +823,7 @@ export default function RequestDetailsPage() {
                         </div>
                         <div>
                           <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Progresso da Manutenção</h4>
-                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                          <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">
                             {(request.checklist || []).filter(i => i.completed).length} de {(request.checklist || []).length} tarefas concluídas
                           </p>
                         </div>
@@ -897,7 +897,7 @@ export default function RequestDetailsPage() {
                           </AnimatePresence>
                           {(request.checklist || []).length === 0 && (
                             <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                              <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Nenhuma tarefa no checklist</p>
+                              <p className="text-slate-700 text-xs font-black uppercase tracking-widest">Nenhuma tarefa no checklist</p>
                             </div>
                           )}
                         </div>
@@ -928,7 +928,7 @@ export default function RequestDetailsPage() {
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                     />
-                    <MessageSquare className="absolute right-4 top-3.5 text-slate-300" size={18} />
+                    <MessageSquare className="absolute right-4 top-3.5 text-slate-700" size={18} />
                   </div>
                   <button 
                     onClick={handleAddComment}
@@ -963,7 +963,7 @@ export default function RequestDetailsPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="py-12 text-center text-slate-400 italic text-xs">
+                    <div className="py-12 text-center text-slate-700 italic text-xs">
                       Nenhum evento registrado na linha do tempo.
                     </div>
                   )}
@@ -1030,7 +1030,7 @@ export default function RequestDetailsPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{prof.name}</p>
-                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest truncate">
+                            <p className="text-[9px] text-slate-700 font-black uppercase tracking-widest truncate">
                               {prof.role}
                             </p>
                           </div>
@@ -1045,7 +1045,7 @@ export default function RequestDetailsPage() {
                       ))}
                     </AnimatePresence>
                   ) : (
-                    <div className="col-span-full py-12 text-center text-slate-400 italic text-xs border-2 border-dashed border-slate-100 rounded-xl">
+                    <div className="col-span-full py-12 text-center text-slate-700 italic text-xs border-2 border-dashed border-slate-100 rounded-xl">
                       Nenhum profissional alocado a este serviço.
                     </div>
                   )}
@@ -1071,7 +1071,7 @@ export default function RequestDetailsPage() {
                   {request.documents && request.documents.length > 0 ? (
                     request.documents.map((doc, idx) => (
                       <div key={idx} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50 group">
-                        <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400">
+                        <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
                           <Paperclip size={20} />
                         </div>
                         <div className="flex-1">
@@ -1093,8 +1093,8 @@ export default function RequestDetailsPage() {
                     ))
                   ) : (
                     <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
-                      <FileText className="mx-auto text-slate-200 mb-4" size={48} />
-                      <p className="text-slate-400 text-xs font-medium italic">Nenhum documento anexo a esta solicitação.</p>
+                      <FileText className="mx-auto text-slate-300 mb-4" size={48} />
+                      <p className="text-slate-700 text-xs font-medium italic">Nenhum documento anexo a esta solicitação.</p>
                     </div>
                   )}
                 </div>
@@ -1111,7 +1111,7 @@ export default function RequestDetailsPage() {
                 <div>
                   <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-2">Unidade Demandante</p>
                   <div className="flex items-start gap-2">
-                    <Building2 className="text-slate-400" size={14} />
+                    <Building2 className="text-slate-700" size={14} />
                     <p className="text-slate-700 text-xs font-bold">{request.unit}</p>
                   </div>
                 </div>
@@ -1144,7 +1144,7 @@ export default function RequestDetailsPage() {
                 <div>
                   <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-2">Data da Demanda</p>
                   <div className="flex items-center gap-2">
-                    <Calendar className="text-slate-400" size={14} />
+                    <Calendar className="text-slate-700" size={14} />
                     <p className="text-slate-700 text-xs font-mono">{request.date}</p>
                   </div>
                 </div>
@@ -1152,7 +1152,7 @@ export default function RequestDetailsPage() {
                   <div>
                     <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-2">Finalização Prevista/Realizada</p>
                     <div className="flex items-center gap-2">
-                      <Clock className="text-slate-400" size={14} />
+                      <Clock className="text-slate-700" size={14} />
                       <p className="text-slate-700 text-xs font-bold">
                         {request.dataFinalizacao} {request.horaFinalizacao}
                       </p>
@@ -1162,14 +1162,14 @@ export default function RequestDetailsPage() {
                 <div>
                   <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-2">Tipo de Serviço</p>
                   <div className="flex items-center gap-2">
-                    <Wrench className="text-slate-400" size={14} />
+                    <Wrench className="text-slate-700" size={14} />
                     <p className="text-slate-900 text-xs font-black uppercase tracking-tight">{request.type}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-2">Tempo Estimado</p>
                   <div className="flex items-center gap-2">
-                    <Timer className="text-slate-400" size={14} />
+                    <Timer className="text-slate-700" size={14} />
                     <p className="text-amber-600 text-xs font-black font-mono">04:00:00</p>
                   </div>
                 </div>
@@ -1186,7 +1186,7 @@ export default function RequestDetailsPage() {
                         </div>
                       ))
                     ) : (
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Não atribuído</p>
+                      <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest italic">Não atribuído</p>
                     )}
                   </div>
                 </div>
@@ -1209,7 +1209,7 @@ export default function RequestDetailsPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Nenhum log disponível</p>
+                  <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest italic">Nenhum log disponível</p>
                 )}
               </div>
             </div>
@@ -1218,7 +1218,7 @@ export default function RequestDetailsPage() {
             <button 
               onClick={() => setIsConcluirModalOpen(true)}
               disabled={request.status === 'Concluído'}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:shadow-none"
+              className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:shadow-none"
             >
               <CheckCircle2 size={20} />
               {request.status === 'Concluído' ? 'Serviço Concluído' : 'Concluir Serviço'}
@@ -1247,9 +1247,9 @@ export default function RequestDetailsPage() {
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase text-emerald-700">Concluir Serviço</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Finalização da Ordem de Serviço</p>
+                  <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Finalização da Ordem de Serviço</p>
                 </div>
-                <button onClick={() => setIsConcluirModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => setIsConcluirModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -1289,7 +1289,7 @@ export default function RequestDetailsPage() {
                 <div className="pt-4 flex gap-3">
                   <button 
                     onClick={() => setIsConcluirModalOpen(false)}
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
                   >
                     Cancelar
                   </button>
@@ -1332,9 +1332,9 @@ export default function RequestDetailsPage() {
                   }`}>
                     {authAction === 'Autorizado' ? 'Autorizar Ordem de Serviço' : 'Negar Ordem de Serviço'}
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Autenticação do Servidor Responsável</p>
+                  <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Autenticação do Servidor Responsável</p>
                 </div>
-                <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => setIsAuthModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -1373,7 +1373,7 @@ export default function RequestDetailsPage() {
                         className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
                           authUrgency === u 
                             ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20' 
-                            : 'bg-white text-slate-400 border-slate-200 hover:border-amber-200'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-amber-200'
                         }`}
                       >
                         {u}
@@ -1395,7 +1395,7 @@ export default function RequestDetailsPage() {
                 <div className="pt-4 flex gap-3">
                   <button 
                     onClick={() => setIsAuthModalOpen(false)}
-                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
                   >
                     Cancelar
                   </button>

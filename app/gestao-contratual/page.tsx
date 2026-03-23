@@ -419,7 +419,7 @@ export default function GestaoContratualPage() {
               </div>
               <div>
                 <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Dados do Contrato</h2>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Informações Principais e Vigência</p>
+                <p className="text-[10px] text-slate-900 font-bold uppercase tracking-widest">Informações Principais e Vigência</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -443,7 +443,7 @@ export default function GestaoContratualPage() {
           <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Contrato nº</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contrato nº</label>
                 {isEditingContract ? (
                   <input 
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
@@ -455,7 +455,7 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
                 {isEditingContract ? (
                   <input 
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
@@ -467,7 +467,7 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">CNPJ</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">CNPJ</label>
                 {isEditingContract ? (
                   <input 
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
@@ -482,7 +482,7 @@ export default function GestaoContratualPage() {
 
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Início da Vigência</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Início da Vigência</label>
                 {isEditingContract ? (
                   <input 
                     type="date"
@@ -495,7 +495,7 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Final da Vigência</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Final da Vigência</label>
                 {isEditingContract ? (
                   <input 
                     type="date"
@@ -508,7 +508,7 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
                 <div className="flex items-center gap-3">
                   {isEditingContract ? (
                     <input 
@@ -520,14 +520,14 @@ export default function GestaoContratualPage() {
                   ) : (
                     <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">{contract?.renewals_count}</span>
                   )}
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Restantes</span>
+                  <span className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Restantes</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Contratante</label>
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contratante</label>
                 {isEditingContract ? (
                   <input 
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
@@ -541,9 +541,9 @@ export default function GestaoContratualPage() {
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex items-center gap-3 mb-2">
                   <Briefcase className="text-amber-500" size={16} />
-                  <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Resumo Executivo</p>
+                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Resumo Executivo</p>
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                <p className="text-[10px] text-slate-900 font-medium leading-relaxed">
                   Contrato de prestação de serviços de manutenção predial preventiva e corretiva, com fornecimento de materiais e mão de obra.
                 </p>
               </div>
@@ -559,7 +559,7 @@ export default function GestaoContratualPage() {
                 <DollarSign className="text-emerald-500" size={24} />
                 Execução Financeira
               </h2>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Acompanhamento de Faturas e Pagamentos</p>
+              <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Faturas e Pagamentos</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button 
@@ -594,8 +594,8 @@ export default function GestaoContratualPage() {
           {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-400" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Filtros:</span>
+              <Filter size={16} className="text-slate-900" />
+              <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
             <select 
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
@@ -632,16 +632,16 @@ export default function GestaoContratualPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano/Mês</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Fatura</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Fato Gerador</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Materiais</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Mat + CITL</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Bruto</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Descontos</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Líquido</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">NF</th>
-                  <th className="px-4 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Ano/Mês</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Fatura</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Fato Gerador</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Materiais</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Mat + CITL</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Total Bruto</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Descontos</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Total Líquido</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">NF</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -650,14 +650,14 @@ export default function GestaoContratualPage() {
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-900">{record.year}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
                           {format(new Date(2022, record.month - 1), 'MMM', { locale: ptBR })}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-4">
                       <input 
-                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 p-0"
+                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.invoice_number}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'invoice_number', e.target.value)}
                       />
@@ -665,7 +665,7 @@ export default function GestaoContratualPage() {
                     <td className="px-4 py-4">
                       <input 
                         type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 p-0"
+                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.payment_value}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'payment_value', Number(e.target.value))}
                       />
@@ -673,7 +673,7 @@ export default function GestaoContratualPage() {
                     <td className="px-4 py-4">
                       <input 
                         type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 p-0"
+                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.materials_value}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'materials_value', Number(e.target.value))}
                       />
@@ -681,7 +681,7 @@ export default function GestaoContratualPage() {
                     <td className="px-4 py-4">
                       <input 
                         type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 p-0"
+                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.materials_citl_value}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'materials_citl_value', Number(e.target.value))}
                       />
@@ -706,7 +706,7 @@ export default function GestaoContratualPage() {
                     </td>
                     <td className="px-4 py-4">
                       <input 
-                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-700 p-0"
+                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.fiscal_note_number}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'fiscal_note_number', e.target.value)}
                       />
@@ -714,7 +714,7 @@ export default function GestaoContratualPage() {
                     <td className="px-4 py-4 text-right">
                       <button 
                         onClick={() => handleDeleteFinancialRecord(record.id)}
-                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -748,7 +748,7 @@ export default function GestaoContratualPage() {
               </tfoot>
             </table>
             {filteredFinancial.length === 0 && (
-              <div className="py-12 text-center text-slate-400 italic text-xs">
+              <div className="py-12 text-center text-slate-700 italic text-xs">
                 Nenhum registro financeiro encontrado.
               </div>
             )}
@@ -763,7 +763,7 @@ export default function GestaoContratualPage() {
                 <TrendingUp className="text-amber-500" size={24} />
                 Repactuações
               </h2>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Acompanhamento de Processos e Reajustes</p>
+              <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Processos e Reajustes</p>
             </div>
             <button 
               onClick={() => setIsRepactuacaoModalOpen(true)}
@@ -777,8 +777,8 @@ export default function GestaoContratualPage() {
           {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-400" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Filtros:</span>
+              <Filter size={16} className="text-slate-900" />
+              <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
             <select 
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
@@ -839,7 +839,7 @@ export default function GestaoContratualPage() {
                     <td className="px-6 py-4 text-right">
                       <button 
                         onClick={() => handleDeleteRepactuacao(rep.id)}
-                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -849,7 +849,7 @@ export default function GestaoContratualPage() {
               </tbody>
             </table>
             {filteredRepactuacoes.length === 0 && (
-              <div className="py-12 text-center text-slate-400 italic text-xs">
+              <div className="py-12 text-center text-slate-700 italic text-xs">
                 Nenhuma repactuação encontrada.
               </div>
             )}
@@ -878,7 +878,7 @@ export default function GestaoContratualPage() {
                   <h3 className="text-lg font-black tracking-tight uppercase text-emerald-700">Novo Registro Financeiro</h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Lançamento de Fatura</p>
                 </div>
-                <button onClick={() => setIsFinancialModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => setIsFinancialModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -947,7 +947,7 @@ export default function GestaoContratualPage() {
                   <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">Nova Repactuação</h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Abertura de Processo</p>
                 </div>
-                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -1004,9 +1004,9 @@ export default function GestaoContratualPage() {
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase">Preview de Importação</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Confirme os dados antes de salvar</p>
+                  <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Confirme os dados antes de salvar</p>
                 </div>
-                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-700 hover:text-white transition-colors">
                   <X size={20} />
                 </button>
               </div>

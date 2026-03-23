@@ -229,7 +229,7 @@ export default function Dashboard() {
             <h2 className="text-2xl font-black text-slate-900 uppercase tracking-widest">
               Bem-vindo, {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
             </h2>
-            <p className="text-slate-700 font-bold">Aqui está o resumo das atividades de hoje.</p>
+            <p className="text-slate-900 font-bold">Aqui está o resumo das atividades de hoje.</p>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
@@ -245,7 +245,7 @@ export default function Dashboard() {
             <button 
               onClick={handleSync}
               disabled={isSyncing}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-700'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-700 cursor-not-allowed' : 'bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-700'}`}
             >
               <FileSpreadsheet className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Sincronizando...' : 'Sincronizar Forms'}
@@ -314,7 +314,7 @@ export default function Dashboard() {
                   {stat.change}
                 </span>
               </div>
-              <p className="text-slate-700 text-xs font-black uppercase tracking-widest">{stat.title}</p>
+              <p className="text-slate-900 text-xs font-black uppercase tracking-widest">{stat.title}</p>
               <p className="text-3xl font-black mt-1 text-slate-900 font-mono tracking-tighter">{stat.value}</p>
             </motion.div>
           ))}
@@ -328,7 +328,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Status de Manutenção por Categoria</h3>
-                  <p className="text-sm text-slate-700 font-bold">Volume de ordens de serviço por especialidade</p>
+                  <p className="text-sm text-slate-900 font-bold">Volume de ordens de serviço por especialidade</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20">Semana</button>
@@ -349,7 +349,7 @@ export default function Dashboard() {
                         {cat.value} ordens
                       </div>
                     </div>
-                    <span className="text-[10px] font-black text-slate-700 uppercase text-center leading-tight h-8 flex items-center tracking-tighter">
+                    <span className="text-[10px] font-black text-slate-900 uppercase text-center leading-tight h-8 flex items-center tracking-tighter">
                       {cat.name}
                     </span>
                   </div>
@@ -367,7 +367,7 @@ export default function Dashboard() {
                       <LineChartIcon className="text-amber-600" size={20} />
                       Consumo Mensal: Estoque
                     </h3>
-                    <p className="text-sm text-slate-700 font-bold">Consumo em R$ de materiais em estoque</p>
+                    <p className="text-sm text-slate-900 font-bold">Consumo em R$ de materiais em estoque</p>
                   </div>
                 </div>
 
@@ -385,13 +385,13 @@ export default function Dashboard() {
                         dataKey="name" 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
                         dy={10}
                       />
                       <YAxis 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
                         tickFormatter={(value) => `R$ ${value}`}
                       />
                       <Tooltip 
@@ -427,7 +427,7 @@ export default function Dashboard() {
                       <LineChartIcon className="text-slate-900" size={20} />
                       Consumo Mensal: Finalísticos
                     </h3>
-                    <p className="text-sm text-slate-700 font-bold">Consumo em R$ de materiais finalísticos</p>
+                    <p className="text-sm text-slate-900 font-bold">Consumo em R$ de materiais finalísticos</p>
                   </div>
                 </div>
 
@@ -445,13 +445,13 @@ export default function Dashboard() {
                         dataKey="name" 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
                         dy={10}
                       />
                       <YAxis 
                         axisLine={false} 
                         tickLine={false} 
-                        tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 900 }}
+                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
                         tickFormatter={(value) => `R$ ${value}`}
                       />
                       <Tooltip 
@@ -508,7 +508,7 @@ export default function Dashboard() {
             <div className="space-y-6">
               {dynamicActivities.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-slate-700 text-xs font-medium italic">Nenhuma atividade recente registrada.</p>
+                  <p className="text-slate-900 text-xs font-medium italic">Nenhuma atividade recente registrada.</p>
                 </div>
               ) : dynamicActivities.map((activity, index) => (
                 <div key={index} className="flex gap-4 relative">
@@ -526,8 +526,8 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{activity.title}</p>
-                    <p className="text-xs text-slate-700 mt-1 font-bold">{activity.description}</p>
-                    <p className="text-[10px] text-slate-700 mt-2 uppercase font-black font-mono tracking-widest">{activity.time}</p>
+                    <p className="text-xs text-slate-900 mt-1 font-bold">{activity.description}</p>
+                    <p className="text-[10px] text-slate-900 mt-2 uppercase font-black font-mono tracking-widest">{activity.time}</p>
                   </div>
                 </div>
               ))}
@@ -538,7 +538,7 @@ export default function Dashboard() {
                 <Info className="text-amber-700" size={18} />
                 <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Dica de Manutenção</h4>
               </div>
-              <p className="text-xs text-slate-700 font-bold leading-relaxed">
+              <p className="text-xs text-slate-900 font-bold leading-relaxed">
                 Agende inspeções de HVAC 2 semanas antes do pico do verão para reduzir chamados de emergência em até 30%.
               </p>
             </div>
