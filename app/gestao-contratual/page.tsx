@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import * as XLSX from 'xlsx';  // ← adicionar aqui
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   FileText, 
@@ -25,11 +25,10 @@ import {
   Clock,
   Briefcase
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { format, differenceInDays, isAfter, isBefore, addMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -51,6 +50,7 @@ interface FinancialRecord {
   year: number;
   month: number;
   invoice_number: string;
+  process_number: string;
   payment_value: number;
   materials_value: number;
   materials_citl_value: number;
@@ -77,7 +77,20 @@ export default function GestaoContratualPage() {
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditingContract, setIsEditingContract] = useState(false);
-  const [contractForm, setContractForm] = useState<Partial<ContractInfo>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [contractForm, setContractForm] = useState<ContractInfo>({
+    id: '',
+    contract_number: '31/2021',
+    company_name: 'EMPRESA CLÓVIS DE BARROS LIMA CONSTRUÇÕES E INCORPORAÇÕES LTDA',
+    cnpj: '11.533.627/0001-24',
+    start_date: '2021-11-04',
+    end_date: '2026-11-04',
+    renewals_count: 5,
+    contracting_party: 'Centro Acadêmico da Vitória - CAV/UFPE'
+  });
+  const [isImporting, setIsImporting] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   
   // Modals
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
@@ -93,10 +106,13 @@ export default function GestaoContratualPage() {
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
+    invoice_number: '',
+    process_number: '',
     payment_value: 0,
     materials_value: 0,
     materials_citl_value: 0,
-    discounts: 0
+    discounts: 0,
+    fiscal_note_number: ''
   });
   const [repactuacaoForm, setRepactuacaoForm] = useState<Partial<Repactuacao>>({
     year: new Date().getFullYear(),
@@ -111,13 +127,32 @@ export default function GestaoContratualPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: contractData } = await supabase.from('contract_info').select('*').single();
-      const { data: financialData } = await supabase.from('financial_records').select('*').order('year', { ascending: false }).order('month', { ascending: false });
-      const { data: repactuacoesData } = await supabase.from('repactuacoes').select('*').order('date', { ascending: false });
+      const { data: contractData } = await supabase
+        .from('contract_info')
+        .select('*')
+        .single();
+      const { data: financialData } = await supabase
+        .from('financial_records')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
+      const { data: repactuacoesData } = await supabase
+        .from('repactuacoes')
+        .select('*')
+        .order('date', { ascending: false });
 
       if (contractData) {
         setContract(contractData);
-        setContractForm(contractData);
+        setContractForm({
+          id: contractData.id ?? '',
+          contract_number: contractData.contract_number ?? '31/2021',
+          company_name: contractData.company_name ?? 'EMPRESA CLÓVIS DE BARROS LIMA CONSTRUÇÕES E INCORPORAÇÕES LTDA',
+          cnpj: contractData.cnpj ?? '11.533.627/0001-24',
+          start_date: contractData.start_date ?? '2021-11-04',
+          end_date: contractData.end_date ?? '2026-11-04',
+          renewals_count: contractData.renewals_count ?? 5,
+          contracting_party: contractData.contracting_party ?? 'Centro Acadêmico da Vitória - CAV/UFPE'
+        });
       }
       if (financialData) setFinancialRecords(financialData);
       if (repactuacoesData) setRepactuacoes(repactuacoesData);
@@ -131,21 +166,31 @@ export default function GestaoContratualPage() {
   // --- Contract Actions ---
 
   const handleSaveContract = async () => {
-    if (!contractForm.id) return;
+    setIsSaving(true);
+    setSaveMessage(null);
     try {
-      const { error } = await supabase
-        .from('contract_info')
-        .update({
-          ...contractForm,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', contractForm.id);
+      const res = await fetch('/api/contract-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contractForm)
+      });
 
-      if (error) throw error;
-      setContract(contractForm as ContractInfo);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro ao salvar');
+      }
+
+      const savedData = await res.json();
+      setContract(savedData);
       setIsEditingContract(false);
-    } catch (error) {
+      setSaveMessage({ type: 'success', text: 'Dados do contrato salvos com sucesso!' });
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (error: any) {
       console.error('Error saving contract:', error);
+      setSaveMessage({ type: 'error', text: `Erro ao salvar: ${error.message}` });
+      setTimeout(() => setSaveMessage(null), 4000);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -173,10 +218,13 @@ export default function GestaoContratualPage() {
       setFinancialForm({
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
+        invoice_number: '',
+        process_number: '',
         payment_value: 0,
         materials_value: 0,
         materials_citl_value: 0,
-        discounts: 0
+        discounts: 0,
+        fiscal_note_number: ''
       });
     } catch (error) {
       console.error('Error adding financial record:', error);
@@ -199,8 +247,6 @@ export default function GestaoContratualPage() {
     if (!record) return;
 
     const updatedRecord = { ...record, [field]: value };
-    
-    // Recalculate totals
     updatedRecord.total_invoice = (Number(updatedRecord.payment_value) || 0) + 
                                  (Number(updatedRecord.materials_value) || 0) + 
                                  (Number(updatedRecord.materials_citl_value) || 0);
@@ -258,38 +304,75 @@ export default function GestaoContratualPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
     const reader = new FileReader();
+
     reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
-      setImportPreviewData(data);
-      setIsImportPreviewOpen(true);
+      try {
+        const data = evt.target?.result;
+        if (!data) throw new Error('Falha ao ler o arquivo');
+
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        if (!jsonData || jsonData.length === 0) {
+          alert('A planilha parece estar vazia.');
+          setIsImporting(false);
+          return;
+        }
+
+        setImportPreviewData(jsonData);
+        setIsImportPreviewOpen(true);
+      } catch (error: any) {
+        console.error('Erro ao ler planilha:', error);
+        alert(`Erro ao processar arquivo: ${error.message}`);
+      } finally {
+        setIsImporting(false);
+        if (importFileRef.current) importFileRef.current.value = '';
+      }
     };
-    reader.readAsBinaryString(file);
+
+    reader.onerror = () => {
+      alert('Erro ao ler o arquivo.');
+      setIsImporting(false);
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
   const confirmImport = async () => {
+    const findKey = (item: any, possibleKeys: string[]) => {
+      const keys = Object.keys(item);
+      let found = keys.find(k =>
+        possibleKeys.some(pk => k.toLowerCase().trim() === pk.toLowerCase().trim())
+      );
+      if (found) return found;
+      return keys.find(k =>
+        possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase()))
+      );
+    };
+
     const recordsToInsert = importPreviewData.map(row => {
-      const payment = Number(row['Valor Pagamento Fato Gerador'] || row['payment_value']) || 0;
-      const materials = Number(row['Valor Materiais Requisitados'] || row['materials_value']) || 0;
-      const citl = Number(row['Valor Materiais Requisitados + CITL'] || row['materials_citl_value']) || 0;
-      const discounts = Number(row['Descontos'] || row['discounts']) || 0;
+      const payment = Number(row[findKey(row, ['fato gerador', 'pagamento fato', 'payment_value']) || ''] || row['Valor Pagamento Fato Gerador'] || 0);
+      const materials = Number(row[findKey(row, ['materiais requisitados', 'materials_value']) || ''] || row['Valor Materiais Requisitados'] || 0);
+      const citl = Number(row[findKey(row, ['citl', 'materials_citl_value']) || ''] || row['Valor Materiais Requisitados + CITL'] || 0);
+      const discounts = Number(row[findKey(row, ['descontos', 'desconto', 'discounts']) || ''] || 0);
       const total = payment + materials + citl;
-      
+
       return {
-        year: Number(row['Ano'] || row['year']),
-        month: Number(row['Mês'] || row['month']),
-        invoice_number: String(row['Número da Fatura'] || row['invoice_number'] || ''),
+        year: Number(row[findKey(row, ['ano', 'year']) || ''] || new Date().getFullYear()),
+        month: Number(row[findKey(row, ['mês', 'mes', 'month']) || ''] || new Date().getMonth() + 1),
+        invoice_number: String(row[findKey(row, ['fatura', 'nº fatura', 'invoice_number']) || ''] || ''),
+        process_number: String(row[findKey(row, ['processo', 'nº processo', 'process_number']) || ''] || ''),
         payment_value: payment,
         materials_value: materials,
         materials_citl_value: citl,
         total_invoice: total,
         discounts: discounts,
         total_after_discounts: total - discounts,
-        fiscal_note_number: String(row['Número da Nota Fiscal'] || row['fiscal_note_number'] || '')
+        fiscal_note_number: String(row[findKey(row, ['nota fiscal', 'nf', 'fiscal_note_number']) || ''] || '')
       };
     });
 
@@ -299,24 +382,18 @@ export default function GestaoContratualPage() {
       alert(`${recordsToInsert.length} registros importados com sucesso!`);
       setIsImportPreviewOpen(false);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error importing data:', error);
-      alert('Erro ao importar dados. Verifique o formato da planilha.');
+      alert(`Erro ao importar dados: ${error.message}`);
     }
   };
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
-    
-    // Sheet 1: Contract Info
     const contractWS = XLSX.utils.json_to_sheet([contract || {}]);
-    XLSX.utils.book_append_sheet(wb, contractWS, "Dados do Contrato");
-    
-    // Sheet 2: Financial Records
+    XLSX.utils.book_append_sheet(wb, contractWS, 'Dados do Contrato');
     const financialWS = XLSX.utils.json_to_sheet(financialRecords);
-    XLSX.utils.book_append_sheet(wb, financialWS, "Execução Financeira");
-    
-    // Sheet 3: Summary by Year
+    XLSX.utils.book_append_sheet(wb, financialWS, 'Execução Financeira');
     const summaryData = Array.from(new Set(financialRecords.map(r => r.year))).map(year => {
       const yearRecords = financialRecords.filter(r => r.year === year);
       return {
@@ -328,22 +405,19 @@ export default function GestaoContratualPage() {
       };
     });
     const summaryWS = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWS, "Resumo por Ano");
-
+    XLSX.utils.book_append_sheet(wb, summaryWS, 'Resumo por Ano');
     XLSX.writeFile(wb, `Gestao_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const exportToPDF = async () => {
     const element = document.getElementById('pdf-content');
     if (!element) return;
-    
     const canvas = await html2canvas(element, { scale: 2 });
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
     const imgProps = pdf.getImageProperties(imgData);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
     pdf.save(`Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
@@ -356,7 +430,6 @@ export default function GestaoContratualPage() {
     const endDate = parseISO(contract.end_date);
     const daysRemaining = differenceInDays(endDate, today);
     const sixMonthsFromNow = addMonths(today, 6);
-
     if (isBefore(endDate, today)) {
       return { color: 'bg-rose-500', text: 'Vencido', days: daysRemaining };
     } else if (isBefore(endDate, sixMonthsFromNow)) {
@@ -387,7 +460,7 @@ export default function GestaoContratualPage() {
     }), { payment: 0, materials: 0, citl: 0, total: 0, discounts: 0, afterDiscounts: 0 });
   }, [filteredFinancial]);
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     'Em Análise': 'bg-amber-100 text-amber-700',
     'Aprovado': 'bg-emerald-100 text-emerald-700',
     'Negado': 'bg-rose-100 text-rose-700',
@@ -410,7 +483,25 @@ export default function GestaoContratualPage() {
   return (
     <DashboardLayout title="Gestão Contratual">
       <div className="space-y-8" id="pdf-content">
-        
+
+        {/* Notificação de salvar */}
+        <AnimatePresence>
+          {saveMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg ${
+                saveMessage.type === 'success'
+                  ? 'bg-emerald-500 text-white shadow-emerald-500/30'
+                  : 'bg-rose-500 text-white shadow-rose-500/30'
+              }`}
+            >
+              {saveMessage.text}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* --- Contract Info Card --- */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -420,7 +511,7 @@ export default function GestaoContratualPage() {
               </div>
               <div>
                 <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Dados do Contrato</h2>
-                <p className="text-[10px] text-slate-900 font-bold uppercase tracking-widest">Informações Principais e Vigência</p>
+                <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Informações Principais e Vigência</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -431,12 +522,19 @@ export default function GestaoContratualPage() {
               <div className="px-3 py-1 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
                 {vigencia.days} Dias Restantes
               </div>
-              <button 
+              <button
                 onClick={() => isEditingContract ? handleSaveContract() : setIsEditingContract(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all text-slate-700"
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all text-slate-700 disabled:opacity-50"
               >
-                {isEditingContract ? <Save size={14} /> : <Edit2 size={14} />}
-                {isEditingContract ? 'Salvar' : 'Editar'}
+                {isSaving ? (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-500" />
+                ) : isEditingContract ? (
+                  <Save size={14} />
+                ) : (
+                  <Edit2 size={14} />
+                )}
+                {isSaving ? 'Salvando...' : isEditingContract ? 'Salvar' : 'Editar'}
               </button>
             </div>
           </div>
@@ -444,11 +542,11 @@ export default function GestaoContratualPage() {
           <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contrato nº</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Contrato nº</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.contract_number}
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.contract_number ?? ''}
                     onChange={e => setContractForm({...contractForm, contract_number: e.target.value})}
                   />
                 ) : (
@@ -456,11 +554,11 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.company_name}
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.company_name ?? ''}
                     onChange={e => setContractForm({...contractForm, company_name: e.target.value})}
                   />
                 ) : (
@@ -468,11 +566,11 @@ export default function GestaoContratualPage() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">CNPJ</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">CNPJ</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.cnpj}
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.cnpj ?? ''}
                     onChange={e => setContractForm({...contractForm, cnpj: e.target.value})}
                   />
                 ) : (
@@ -483,39 +581,43 @@ export default function GestaoContratualPage() {
 
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Início da Vigência</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Início da Vigência</label>
                 {isEditingContract ? (
-                  <input 
+                  <input
                     type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.start_date}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.start_date ?? ''}
                     onChange={e => setContractForm({...contractForm, start_date: e.target.value})}
                   />
                 ) : (
-                  <p className="text-sm font-black text-slate-900">{contract?.start_date ? format(parseISO(contract.start_date), 'dd/MM/yyyy') : '-'}</p>
+                  <p className="text-sm font-black text-slate-900">
+                    {contract?.start_date ? format(parseISO(contract.start_date), 'dd/MM/yyyy') : '-'}
+                  </p>
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Final da Vigência</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Final da Vigência</label>
                 {isEditingContract ? (
-                  <input 
+                  <input
                     type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.end_date}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.end_date ?? ''}
                     onChange={e => setContractForm({...contractForm, end_date: e.target.value})}
                   />
                 ) : (
-                  <p className="text-sm font-black text-slate-900">{contract?.end_date ? format(parseISO(contract.end_date), 'dd/MM/yyyy') : '-'}</p>
+                  <p className="text-sm font-black text-slate-900">
+                    {contract?.end_date ? format(parseISO(contract.end_date), 'dd/MM/yyyy') : '-'}
+                  </p>
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
                 <div className="flex items-center gap-3">
                   {isEditingContract ? (
-                    <input 
+                    <input
                       type="number"
-                      className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                      value={contractForm.renewals_count}
+                      className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={contractForm.renewals_count ?? 0}
                       onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})}
                     />
                   ) : (
@@ -528,11 +630,11 @@ export default function GestaoContratualPage() {
 
             <div className="space-y-6">
               <div>
-                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contratante</label>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1 block">Contratante</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.contracting_party}
+                  <input
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    value={contractForm.contracting_party ?? ''}
                     onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})}
                   />
                 ) : (
@@ -544,7 +646,7 @@ export default function GestaoContratualPage() {
                   <Briefcase className="text-amber-500" size={16} />
                   <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Resumo Executivo</p>
                 </div>
-                <p className="text-[10px] text-slate-900 font-medium leading-relaxed">
+                <p className="text-[10px] text-slate-700 font-medium leading-relaxed">
                   Contrato de prestação de serviços de manutenção predial preventiva e corretiva, com fornecimento de materiais e mão de obra.
                 </p>
               </div>
@@ -560,29 +662,39 @@ export default function GestaoContratualPage() {
                 <DollarSign className="text-emerald-500" size={24} />
                 Execução Financeira
               </h2>
-              <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Faturas e Pagamentos</p>
+              <p className="text-xs text-slate-700 font-bold uppercase tracking-widest">Acompanhamento de Faturas e Pagamentos</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button 
+              <button
                 onClick={() => setIsFinancialModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
               >
                 <Plus size={16} />
                 Adicionar Registro
               </button>
-              <label className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all cursor-pointer">
-                <Upload size={16} />
-                Importar Planilha
-                <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleImportExcel} />
-              </label>
-              <button 
+              <button
+                onClick={() => importFileRef.current?.click()}
+                disabled={isImporting}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+              >
+                <Upload size={16} className={isImporting ? 'animate-bounce' : ''} />
+                {isImporting ? 'Processando...' : 'Importar Planilha'}
+              </button>
+              <input
+                type="file"
+                ref={importFileRef}
+                className="hidden"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImportExcel}
+              />
+              <button
                 onClick={exportToExcel}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
               >
                 <Download size={16} />
                 Excel
               </button>
-              <button 
+              <button
                 onClick={exportToPDF}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
               >
@@ -595,10 +707,10 @@ export default function GestaoContratualPage() {
           {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-900" />
-              <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
+              <Filter size={16} className="text-slate-700" />
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select 
+            <select
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
               value={financialFilter.year}
               onChange={e => setFinancialFilter({...financialFilter, year: e.target.value})}
@@ -608,7 +720,7 @@ export default function GestaoContratualPage() {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select 
+            <select
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
               value={financialFilter.month}
               onChange={e => setFinancialFilter({...financialFilter, month: e.target.value})}
@@ -619,7 +731,7 @@ export default function GestaoContratualPage() {
               ))}
             </select>
             {(financialFilter.year || financialFilter.month) && (
-              <button 
+              <button
                 onClick={() => setFinancialFilter({ year: '', month: '' })}
                 className="text-[10px] font-black text-amber-600 uppercase tracking-widest hover:underline"
               >
@@ -635,6 +747,7 @@ export default function GestaoContratualPage() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Ano/Mês</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Fatura</th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Nº Processo</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Fato Gerador</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Materiais</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Mat + CITL</th>
@@ -657,14 +770,22 @@ export default function GestaoContratualPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
                         className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.invoice_number}
+                        value={record.invoice_number ?? ''}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'invoice_number', e.target.value)}
                       />
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
+                        className="w-28 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
+                        value={record.process_number ?? ''}
+                        onChange={e => handleUpdateFinancialRecord(record.id, 'process_number', e.target.value)}
+                        placeholder="Nº Processo"
+                      />
+                    </td>
+                    <td className="px-4 py-4">
+                      <input
                         type="number"
                         className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.payment_value}
@@ -672,7 +793,7 @@ export default function GestaoContratualPage() {
                       />
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
                         type="number"
                         className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.materials_value}
@@ -680,7 +801,7 @@ export default function GestaoContratualPage() {
                       />
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
                         type="number"
                         className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
                         value={record.materials_citl_value}
@@ -693,7 +814,7 @@ export default function GestaoContratualPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
                         type="number"
                         className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-rose-600 p-0"
                         value={record.discounts}
@@ -706,14 +827,14 @@ export default function GestaoContratualPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <input 
+                      <input
                         className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.fiscal_note_number}
+                        value={record.fiscal_note_number ?? ''}
                         onChange={e => handleUpdateFinancialRecord(record.id, 'fiscal_note_number', e.target.value)}
                       />
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => handleDeleteFinancialRecord(record.id)}
                         className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       >
@@ -725,7 +846,7 @@ export default function GestaoContratualPage() {
               </tbody>
               <tfoot className="bg-slate-900 text-white">
                 <tr>
-                  <td colSpan={2} className="px-4 py-4 text-[10px] font-black uppercase tracking-widest">Totais Gerais</td>
+                  <td colSpan={3} className="px-4 py-4 text-[10px] font-black uppercase tracking-widest">Totais Gerais</td>
                   <td className="px-4 py-4 text-xs font-black">
                     {financialTotals.payment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </td>
@@ -764,9 +885,9 @@ export default function GestaoContratualPage() {
                 <TrendingUp className="text-amber-500" size={24} />
                 Repactuações
               </h2>
-              <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Processos e Reajustes</p>
+              <p className="text-xs text-slate-700 font-bold uppercase tracking-widest">Acompanhamento de Processos e Reajustes</p>
             </div>
-            <button 
+            <button
               onClick={() => setIsRepactuacaoModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
             >
@@ -778,10 +899,10 @@ export default function GestaoContratualPage() {
           {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-900" />
-              <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
+              <Filter size={16} className="text-slate-700" />
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select 
+            <select
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
               value={repactuacaoFilter.year}
               onChange={e => setRepactuacaoFilter({...repactuacaoFilter, year: e.target.value})}
@@ -791,10 +912,10 @@ export default function GestaoContratualPage() {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select 
+            <select
               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
               value={repactuacaoFilter.status}
-              onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value as any})}
+              onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value})}
             >
               <option value="">Todos os Status</option>
               {Object.keys(statusColors).map(s => (
@@ -808,11 +929,11 @@ export default function GestaoContratualPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Processo</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano/Data</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Fato Gerador</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Processo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano/Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Fato Gerador</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-700 uppercase tracking-widest text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -824,13 +945,13 @@ export default function GestaoContratualPage() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-900">{rep.year}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
                           {format(parseISO(rep.date), 'dd/MM/yyyy')}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-xs font-medium text-slate-700 max-w-md">{rep.triggering_factor}</p>
+                      <p className="text-xs font-medium text-slate-800 max-w-md">{rep.triggering_factor}</p>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[rep.status]}`}>
@@ -838,7 +959,7 @@ export default function GestaoContratualPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => handleDeleteRepactuacao(rep.id)}
                         className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       >
@@ -856,7 +977,6 @@ export default function GestaoContratualPage() {
             )}
           </div>
         </section>
-
       </div>
 
       {/* --- Modals --- */}
@@ -865,19 +985,19 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isFinancialModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsFinancialModalOpen(false)}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden"
             >
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase text-emerald-700">Novo Registro Financeiro</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Lançamento de Fatura</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Lançamento de Fatura</p>
                 </div>
                 <button onClick={() => setIsFinancialModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
@@ -886,11 +1006,11 @@ export default function GestaoContratualPage() {
               <div className="p-6 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.year} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.year ?? ''} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Mês</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.month} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
+                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.month ?? ''} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                       <option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>
                     ))}
@@ -898,31 +1018,35 @@ export default function GestaoContratualPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Fatura</label>
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.invoice_number} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.invoice_number ?? ''} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Processo</label>
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: 23076.012345/2026-01" value={financialForm.process_number ?? ''} onChange={e => setFinancialForm({...financialForm, process_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Nota Fiscal</label>
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.fiscal_note_number} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Fato Gerador (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.payment_value} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Materiais (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.materials_value} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Mat + CITL (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.materials_citl_value} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Descontos (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.discounts} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <button onClick={() => setIsFinancialModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                <button onClick={() => setIsFinancialModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
                 <button onClick={handleAddFinancialRecord} className="flex-1 px-4 py-3 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">Salvar Registro</button>
               </div>
             </motion.div>
@@ -934,19 +1058,19 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isRepactuacaoModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsRepactuacaoModalOpen(false)}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden"
             >
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">Nova Repactuação</h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Abertura de Processo</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Abertura de Processo</p>
                 </div>
                 <button onClick={() => setIsRepactuacaoModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
                   <X size={20} />
@@ -956,20 +1080,20 @@ export default function GestaoContratualPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Processo</label>
-                    <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.process_number} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
+                    <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.process_number ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                    <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.year} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
+                    <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.year ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</label>
-                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.date} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
+                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.status} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
+                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-bold outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.status ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
                     {Object.keys(statusColors).map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
@@ -977,11 +1101,11 @@ export default function GestaoContratualPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Fato Gerador</label>
-                  <textarea className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm min-h-[100px]" value={repactuacaoForm.triggering_factor} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
+                  <textarea className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 font-medium outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px]" value={repactuacaoForm.triggering_factor ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
                 <button onClick={handleAddRepactuacao} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">Salvar Repactuação</button>
               </div>
             </motion.div>
@@ -993,21 +1117,21 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isImportPreviewOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsImportPreviewOpen(false)}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
             >
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase">Preview de Importação</h3>
-                  <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Confirme os dados antes de salvar</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Confirme os dados antes de salvar — {importPreviewData.length} registros encontrados</p>
                 </div>
-                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-700 hover:text-white transition-colors">
+                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-400 hover:text-white transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -1015,29 +1139,33 @@ export default function GestaoContratualPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Ano/Mês</th>
-                      <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Fatura</th>
-                      <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Fato Gerador</th>
-                      <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Materiais</th>
-                      <th className="px-3 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Descontos</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Ano/Mês</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Fatura</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Processo</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Fato Gerador</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Materiais</th>
+                      <th className="px-3 py-3 text-[9px] font-black text-slate-700 uppercase tracking-widest">Descontos</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {importPreviewData.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="px-3 py-3 text-xs font-bold">{row['Ano'] || row['year']}/{row['Mês'] || row['month']}</td>
-                        <td className="px-3 py-3 text-xs">{row['Número da Fatura'] || row['invoice_number']}</td>
-                        <td className="px-3 py-3 text-xs">{Number(row['Valor Pagamento Fato Gerador'] || row['payment_value']).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                        <td className="px-3 py-3 text-xs">{Number(row['Valor Materiais Requisitados'] || row['materials_value']).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                        <td className="px-3 py-3 text-xs text-rose-500">{Number(row['Descontos'] || row['discounts']).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="px-3 py-3 text-xs font-bold text-slate-900">{row['Ano'] || row['ano'] || row['year']}/{row['Mês'] || row['mes'] || row['month']}</td>
+                        <td className="px-3 py-3 text-xs text-slate-800">{row['Número da Fatura'] || row['fatura'] || row['invoice_number']}</td>
+                        <td className="px-3 py-3 text-xs text-slate-800">{row['Número do Processo'] || row['processo'] || row['process_number'] || '-'}</td>
+                        <td className="px-3 py-3 text-xs text-slate-800">{Number(row['Valor Pagamento Fato Gerador'] || row['fato gerador'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        <td className="px-3 py-3 text-xs text-slate-800">{Number(row['Valor Materiais Requisitados'] || row['materiais'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        <td className="px-3 py-3 text-xs text-rose-600 font-bold">{Number(row['Descontos'] || row['descontos'] || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <button onClick={() => setIsImportPreviewOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
-                <button onClick={confirmImport} className="flex-1 px-4 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg">Confirmar Importação ({importPreviewData.length} registros)</button>
+                <button onClick={() => setIsImportPreviewOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                <button onClick={confirmImport} className="flex-1 px-4 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg">
+                  Confirmar Importação ({importPreviewData.length} registros)
+                </button>
               </div>
             </motion.div>
           </div>
