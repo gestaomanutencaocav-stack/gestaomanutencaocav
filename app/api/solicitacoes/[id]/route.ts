@@ -1,42 +1,58 @@
 import { NextResponse } from 'next/server';
-import { getRequestById, updateRequest, deleteRequest } from '@/lib/store';
+import { getRequestById, updateRequest } from '@/lib/store';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const item = await getRequestById(id);
-  if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json(item);
-}
-
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const body = await request.json();
-  const updated = await updateRequest(id, body);
-  return NextResponse.json(updated);
+  try {
+    const { id } = await params;
+    const data = await getRequestById(id);
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Solicitação não encontrada' }, 
+        { status: 404 }
+      );
+    }
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('GET solicitacao error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Erro interno' }, 
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const body = await request.json();
-  const updated = await updateRequest(id, body);
-  return NextResponse.json(updated);
-}
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    
+    console.log('PATCH solicitacao id:', id);
+    console.log('PATCH body:', JSON.stringify(body));
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  console.log('API DELETE called for ID:', id);
-  await deleteRequest(id);
-  return NextResponse.json({ success: true });
+    const updated = await updateRequest(id, body);
+    
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Solicitação não encontrada ou erro ao atualizar' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('PATCH solicitacao error:', error);
+    return NextResponse.json(
+      { 
+        error: error.message || 'Erro interno',
+        details: error.details || error.hint || error.code
+      }, 
+      { status: 500 }
+    );
+  }
 }

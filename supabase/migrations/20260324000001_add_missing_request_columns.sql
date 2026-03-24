@@ -1,0 +1,14 @@
+ALTER TABLE public.requests
+  ADD COLUMN IF NOT EXISTS status_color TEXT DEFAULT 'blue',
+  ADD COLUMN IF NOT EXISTS data_finalizacao TEXT,
+  ADD COLUMN IF NOT EXISTS hora_finalizacao TEXT,
+  ADD COLUMN IF NOT EXISTS observacao TEXT,
+  ADD COLUMN IF NOT EXISTS timeline JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS professionals JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS documents JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS urgency TEXT,
+  ADD COLUMN IF NOT EXISTS authorized_by TEXT,
+  ADD COLUMN IF NOT EXISTS authorized_position TEXT,
+  ADD COLUMN IF NOT EXISTS authorized_justification TEXT;

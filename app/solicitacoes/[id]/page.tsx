@@ -33,8 +33,8 @@ import {
   GripVertical
 } from 'lucide-react';
 import Image from 'next/image';
-import { useParams, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { useParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   DndContext, 
   closestCenter,
@@ -189,6 +189,7 @@ const SortableItem = ({
 
       <input
         type="text"
+        id={`task-${item.id}`}
         value={item.task}
         onChange={(e) => onTaskChange(item.id, e.target.value)}
         placeholder="Descreva a tarefa..."
@@ -197,20 +198,28 @@ const SortableItem = ({
         }`}
       />
 
-      <button
-        onClick={() => onRemove(item.id)}
-        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-      >
-        <Trash2 size={14} />
-      </button>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <button
+          onClick={() => document.getElementById(`task-${item.id}`)?.focus()}
+          className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+          title="Editar Tarefa"
+        >
+          <Wrench size={14} />
+        </button>
+        <button
+          onClick={() => onRemove(item.id)}
+          className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+          title="Remover Tarefa"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 };
 
 export default function RequestDetailsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const id = params?.id as string;
+  const { id } = useParams() as { id: string };
   const [request, setRequest] = useState<MaintenanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'encarregado' | 'gestao' | null>(null);
@@ -316,10 +325,39 @@ export default function RequestDetailsPage() {
     setRequest({ ...request, timeline: updatedTimeline });
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !request) return;
-    addTimelineEvent(newComment, 'manual');
-    setNewComment('');
+    setIsSaving(true);
+    try {
+      const newEvent: TimelineEvent = {
+        date: new Date().toISOString(),
+        action: newComment,
+        user: 'Usuário', // Ideally this should be the logged in user's name
+        type: 'manual'
+      };
+
+      const updatedTimeline = [newEvent, ...(request.timeline || [])];
+      
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeline: updatedTimeline }),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, timeline: updatedTimeline });
+        setNewComment('');
+        showNotification('success', 'Comentário adicionado');
+        fetchRequest();
+      } else {
+        showNotification('error', 'Erro ao adicionar comentário');
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão ao adicionar comentário');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const ensureBucketExists = async () => {
@@ -338,35 +376,70 @@ export default function RequestDetailsPage() {
     if (!files || files.length === 0 || !request) return;
 
     setIsUploading(true);
-    await ensureBucketExists();
-    
     const newImages = [...(request.images || [])];
     
     try {
+      await ensureBucketExists();
+      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fileExt = file.name.split('.').pop();
         const fileName = `${id}-${Date.now()}-${i}.${fileExt}`;
         const filePath = `requests/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('images')
-          .upload(filePath, file);
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('images')
+            .upload(filePath, file);
 
-        if (uploadError) throw uploadError;
+          if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('images')
-          .getPublicUrl(filePath);
-          
-        newImages.push(publicUrl);
+          const { data: { publicUrl } } = supabase.storage
+            .from('images')
+            .getPublicUrl(filePath);
+            
+          newImages.push(publicUrl);
+        } catch (storageError) {
+          console.warn('Supabase Storage failed, falling back to base64:', storageError);
+          // Fallback to base64
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          newImages.push(base64);
+        }
       }
       
-      setRequest({ ...request, images: newImages });
-      addTimelineEvent(`Adicionou ${files.length} foto(s)`);
-      showNotification('success', 'Fotos enviadas com sucesso');
+      const updatedRequest = { ...request, images: newImages };
+      setRequest(updatedRequest);
+      
+      const newEvent: TimelineEvent = {
+        date: new Date().toISOString(),
+        action: `Adicionou ${files.length} foto(s)`,
+        user: 'Sistema',
+        type: 'auto'
+      };
+      
+      const updatedFields: Partial<MaintenanceRequest> = {
+        images: newImages,
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+
+      if (res.ok) {
+        showNotification('success', 'Fotos enviadas com sucesso');
+        fetchRequest();
+      } else {
+        showNotification('error', 'Erro ao salvar fotos no banco');
+      }
     } catch (error: any) {
-      console.error('Error uploading photos:', error);
+      console.error('Error in handlePhotoUpload:', error);
       showNotification('error', `Erro no upload: ${error.message}`);
     } finally {
       setIsUploading(false);
@@ -434,37 +507,59 @@ export default function RequestDetailsPage() {
     }
   };
 
-  const handleAddChecklistItem = () => {
+  const saveChecklist = async (updatedChecklist: ChecklistItem[]) => {
+    if (!request) return;
+    try {
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checklist: updatedChecklist }),
+      });
+      if (!res.ok) {
+        showNotification('error', 'Erro ao salvar checklist');
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão ao salvar checklist');
+    }
+  };
+
+  const handleAddChecklistItem = async () => {
     if (!newItemTask.trim() || !request) return;
     const newItem: ChecklistItem = {
       id: Math.random().toString(36).substr(2, 9),
       task: newItemTask,
       completed: false
     };
-    setRequest({ ...request, checklist: [...(request.checklist || []), newItem] });
+    const updatedChecklist = [...(request.checklist || []), newItem];
+    setRequest({ ...request, checklist: updatedChecklist });
     setNewItemTask('');
+    await saveChecklist(updatedChecklist);
   };
 
-  const handleToggleChecklistItem = (id: string) => {
+  const handleToggleChecklistItem = async (id: string) => {
     if (!request) return;
     const updatedChecklist = (request.checklist || []).map(item => 
       item.id === id ? { ...item, completed: !item.completed } : item
     );
     setRequest({ ...request, checklist: updatedChecklist });
+    await saveChecklist(updatedChecklist);
   };
 
-  const handleRemoveChecklistItem = (id: string) => {
+  const handleRemoveChecklistItem = async (id: string) => {
     if (!request) return;
     const updatedChecklist = (request.checklist || []).filter(item => item.id !== id);
     setRequest({ ...request, checklist: updatedChecklist });
+    await saveChecklist(updatedChecklist);
   };
 
-  const handleTaskChange = (id: string, task: string) => {
+  const handleTaskChange = async (id: string, task: string) => {
     if (!request) return;
     const updatedChecklist = (request.checklist || []).map(item => 
       item.id === id ? { ...item, task } : item
     );
     setRequest({ ...request, checklist: updatedChecklist });
+    await saveChecklist(updatedChecklist);
   };
 
   const removePhoto = (idx: number) => {
@@ -483,83 +578,180 @@ export default function RequestDetailsPage() {
 
   const handleAddProfessional = async () => {
     if (!newProfName.trim() || !newProfRole.trim() || !request) return;
-    const newProf = { name: newProfName, role: newProfRole };
-    const updatedProfs = [...(request.professionals || []), newProf];
-    const updatedRequest = { ...request, professionals: updatedProfs };
-    setRequest(updatedRequest);
-    addTimelineEvent(`Profissional ${newProfName} (${newProfRole}) atribuído`);
-    setNewProfName('');
-    setNewProfRole('');
-    await handleSaveChanges(updatedRequest);
+    setIsSaving(true);
+    try {
+      const newProf = { name: newProfName, role: newProfRole };
+      const updatedProfs = [...(request.professionals || []), newProf];
+      
+      const newEvent: TimelineEvent = {
+        date: new Date().toISOString(),
+        action: `Profissional ${newProfName} (${newProfRole}) atribuído`,
+        user: 'Sistema',
+        type: 'auto'
+      };
+
+      const updatedFields: Partial<MaintenanceRequest> = {
+        professionals: updatedProfs,
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, ...updatedFields });
+        setNewProfName('');
+        setNewProfRole('');
+        showNotification('success', 'Profissional adicionado com sucesso');
+        fetchRequest();
+      } else {
+        showNotification('error', 'Erro ao adicionar profissional');
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão ao adicionar profissional');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRemoveProfessional = async (idx: number) => {
     if (!request) return;
-    const updatedProfs = [...(request.professionals || [])];
-    const removed = updatedProfs[idx];
-    updatedProfs.splice(idx, 1);
-    const updatedRequest = { ...request, professionals: updatedProfs };
-    setRequest(updatedRequest);
-    addTimelineEvent(`Profissional ${removed.name} removido`);
-    await handleSaveChanges(updatedRequest);
+    setIsSaving(true);
+    try {
+      const updatedProfs = [...(request.professionals || [])];
+      const removed = updatedProfs[idx];
+      updatedProfs.splice(idx, 1);
+      
+      const newEvent: TimelineEvent = {
+        date: new Date().toISOString(),
+        action: `Profissional ${removed.name} removido`,
+        user: 'Sistema',
+        type: 'auto'
+      };
+
+      const updatedFields: Partial<MaintenanceRequest> = {
+        professionals: updatedProfs,
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, ...updatedFields });
+        showNotification('success', 'Profissional removido com sucesso');
+        fetchRequest();
+      } else {
+        showNotification('error', 'Erro ao remover profissional');
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão ao remover profissional');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAuthSubmit = async () => {
     if (!request) return;
+    setIsSaving(true);
     
-    const now = new Date();
-    const updatedRequest: MaintenanceRequest = {
-      ...request,
-      status: authAction,
-      statusColor: authAction === 'Autorizado' ? 'emerald' : 'rose',
-      authorizedBy: authName,
-      authorizedPosition: authPosition,
-      authorizedJustification: authJustification,
-      urgency: authUrgency
-    };
+    try {
+      const now = new Date();
+      const newEvent: TimelineEvent = {
+        date: now.toISOString(),
+        action: `Solicitação ${authAction} por ${authName} (${authPosition})`,
+        user: authName,
+        type: 'auto'
+      };
 
-    const newEvent: TimelineEvent = {
-      date: now.toISOString(),
-      action: `Solicitação ${authAction} por ${authName} (${authPosition})`,
-      user: authName,
-      type: 'auto'
-    };
-    
-    updatedRequest.timeline = [newEvent, ...(request.timeline || [])];
-    
-    setRequest(updatedRequest);
-    setIsAuthModalOpen(false);
-    await handleSaveChanges(updatedRequest);
+      const updatedFields: Partial<MaintenanceRequest> = {
+        status: authAction,
+        statusColor: authAction === 'Autorizado' ? 'emerald' : 'rose',
+        authorizedBy: authName,
+        authorizedPosition: authPosition,
+        authorizedJustification: authJustification,
+        urgency: authUrgency,
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, ...updatedFields });
+        setIsAuthModalOpen(false);
+        showNotification('success', `Solicitação ${authAction} com sucesso`);
+        fetchRequest();
+      } else {
+        showNotification('error', `Erro ao processar ${authAction}`);
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleConcluirServico = async () => {
     if (!request) return;
+    setIsSaving(true);
     
-    const now = new Date();
-    const dataFinal = format(now, 'yyyy-MM-dd');
-    const horaFinal = format(now, 'HH:mm');
-    
-    const updatedRequest: MaintenanceRequest = {
-      ...request,
-      status: 'Concluído',
-      statusColor: 'emerald',
-      dataFinalizacao: dataFinal,
-      horaFinalizacao: horaFinal,
-      observacao: conclusaoObs || request.observacao
-    };
+    try {
+      const now = new Date();
+      const dataFinal = format(now, 'yyyy-MM-dd');
+      const horaFinal = format(now, 'HH:mm');
+      const dataFormatada = format(now, 'dd/MM/yyyy');
+      
+      const newEvent: TimelineEvent = {
+        date: now.toISOString(),
+        action: `Serviço concluído em ${dataFormatada} às ${horaFinal}`,
+        user: 'Sistema',
+        type: 'auto'
+      };
 
-    const newEvent: TimelineEvent = {
-      date: now.toISOString(),
-      action: `Serviço concluído em ${format(now, 'dd/MM/yyyy')} às ${horaFinal}`,
-      user: 'Sistema',
-      type: 'auto'
-    };
-    
-    updatedRequest.timeline = [newEvent, ...(request.timeline || [])];
-    
-    setRequest(updatedRequest);
-    setIsConcluirModalOpen(false);
-    await handleSaveChanges(updatedRequest);
+      const updatedFields: Partial<MaintenanceRequest> = {
+        status: 'Concluído',
+        statusColor: 'emerald',
+        dataFinalizacao: dataFinal,
+        horaFinalizacao: horaFinal,
+        observacao: conclusaoObs || request.observacao,
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, ...updatedFields });
+        setIsConcluirModalOpen(false);
+        showNotification('success', 'Serviço concluído com sucesso');
+        fetchRequest();
+      } else {
+        const errData = await res.json();
+        console.error('Erro ao concluir serviço:', errData);
+        showNotification('error', `Erro ao concluir: ${errData.error || 'Erro desconhecido'}`);
+      }
+    } catch (error: any) {
+      console.error('Erro de conexão ao concluir serviço:', error);
+      showNotification('error', 'Erro de conexão ao concluir serviço');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -597,9 +789,10 @@ export default function RequestDetailsPage() {
                 request.status === 'Em Andamento' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                 request.status === 'Novo' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                 request.status === 'Autorizado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                request.status === 'Concluído' ? 'bg-emerald-500 text-white border-emerald-600' :
                 'bg-slate-50 text-slate-700 border-slate-100'
               }`}>
-                {request.status}
+                {request.status} {request.status === 'Concluído' && request.dataFinalizacao && ` em ${format(new Date(request.dataFinalizacao + 'T12:00:00'), 'dd/MM/yyyy')} às ${request.horaFinalizacao}`}
               </span>
               <p className="text-slate-400 text-xs font-mono font-black">{request.id}</p>
             </div>

@@ -419,25 +419,25 @@ export const updateRequest = async (id: string, updates: Partial<MaintenanceRequ
     dbUpdates.professional = updates.professionals.map(p => `${p.name} — ${p.role}`).join(', ');
   }
   if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
-  if (updates.details) dbUpdates.details = updates.details;
-  if (updates.checklist) dbUpdates.checklist = updates.checklist;
-  if (updates.authorizedBy) dbUpdates.authorized_by = updates.authorizedBy;
-  if (updates.authorizedPosition) dbUpdates.authorized_position = updates.authorizedPosition;
-  if (updates.authorizedJustification) dbUpdates.authorized_justification = updates.authorizedJustification;
-  if (updates.urgency) dbUpdates.urgency = updates.urgency;
-  if (updates.images) dbUpdates.images = updates.images;
+  if (updates.details !== undefined) dbUpdates.details = updates.details;
+  if (updates.checklist !== undefined) dbUpdates.checklist = updates.checklist;
+  if (updates.authorizedBy !== undefined) dbUpdates.authorized_by = updates.authorizedBy;
+  if (updates.authorizedPosition !== undefined) dbUpdates.authorized_position = updates.authorizedPosition;
+  if (updates.authorizedJustification !== undefined) dbUpdates.authorized_justification = updates.authorizedJustification;
+  if (updates.urgency !== undefined) dbUpdates.urgency = updates.urgency;
+  if (updates.images !== undefined) dbUpdates.images = updates.images;
   if (updates.matriculaSiape) dbUpdates.matricula_siape = updates.matriculaSiape;
   if (updates.emailSolicitante) dbUpdates.email_solicitante = updates.emailSolicitante;
   if (updates.tombamento) dbUpdates.tombamento = updates.tombamento;
   if (updates.modeloEquipamento) dbUpdates.modelo_equipamento = updates.modeloEquipamento;
   if (updates.tipoEquipamento) dbUpdates.tipo_equipamento = updates.tipoEquipamento;
   if (updates.btus) dbUpdates.btus = updates.btus;
-  if (updates.horaFinalizacao) dbUpdates.hora_finalizacao = updates.horaFinalizacao;
-  if (updates.dataFinalizacao) dbUpdates.data_finalizacao = updates.dataFinalizacao;
+  if (updates.horaFinalizacao !== undefined) dbUpdates.hora_finalizacao = updates.horaFinalizacao;
+  if (updates.dataFinalizacao !== undefined) dbUpdates.data_finalizacao = updates.dataFinalizacao;
   if (updates.servidorRepassou) dbUpdates.servidor_repassou = updates.servidorRepassou;
-  if (updates.observacao) dbUpdates.observacao = updates.observacao;
-  if (updates.timeline) dbUpdates.timeline = updates.timeline;
-  if (updates.documents) dbUpdates.documents = updates.documents;
+  if (updates.observacao !== undefined) dbUpdates.observacao = updates.observacao;
+  if (updates.timeline !== undefined) dbUpdates.timeline = updates.timeline;
+  if (updates.documents !== undefined) dbUpdates.documents = updates.documents;
 
   const { data, error } = await supabase
     .from('requests')
