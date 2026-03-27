@@ -4,9 +4,12 @@ import { getMaterials, upsertMaterials } from '@/lib/store';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') as 'estoque' | 'finalistico';
+  const month = searchParams.get('month') ? Number(searchParams.get('month')) : undefined;
+  const year = searchParams.get('year') ? Number(searchParams.get('year')) : undefined;
+  
   if (!type) return NextResponse.json({ error: 'Type is required' }, { status: 400 });
   
-  const data = await getMaterials(type);
+  const data = await getMaterials(type, month, year);
   return NextResponse.json(data);
 }
 

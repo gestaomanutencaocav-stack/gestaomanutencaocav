@@ -193,7 +193,103 @@ export const applyPriceCorrection = async (type: 'estoque' | 'finalistico', perc
   return { count: materials.length };
 };
 
-export const getMaterials = async (type: 'estoque' | 'finalistico') => {
+export interface MaterialPriceHistory {
+  id: string;
+  materialId: string;
+  materialCodigo: string;
+  referenceMonth: number;
+  referenceYear: number;
+  unitPrice: number;
+  previousPrice: number | null;
+  variationPercent: number | null;
+  justification: string | null;
+  materialType: string;
+  createdAt: string;
+}
+
+const mapPriceHistory = (ph: any): MaterialPriceHistory => ({
+  id: ph.id,
+  materialId: ph.material_id,
+  materialCodigo: ph.material_codigo,
+  referenceMonth: ph.reference_month,
+  referenceYear: ph.reference_year,
+  unitPrice: Number(ph.unit_price),
+  previousPrice: ph.previous_price ? Number(ph.previous_price) : null,
+  variationPercent: ph.variation_percent ? Number(ph.variation_percent) : null,
+  justification: ph.justification,
+  materialType: ph.material_type,
+  createdAt: ph.created_at,
+});
+
+export const getPriceHistory = async (materialId: string) => {
+  const { data, error } = await supabase
+    .from('material_price_history')
+    .select('*')
+    .eq('material_id', materialId)
+    .order('reference_year', { ascending: false })
+    .order('reference_month', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching price history:', error);
+    return [];
+  }
+  return data.map(mapPriceHistory);
+};
+
+export const addPriceHistory = async (materialId: string, payload: {
+  referenceMonth: number;
+  referenceYear: number;
+  unitPrice: number;
+  justification?: string;
+}) => {
+  // 1. Get the material to get its current price and code
+  const { data: material, error: fetchError } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('id', materialId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const previousPrice = Number(material.valor_unitario || 0);
+  const variationPercent = previousPrice > 0 
+    ? ((payload.unitPrice - previousPrice) / previousPrice) * 100 
+    : 0;
+
+  // 2. Insert into history
+  const { data: historyData, error: historyError } = await supabase
+    .from('material_price_history')
+    .insert([{
+      material_id: materialId,
+      material_codigo: material.codigo,
+      reference_month: payload.referenceMonth,
+      reference_year: payload.referenceYear,
+      unit_price: payload.unitPrice,
+      previous_price: previousPrice,
+      variation_percent: variationPercent,
+      justification: payload.justification,
+      material_type: material.type
+    }])
+    .select()
+    .single();
+
+  if (historyError) throw historyError;
+
+  // 3. Update the material's current price
+  const { error: updateError } = await supabase
+    .from('materials')
+    .update({
+      valor_unitario: payload.unitPrice,
+      valor_total: payload.unitPrice * Number(material.saldo_atual || 0)
+    })
+    .eq('id', materialId);
+
+  if (updateError) throw updateError;
+
+  return mapPriceHistory(historyData);
+};
+
+export const getMaterials = async (type: 'estoque' | 'finalistico', month?: number, year?: number) => {
   const { data, error } = await supabase
     .from('materials')
     .select('*')
@@ -204,7 +300,35 @@ export const getMaterials = async (type: 'estoque' | 'finalistico') => {
     console.error('Error fetching materials:', error);
     return [];
   }
-  return data.map(mapMaterial);
+
+  const mappedMaterials = data.map(mapMaterial);
+
+  // If month and year are provided, we need to fetch the prices for that period
+  if (month && year) {
+    const { data: historyData, error: historyError } = await supabase
+      .from('material_price_history')
+      .select('*')
+      .eq('reference_month', month)
+      .eq('reference_year', year);
+
+    if (!historyError && historyData) {
+      return mappedMaterials.map(m => {
+        const history = historyData.find(h => h.material_id === m.id);
+        if (history) {
+          return {
+            ...m,
+            valorUnitario: Number(history.unit_price),
+            valorTotal: Number(history.unit_price) * m.saldoAtual,
+            priceVariation: Number(history.variation_percent),
+            isHistoricalPrice: true
+          };
+        }
+        return m;
+      });
+    }
+  }
+
+  return mappedMaterials;
 };
 
 export const upsertMaterials = async (materials: Material[]) => {
