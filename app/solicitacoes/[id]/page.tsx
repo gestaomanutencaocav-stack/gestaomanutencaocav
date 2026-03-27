@@ -20,6 +20,7 @@ import {
   User,
   Box,
   UserPlus,
+  Users,
   Trash2,
   Eye,
   Plus,
@@ -28,8 +29,6 @@ import {
   MessageSquare,
   Paperclip,
   Send,
-  AlertCircle,
-  CheckCircle,
   GripVertical
 } from 'lucide-react';
 import Image from 'next/image';
@@ -126,10 +125,35 @@ const timeline = [
   { time: 'Hoje, 07:45 AM', title: 'Reportado', description: '', active: false },
 ];
 
+const PROFISSIONAIS_LISTA = [
+  { name: 'ISRAEL GUILHERME DE SANTANA ALMEIDA', role: 'AUX. CARPINTEIRA' },
+  { name: 'LEONARDO DA SILVA MENESES', role: 'AUX. ELETRICISTA' },
+  { name: 'MAURICI DE SOUZA AMORIM', role: 'AUX. ELETRICISTA' },
+  { name: 'MARCELO DO NASCIMENTO SANTOS', role: 'AUX. ENCANDOR' },
+  { name: 'JOSÉ ROCHA DA SILVA', role: 'AUX. ENCANDOR' },
+  { name: 'LEONARDO JOSÉ DE MELO', role: 'AUX. MARCENARIA' },
+  { name: 'ANDRE WEVERTON DO N. AZEVEDO', role: 'AUX. PEDREIRO' },
+  { name: 'ELIDO SEVERINO DA SILVA', role: 'AUX. PEDREIRO' },
+  { name: 'CLEBER VILA NOVA DA SILVA', role: 'SUBSTITUTO FERISTA' },
+  { name: 'PAULO ROBERTO ALBINO', role: 'AUX. PINTOR' },
+  { name: 'WALISSON CARLOS DE SENA DERREIRA', role: 'CARPINTEIRO' },
+  { name: 'EDUARDO OLIVEIRA DE FRANCA', role: 'ELETRICISTA' },
+  { name: 'ANTÔNIO FRANCISCO DE SANTANA BARROS', role: 'SUBSTITUTO FERISTA' },
+  { name: 'ISAEL LINO DE LIMA GEMEO', role: 'ELETRICISTA' },
+  { name: 'JOSÉ JOÃO DA SILVA', role: 'ENCANADOR' },
+  { name: 'TONY ANTÔNIO DA SILVA OLIVEIRA', role: 'ENCANADOR' },
+  { name: 'SAMUEL JOSÉ DOS SANTOS', role: 'MARCENEIRO' },
+  { name: 'MARCIEL JOSÉ DOS SANTOS', role: 'PEDREIRO' },
+  { name: 'MARCONI JOSÉ DOS SANTOS', role: 'PEDREIRO' },
+  { name: 'MANOEL DOS SANTOS ALVES', role: 'PINTOR' },
+  { name: 'DARLESON LUIZ ALVES DE OLIVEIRA', role: 'TEC. EDIFICAÇÕES' },
+];
+
 const getInitials = (name: string) => {
-  const names = name.split(' ');
-  if (names.length >= 2) {
-    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0])
+      .toUpperCase();
   }
   return name.substring(0, 2).toUpperCase();
 };
@@ -234,8 +258,7 @@ export default function RequestDetailsPage() {
   const [isUploading, setIsUploading] = useState(false);
   
   // Team States
-  const [newProfName, setNewProfName] = useState('');
-  const [newProfRole, setNewProfRole] = useState('');
+  const [selectedProfissional, setSelectedProfissional] = useState('');
   
   // Completion Modal State
   const [isConcluirModalOpen, setIsConcluirModalOpen] = useState(false);
@@ -576,86 +599,71 @@ export default function RequestDetailsPage() {
     setRequest({ ...request, documents: newDocs });
   };
 
-  const handleAddProfessional = async () => {
-    if (!newProfName.trim() || !newProfRole.trim() || !request) return;
-    setIsSaving(true);
+  const handleAddProfissional = async () => {
+    if (!selectedProfissional || !request) return;
+    
+    const prof = PROFISSIONAIS_LISTA.find(
+      p => p.name === selectedProfissional
+    );
+    if (!prof) return;
+    
+    const professionals = request.professionals || [];
+    
+    // Verificar se já está na lista
+    const jaExiste = professionals.some(
+      (p: any) => p.name === prof.name
+    );
+    if (jaExiste) {
+      showNotification('error', 
+        'Profissional já está na equipe desta OS');
+      return;
+    }
+    
+    const updated = [...professionals, prof];
+    
     try {
-      const newProf = { name: newProfName, role: newProfRole };
-      const updatedProfs = [...(request.professionals || []), newProf];
-      
-      const newEvent: TimelineEvent = {
-        date: new Date().toISOString(),
-        action: `Profissional ${newProfName} (${newProfRole}) atribuído`,
-        user: 'Sistema',
-        type: 'auto'
-      };
-
-      const updatedFields: Partial<MaintenanceRequest> = {
-        professionals: updatedProfs,
-        timeline: [newEvent, ...(request.timeline || [])]
-      };
-
-      const res = await fetch(`/api/solicitacoes/${id}`, {
+      const res = await fetch(
+        `/api/solicitacoes/${request.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
+        body: JSON.stringify({ professionals: updated })
       });
       
       if (res.ok) {
-        setRequest({ ...request, ...updatedFields });
-        setNewProfName('');
-        setNewProfRole('');
-        showNotification('success', 'Profissional adicionado com sucesso');
-        fetchRequest();
-      } else {
-        showNotification('error', 'Erro ao adicionar profissional');
+        setRequest({ ...request, professionals: updated });
+        setSelectedProfissional('');
+        addTimelineEvent(
+          `Profissional ${prof.name} (${prof.role}) atribuído`
+        );
       }
     } catch (error) {
-      console.error(error);
-      showNotification('error', 'Erro de conexão ao adicionar profissional');
-    } finally {
-      setIsSaving(false);
+      console.error('Erro ao adicionar profissional:', error);
     }
   };
 
-  const handleRemoveProfessional = async (idx: number) => {
+  const handleRemoveProfissional = async (index: number) => {
     if (!request) return;
-    setIsSaving(true);
+    
+    const professionals = [...(request.professionals || [])];
+    const removed = professionals[index];
+    professionals.splice(index, 1);
+    
     try {
-      const updatedProfs = [...(request.professionals || [])];
-      const removed = updatedProfs[idx];
-      updatedProfs.splice(idx, 1);
-      
-      const newEvent: TimelineEvent = {
-        date: new Date().toISOString(),
-        action: `Profissional ${removed.name} removido`,
-        user: 'Sistema',
-        type: 'auto'
-      };
-
-      const updatedFields: Partial<MaintenanceRequest> = {
-        professionals: updatedProfs,
-        timeline: [newEvent, ...(request.timeline || [])]
-      };
-
-      const res = await fetch(`/api/solicitacoes/${id}`, {
+      const res = await fetch(
+        `/api/solicitacoes/${request.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
+        body: JSON.stringify({ professionals })
       });
       
       if (res.ok) {
-        setRequest({ ...request, ...updatedFields });
-        showNotification('success', 'Profissional removido com sucesso');
-        fetchRequest();
-      } else {
-        showNotification('error', 'Erro ao remover profissional');
+        setRequest({ ...request, professionals });
+        addTimelineEvent(
+          `Profissional ${removed.name} removido da equipe`
+        );
       }
     } catch (error) {
-      console.error(error);
-      showNotification('error', 'Erro de conexão ao remover profissional');
-    } finally {
-      setIsSaving(false);
+      console.error('Erro ao remover profissional:', error);
     }
   };
 
@@ -1165,83 +1173,95 @@ export default function RequestDetailsPage() {
             )}
 
             {activeTab === 'equipe' && (
-              <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="mb-8">
-                  <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 uppercase tracking-widest mb-6">
-                    <User className="text-amber-600" size={18} />
-                    Equipe Técnica Alocada
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest ml-1">Nome do Profissional</label>
-                      <input 
-                        type="text"
-                        value={newProfName}
-                        onChange={(e) => setNewProfName(e.target.value)}
-                        placeholder="Ex: João Silva"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder:text-slate-400"
-                      />
+              <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-8">
+                {/* Header Section */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+                      <Users size={20} />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-700 uppercase tracking-widest ml-1">Atribuição / Função</label>
-                      <input 
-                        type="text"
-                        value={newProfRole}
-                        onChange={(e) => setNewProfRole(e.target.value)}
-                        placeholder="Ex: Eletricista"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder:text-slate-400"
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <button 
-                        onClick={handleAddProfessional}
-                        disabled={!newProfName.trim() || !newProfRole.trim()}
-                        className="w-full h-[38px] flex items-center justify-center gap-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                      >
-                        <Plus size={16} />
-                        Adicionar
-                      </button>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Equipe Técnica Alocada</h3>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                        {request.professionals?.length || 0} profissionais alocados nesta OS
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {request.professionals && request.professionals.length > 0 ? (
-                    <AnimatePresence mode="popLayout">
-                      {request.professionals.map((prof, idx) => (
-                        <motion.div 
-                          key={`${prof.name}-${idx}`}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          layout
-                          className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 group hover:border-amber-200 transition-all"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-black text-xs uppercase border-2 border-white shadow-sm shrink-0">
-                            {getInitials(prof.name)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{prof.name}</p>
-                            <p className="text-[9px] text-slate-700 font-black uppercase tracking-widest truncate">
-                              {prof.role}
-                            </p>
-                          </div>
-                          <button 
-                            onClick={() => handleRemoveProfessional(idx)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                            title="Remover Profissional"
+                {/* Selection Section */}
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <select
+                      value={selectedProfissional}
+                      onChange={(e) => setSelectedProfissional(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 font-medium outline-none focus:ring-2 focus:ring-amber-500/50 transition-all appearance-none"
+                    >
+                      <option value="">Selecionar profissional...</option>
+                      {PROFISSIONAIS_LISTA.map((p) => {
+                        const jaAdicionado = request.professionals?.some(ap => ap.name === p.name);
+                        return (
+                          <option key={p.name} value={p.name}>
+                            {p.name} — {p.role} {jaAdicionado ? '✓ (já adicionado)' : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleAddProfissional}
+                    disabled={!selectedProfissional}
+                    className="bg-amber-500 text-white px-6 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <UserPlus size={16} />
+                    Adicionar
+                  </button>
+                </div>
+
+                {/* Allocated Professionals List */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    Alocados nesta OS
+                    <div className="h-px flex-1 bg-slate-100" />
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {request.professionals && request.professionals.length > 0 ? (
+                      <AnimatePresence mode="popLayout">
+                        {request.professionals.map((prof, idx) => (
+                          <motion.div 
+                            key={`${prof.name}-${idx}`}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            layout
+                            className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-white group hover:border-amber-200 transition-all relative overflow-hidden"
                           >
-                            <X size={16} />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  ) : (
-                    <div className="col-span-full py-12 text-center text-slate-700 italic text-xs border-2 border-dashed border-slate-100 rounded-xl">
-                      Nenhum profissional alocado a este serviço.
-                    </div>
-                  )}
+                            <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-black text-xs uppercase border-2 border-white shadow-sm shrink-0">
+                              {getInitials(prof.name)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{prof.name}</p>
+                              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest truncate">
+                                {prof.role}
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => handleRemoveProfissional(idx)}
+                              className="p-2 text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                              title="Remover Profissional"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    ) : (
+                      <div className="col-span-full py-8 text-center text-slate-400 italic text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-100 rounded-xl">
+                        Nenhum profissional alocado a este serviço.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -1372,10 +1392,13 @@ export default function RequestDetailsPage() {
                     {request.professionals && request.professionals.length > 0 ? (
                       request.professionals.map((p, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded bg-slate-50 border border-slate-200 flex items-center justify-center text-amber-600 font-black text-[10px] uppercase">
-                            {p.name.substring(0, 2).toUpperCase()}
+                          <div className="w-7 h-7 rounded bg-amber-500 flex items-center justify-center text-white font-black text-[10px] uppercase border border-white shadow-sm">
+                            {getInitials(p.name)}
                           </div>
-                          <p className="text-slate-700 text-xs font-bold truncate">{p.name}</p>
+                          <div>
+                            <p className="text-slate-900 text-[10px] font-black uppercase tracking-tight truncate max-w-[150px]">{p.name}</p>
+                            <p className="text-slate-600 text-[8px] font-bold uppercase tracking-widest truncate">{p.role}</p>
+                          </div>
                         </div>
                       ))
                     ) : (

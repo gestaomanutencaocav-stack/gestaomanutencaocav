@@ -4,29 +4,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const PROFESSIONALS = [
-  "ISRAEL GUILHERME - AUX. CARPINTEIRO",
-  "LEONARDO SILVA - AUX. ELETRICISTA",
-  "MAURICI DE SOUZA - AUX. ELETRICISTA",
-  "MARCELO DO NASCIMENTO - AUX. ENCANADOR",
-  "JOSÉ ROCHA - AUX. ENCANADOR",
-  "LEONARDO JOSÉ - AUX. MARCENARIA",
-  "CLEBER VILA NOVA - FERISTA",
-  "ANDRÉ WEVERTON - AUX. PEDREIRO",
-  "ELIDO SEVERINO - AUX. PEDREIRO",
-  "PAULO ROBERTO - AUX. PINTOR",
-  "WALISSON CARLOS - CARPINTEIRO",
-  "EDUARDO OLIVEIRA - ELETRICISTA",
-  "ISAEL LINO - ELETRICISTA",
-  "JOSÉ JÃO - ENCANADOR",
-  "TONY ANTÔNIO - ENCANADOR",
-  "SAMUEL JOSÉ - MARCENEIRO",
-  "ANTÔNIO FRANCISCO - FERISTA",
-  "MARCIEL JOSÉ - PEDREIRO",
-  "MARCONI JOSÉ - PEDREIRO",
-  "MANOEL DOS SANTOS - PINTOR"
-];
-
 interface RequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,13 +14,29 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
   const [loading, setLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [availableProfessionals, setAvailableProfessionals] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     description: '',
     unit: '',
     responsibleServer: '',
     type: 'Geral',
-    professionals: [] as string[],
+    professionals: [] as any[],
   });
+
+  useEffect(() => {
+    const fetchProfessionals = async () => {
+      try {
+        const res = await fetch('/api/professionals');
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableProfessionals(data);
+        }
+      } catch (error) {
+        console.error('Error fetching professionals:', error);
+      }
+    };
+    fetchProfessionals();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,13 +48,14 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleProfessional = (name: string) => {
+  const toggleProfessional = (prof: any) => {
     setFormData(prev => {
       const current = prev.professionals;
-      if (current.includes(name)) {
-        return { ...prev, professionals: current.filter(p => p !== name) };
+      const exists = current.find(p => p.id === prof.id || p.name === prof.name);
+      if (exists) {
+        return { ...prev, professionals: current.filter(p => p.id !== prof.id && p.name !== prof.name) };
       } else {
-        return { ...prev, professionals: [...current, name] };
+        return { ...prev, professionals: [...current, { id: prof.id, name: prof.name, role: prof.specialty || 'Técnico' }] };
       }
     });
   };
@@ -180,7 +174,7 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
                   <span className={formData.professionals.length === 0 ? "text-slate-300" : "text-slate-900 truncate pr-4"}>
                     {formData.professionals.length === 0 
                       ? "Selecione os profissionais" 
-                      : formData.professionals.join(', ')}
+                      : formData.professionals.map(p => p.name).join(', ')}
                   </span>
                   <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
@@ -193,16 +187,16 @@ export default function RequestModal({ isOpen, onClose, onSuccess }: RequestModa
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto no-scrollbar py-2"
                     >
-                      {PROFESSIONALS.map((name) => (
+                      {availableProfessionals.map((prof) => (
                         <div 
-                          key={name}
-                          onClick={() => toggleProfessional(name)}
+                          key={prof.id || prof.name}
+                          onClick={() => toggleProfessional(prof)}
                           className="px-4 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
                         >
-                          <span className={`text-xs font-bold ${formData.professionals.includes(name) ? 'text-amber-600' : 'text-slate-600'}`}>
-                            {name}
+                          <span className={`text-xs font-bold ${formData.professionals.some(p => p.id === prof.id || p.name === prof.name) ? 'text-amber-600' : 'text-slate-600'}`}>
+                            {prof.name} - {prof.specialty || 'Técnico'}
                           </span>
-                          {formData.professionals.includes(name) && (
+                          {formData.professionals.some(p => p.id === prof.id || p.name === prof.name) && (
                             <Check size={14} className="text-amber-600" />
                           )}
                         </div>
