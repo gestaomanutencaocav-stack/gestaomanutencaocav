@@ -28,7 +28,7 @@ import {
   Download,
   Save
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -98,7 +98,6 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [editingUnitValueId, setEditingUnitValueId] = useState<string | null>(null);
   const [tempUnitValue, setTempUnitValue] = useState('');
   
-  // Price History State
   const [isPriceUpdateModalOpen, setIsPriceUpdateModalOpen] = useState(false);
   const [isPriceHistoryModalOpen, setIsPriceHistoryModalOpen] = useState(false);
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
@@ -109,7 +108,6 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
-  // Monetary Correction State
   const [correctionPercentage, setCorrectionPercentage] = useState('');
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -211,17 +209,14 @@ export default function MaterialsManager({ title, description, type }: Materials
 
         const findKey = (item: any, possibleKeys: string[]) => {
           const keys = Object.keys(item);
-          // Try exact match first
           let found = keys.find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
           if (found) return found;
-          // Then try partial match
           return keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
         };
 
         const parseCurrency = (val: any) => {
           if (typeof val === 'number') return val;
           if (!val) return 0;
-          // Remove R$, spaces, and handle PT-BR format (1.250,50 -> 1250.50)
           const clean = String(val)
             .replace(/R\$/g, '')
             .replace(/\s/g, '')
@@ -307,12 +302,10 @@ export default function MaterialsManager({ title, description, type }: Materials
     let newSaldoAtual = selectedMaterial.saldoAtual;
 
     if (editingRecordIndex !== null) {
-      // Editing an existing record
       const oldQty = newRecords[editingRecordIndex].quantity;
       newRecords[editingRecordIndex] = { date: consumptionDate, quantity: qty };
       newSaldoAtual = selectedMaterial.saldoAtual + oldQty - qty;
     } else {
-      // Adding a new record
       newRecords.push({ date: consumptionDate, quantity: qty });
       newSaldoAtual = selectedMaterial.saldoAtual - qty;
     }
@@ -360,7 +353,6 @@ export default function MaterialsManager({ title, description, type }: Materials
       });
 
       if (res.ok) {
-        // Update local state for the modal to reflect changes immediately if possible
         const updatedMaterial = { 
           ...selectedMaterial, 
           saldoAtual: newSaldoAtual, 
@@ -468,16 +460,13 @@ export default function MaterialsManager({ title, description, type }: Materials
       .filter(m => {
         const matchesSearch = m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
           m.descricao.toLowerCase().includes(searchTerm.toLowerCase());
-        
         if (!matchesSearch) return false;
-
         if (selectedMonth !== 0) {
           return m.consumptionRecords.some(record => {
             const date = parseISO(record.date);
             return date.getFullYear() === selectedYear && (date.getMonth() + 1) === selectedMonth;
           });
         }
-
         return true;
       })
       .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
@@ -587,7 +576,6 @@ export default function MaterialsManager({ title, description, type }: Materials
               </div>
             </div>
 
-            {/* History Toggle */}
             <div className="mt-6 pt-6 border-t border-slate-100">
               <button 
                 onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
@@ -1284,261 +1272,263 @@ export default function MaterialsManager({ title, description, type }: Materials
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
-        {/* Modal de Atualização de Preço */}
-          {isPriceUpdateModalOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
-              >
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                      <DollarSign size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Atualizar Preço</h3>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
-                    </div>
+      {/* Modal de Atualização de Preço */}
+      <AnimatePresence>
+        {isPriceUpdateModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                    <DollarSign size={20} />
                   </div>
-                  <button onClick={() => setIsPriceUpdateModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Atualizar Preço</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsPriceUpdateModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
+                    <select 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={refMonth}
+                      onChange={(e) => setRefMonth(Number(e.target.value))}
+                    >
+                      {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
+                        <option key={m} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano de Referência</label>
+                    <select 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={refYear}
+                      onChange={(e) => setRefYear(Number(e.target.value))}
+                    >
+                      {[2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Novo Preço Unitário</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                    />
+                  </div>
+                  {selectedMaterial && newPrice && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variação:</span>
+                      <span className={`text-[10px] font-black ${Number(newPrice) > selectedMaterial.valorUnitario ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa da Alteração</label>
+                  <textarea 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px] resize-none"
+                    placeholder="Ex: Reajuste contratual, inflação do período, etc..."
+                    value={priceJustification}
+                    onChange={(e) => setPriceJustification(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => setIsPriceUpdateModalOpen(false)}
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleUpdatePrice}
+                    disabled={isSavingPrice || !newPrice}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingPrice ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        <span>Salvar Preço</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Histórico de Preços */}
+      <AnimatePresence>
+        {isPriceHistoryModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-200 text-slate-700 rounded-lg">
+                    <History size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Histórico de Preços</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => selectedMaterial && exportPriceHistoryToExcel(selectedMaterial, priceHistory)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
+                  >
+                    <Download size={14} />
+                    Exportar Excel
+                  </button>
+                  <button onClick={() => setIsPriceHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                     <X size={20} />
                   </button>
                 </div>
+              </div>
 
-                <div className="p-6 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
-                      <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        value={refMonth}
-                        onChange={(e) => setRefMonth(Number(e.target.value))}
-                      >
-                        {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-                          <option key={m} value={i + 1}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano de Referência</label>
-                      <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        value={refYear}
-                        onChange={(e) => setRefYear(Number(e.target.value))}
-                      >
-                        {[2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
-                          <option key={y} value={y}>{y}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Novo Preço Unitário</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        placeholder="0,00"
-                        value={newPrice}
-                        onChange={(e) => setNewPrice(e.target.value)}
-                      />
-                    </div>
-                    {selectedMaterial && newPrice && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variação:</span>
-                        <span className={`text-[10px] font-black ${Number(newPrice) > selectedMaterial.valorUnitario ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100).toFixed(2)}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa da Alteração</label>
-                    <textarea 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px] resize-none"
-                      placeholder="Ex: Reajuste contratual, inflação do período, etc..."
-                      value={priceJustification}
-                      onChange={(e) => setPriceJustification(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button 
-                      onClick={() => setIsPriceUpdateModalOpen(false)}
-                      className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                    >
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={handleUpdatePrice}
-                      disabled={isSavingPrice || !newPrice}
-                      className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isSavingPrice ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Save size={16} />
-                          <span>Salvar Preço</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-
-          {/* Modal de Histórico de Preços */}
-          {isPriceHistoryModalOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-              >
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-200 text-slate-700 rounded-lg">
-                      <History size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Histórico de Preços</h3>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => selectedMaterial && exportPriceHistoryToExcel(selectedMaterial, priceHistory)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
-                    >
-                      <Download size={14} />
-                      Exportar Excel
-                    </button>
-                    <button onClick={() => setIsPriceHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                      <X size={20} />
-                    </button>
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Evolução de Preços</h4>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={[...priceHistory].reverse()}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey={(h) => `${h.referenceMonth}/${h.referenceYear}`} 
+                          fontSize={10} 
+                          fontWeight="bold" 
+                          tick={{ fill: '#64748b' }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis 
+                          fontSize={10} 
+                          fontWeight="bold" 
+                          tick={{ fill: '#64748b' }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val) => `R$ ${val}`}
+                        />
+                        <RechartsTooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff', 
+                            borderRadius: '12px', 
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                            fontSize: '10px',
+                            fontWeight: 'bold'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="unitPrice" 
+                          stroke="#f59e0b" 
+                          strokeWidth={3} 
+                          dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                          activeDot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                          name="Preço Unitário"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                  {/* Gráfico de Evolução */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Evolução de Preços</h4>
-                    <div className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={[...priceHistory].reverse()}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis 
-                            dataKey={(h) => `${h.referenceMonth}/${h.referenceYear}`} 
-                            fontSize={10} 
-                            fontWeight="bold" 
-                            tick={{ fill: '#64748b' }}
-                            axisLine={false}
-                            tickLine={false}
-                          />
-                          <YAxis 
-                            fontSize={10} 
-                            fontWeight="bold" 
-                            tick={{ fill: '#64748b' }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(val) => `R$ ${val}`}
-                          />
-                          <RechartsTooltip 
-                            contentStyle={{ 
-                              backgroundColor: '#fff', 
-                              borderRadius: '12px', 
-                              border: '1px solid #e2e8f0',
-                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                              fontSize: '10px',
-                              fontWeight: 'bold'
-                            }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="unitPrice" 
-                            stroke="#f59e0b" 
-                            strokeWidth={3} 
-                            dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
-                            name="Preço Unitário"
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Tabela de Histórico */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registros Detalhados</h4>
-                    <div className="border border-slate-100 rounded-xl overflow-hidden">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Período</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Valor Unitário</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Variação</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Justificativa</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Atualizado em</th>
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registros Detalhados</h4>
+                  <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Período</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Valor Unitário</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Variação</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Justificativa</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Atualizado em</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {isLoadingHistory ? (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Carregando histórico...</td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {isLoadingHistory ? (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Carregando histórico...</td>
-                            </tr>
-                          ) : priceHistory.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Nenhum histórico registrado.</td>
-                            </tr>
-                          ) : priceHistory.map((h) => (
-                            <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 text-[10px] font-black text-slate-800">{h.referenceMonth}/{h.referenceYear}</td>
-                              <td className="px-4 py-3 text-right text-[10px] font-black text-slate-800 font-mono">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(h.unitPrice)}
-                              </td>
-                              <td className={`px-4 py-3 text-right text-[10px] font-black font-mono ${
-                                !h.variationPercent || h.variationPercent === 0 ? 'text-slate-400' : 
-                                h.variationPercent > 0 ? 'text-rose-600' : 'text-emerald-600'
-                              }`}>
-                                {h.variationPercent ? (h.variationPercent > 0 ? '+' : '') + h.variationPercent.toFixed(2) + '%' : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-slate-600 max-w-[200px] truncate" title={h.justification}>
-                                {h.justification || '-'}
-                              </td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-slate-500">
-                                {format(parseISO(h.createdAt), 'dd/MM/yyyy HH:mm')}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ) : priceHistory.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Nenhum histórico registrado.</td>
+                          </tr>
+                        ) : priceHistory.map((h) => (
+                          <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 text-[10px] font-black text-slate-800">{h.referenceMonth}/{h.referenceYear}</td>
+                            <td className="px-4 py-3 text-right text-[10px] font-black text-slate-800 font-mono">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(h.unitPrice)}
+                            </td>
+                            <td className={`px-4 py-3 text-right text-[10px] font-black font-mono ${
+                              !h.variationPercent || h.variationPercent === 0 ? 'text-slate-400' : 
+                              h.variationPercent > 0 ? 'text-rose-600' : 'text-emerald-600'
+                            }`}>
+                              {h.variationPercent ? (h.variationPercent > 0 ? '+' : '') + h.variationPercent.toFixed(2) + '%' : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-600 max-w-[200px] truncate" title={h.justification ?? undefined}>
+                              {h.justification || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-500">
+                              {format(parseISO(h.createdAt), 'dd/MM/yyyy HH:mm')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+              </div>
 
-                <div className="p-6 border-t border-slate-100 bg-slate-50">
-                  <button 
-                    onClick={() => setIsPriceHistoryModalOpen(false)}
-                    className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                  >
-                    Fechar Histórico
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
+              <div className="p-6 border-t border-slate-100 bg-slate-50">
+                <button 
+                  onClick={() => setIsPriceHistoryModalOpen(false)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Fechar Histórico
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
