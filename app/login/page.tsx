@@ -54,7 +54,6 @@ export default function LoginPage() {
           background: 'linear-gradient(145deg, #1C0A0A 0%, #2D0D0D 40%, #1A0505 100%)'
         }}
       >
-        {/* Textura Geométrica */}
         <div 
           className="absolute inset-0 opacity-10 pointer-events-none"
           style={{
@@ -62,20 +61,18 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Fundo sem imagem externa */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 to-slate-900/20" />
         </div>
 
-        {/* Conteúdo Central */}
         <div className="relative z-10 text-center max-w-lg">
           <div className="mb-8">
             <Image
-              src="/Logomarca_CAV_padrão.png"
+              src="/Logomarca_CAV_padrao.png"
               alt="Logo CAV"
               width={288}
               height={100}
-              className="w-72 mx-auto filter brightness-0 invert"
+              className="w-72 mx-auto"
               priority
             />
           </div>
@@ -98,7 +95,6 @@ export default function LoginPage() {
             </h1>
           </div>
 
-          {/* Badges Institucionais */}
           <div className="flex flex-wrap justify-center gap-3 mt-12">
             <div className="bg-white/10 backdrop-blur rounded-full px-4 py-2 flex items-center gap-2 text-white/80 text-[10px] font-bold uppercase tracking-widest border border-white/5">
               <Shield size={12} className="text-red-500" />
@@ -115,7 +111,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Slogan Rodapé */}
         <div className="absolute bottom-12 left-0 right-0 text-center">
           <p className="text-red-400/60 text-xs tracking-[0.5em] uppercase font-black italic">
             VIRTUS IMPAVIDA
@@ -130,29 +125,25 @@ export default function LoginPage() {
         transition={{ duration: 0.7, ease: 'easeOut' }}
         className="flex-1 md:w-[55%] lg:w-[45%] flex flex-col items-center justify-center relative bg-white md:bg-white"
       >
-        {/* Mobile Background Gradient Overlay */}
         <div className="md:hidden absolute inset-0 z-0" style={{ background: 'linear-gradient(145deg, #1C0A0A 0%, #2D0D0D 40%, #1A0505 100%)' }} />
 
         <div className="relative z-10 w-full max-w-md px-8 md:px-12 py-16">
-          {/* Mobile Logo */}
           <div className="md:hidden flex justify-center mb-8">
             <Image
-              src="/Logomarca_CAV_padrão.png"
+              src="/Logomarca_CAV_padrao.png"
               alt="Logo CAV"
               width={160}
               height={60}
-              className="w-40 filter brightness-0 invert"
+              className="w-40"
             />
           </div>
 
           <div className="bg-white rounded-3xl md:rounded-none shadow-2xl md:shadow-none p-8 md:p-0 relative overflow-hidden md:overflow-visible mx-4 md:mx-0">
-            {/* Barra Accent Lateral (Desktop) */}
             <div className="hidden md:block absolute -left-12 top-0 bottom-0 w-1 bg-gradient-to-b from-red-900 to-red-700 rounded-l" />
 
-            {/* Desktop Logo */}
             <div className="hidden md:block mb-8">
               <Image
-                src="/Logomarca_CAV_padrão.png"
+                src="/Logomarca_CAV_padrao.png"
                 alt="Logo CAV"
                 width={160}
                 height={60}
