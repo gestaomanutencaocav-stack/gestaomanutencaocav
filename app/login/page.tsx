@@ -157,7 +157,7 @@ export default function LoginPage() {
 
         <div className="mt-10 pt-8 border-t border-slate-50 text-center">
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-            © 2025 CAV/UFPE — Todos os direitos reservados
+            Sistema desenvolvido por Jonathan Carvalho, Administrador, Diretoria do CAV/UFPE
           </p>
         </div>
       </motion.div>
