@@ -48,12 +48,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-```
-
-Depois no `page.tsx`, troque as ocorrências de:
-```
-src="/Logomarca_CAV_padrão.png"
-```
-por:
-```
-src="https://raw.githubusercontent.com/gestaomanutencaocav-stack/gestaomanutencaocav/main/Logomarca_CAV_padrão.png"
