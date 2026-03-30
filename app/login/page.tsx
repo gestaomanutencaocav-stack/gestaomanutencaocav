@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   User, Lock, Eye, EyeOff, LogIn, 
-  Shield, Building2, AlertCircle 
+  AlertCircle 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+
+const LOGO_URL = "https://raw.githubusercontent.com/gestaomanutencaocav-stack/gestaomanutencaocav/main/Logomarca_CAV_padr%C3%A3o.png";
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -52,7 +54,7 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <Image
-            src="/Logomarca_CAV_padrão.png"
+            src={LOGO_URL}
             alt="Logo CAV"
             width={180}
             height={70}
