@@ -9,8 +9,6 @@ import {
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
-const LOGO_URL = "https://raw.githubusercontent.com/gestaomanutencaocav-stack/gestaomanutencaocav/main/Logomarca_CAV_padr%C3%A3o.png";
-
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +52,7 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <Image
-            src={LOGO_URL}
+            src="https://raw.githubusercontent.com/gestaomanutencaocav-stack/gestaomanutencaocav/main/Logomarca_CAV_padr%C3%A3o.png"
             alt="Logo CAV"
             width={180}
             height={70}
