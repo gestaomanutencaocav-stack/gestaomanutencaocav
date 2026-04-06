@@ -398,16 +398,25 @@ export const updateMaterial = async (id: string, updates: Partial<Material>) => 
 };
 
 export const getRequests = async () => {
-  const { data, error } = await supabase
-    .from('requests')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) {
-    console.error('Error fetching requests:', error);
-    return [];
+  try {
+    const { data, error } = await supabase
+      .from('requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      if (error.code === '42P01') {
+        console.error('CRITICAL: Table "requests" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
+      } else {
+        console.error('Error fetching requests from Supabase:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+    return data.map(mapRequest);
+  } catch (error: any) {
+    console.error('Error in getRequests store function:', error);
+    throw error;
   }
-  return data.map(mapRequest);
 };
 
 export const getRequestById = async (id: string) => {
@@ -649,29 +658,47 @@ const mapInspectionRecord = (r: any): InspectionRecord => ({
 });
 
 export const getInspections = async () => {
-  const { data, error } = await supabase
-    .from('inspections')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) {
-    console.error('Error fetching inspections:', error);
-    return [];
+  try {
+    const { data, error } = await supabase
+      .from('inspections')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      if (error.code === '42P01') {
+        console.error('CRITICAL: Table "inspections" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
+      } else {
+        console.error('Error fetching inspections from Supabase:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+    return data.map(mapInspection);
+  } catch (error: any) {
+    console.error('Error in getInspections store function:', error);
+    throw error;
   }
-  return data.map(mapInspection);
 };
 
 export const getInspectionRecords = async (inspectionId?: string) => {
-  let query = supabase.from('inspection_records').select('*').order('execution_date', { ascending: false });
-  if (inspectionId) {
-    query = query.eq('inspection_id', inspectionId);
+  try {
+    let query = supabase.from('inspection_records').select('*').order('execution_date', { ascending: false });
+    if (inspectionId) {
+      query = query.eq('inspection_id', inspectionId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      if (error.code === '42P01') {
+        console.error('CRITICAL: Table "inspection_records" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
+      } else {
+        console.error('Error fetching records from Supabase:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+    return data.map(mapInspectionRecord);
+  } catch (error: any) {
+    console.error('Error in getInspectionRecords store function:', error);
+    throw error;
   }
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching records:', error);
-    return [];
-  }
-  return data.map(mapInspectionRecord);
 };
 
 export const addInspection = async (inspection: Omit<Inspection, 'id' | 'createdAt'>) => {
@@ -736,4 +763,27 @@ export const addInspectionRecord = async (record: Omit<InspectionRecord, 'id' | 
   
   if (error) throw error;
   return mapInspectionRecord(data);
+};
+
+export const getProfessionals = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('professionals')
+      .select('*')
+      .eq('active', true)
+      .order('name', { ascending: true });
+    
+    if (error) {
+      if (error.code === '42P01') {
+        console.error('CRITICAL: Table "professionals" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
+      } else {
+        console.error('Error fetching professionals from Supabase:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+    return data;
+  } catch (error: any) {
+    console.error('Error in getProfessionals store function:', error);
+    throw error;
+  }
 };

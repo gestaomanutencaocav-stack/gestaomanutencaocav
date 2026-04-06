@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
@@ -12,67 +12,64 @@ import {
   TrendingDown,
   Plus,
   Info,
-  User,
   AlertTriangle,
-  BarChart,
-  LineChart as LineChartIcon,
-  Box,
-  FileSpreadsheet,
-  ShieldCheck,
-  ShieldAlert
+  BarChart as BarChartIcon,
+  PieChart as PieChartIcon,
+  Activity,
+  Calendar as CalendarIcon,
+  ArrowRight,
+  LayoutDashboard,
+  Building2,
+  ChevronRight
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
-  AreaChart, 
-  Area, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   Legend,
-  BarChart as ReBarChart,
+  BarChart,
   Bar,
-  Cell
+  Cell,
+  LineChart,
+  Line,
+  PieChart,
+  Pie
 } from 'recharts';
-
-// Consumption data is now dynamic and fetched from the API
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format, subMonths, isSameMonth, differenceInDays, parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const [user, setUser] = React.useState<{ role: string } | null>(null);
-  const [requests, setRequests] = React.useState<any[]>([]);
-  const [materialsEstoque, setMaterialsEstoque] = React.useState<any[]>([]);
-  const [materialsFinalistico, setMaterialsFinalistico] = React.useState<any[]>([]);
-  const [filterMonth, setFilterMonth] = React.useState('');
-  const [filterYear, setFilterYear] = React.useState('');
-  const [filterDate, setFilterDate] = React.useState('');
-  const [isSyncing, setIsSyncing] = React.useState(false);
-  const [syncMessage, setSyncMessage] = React.useState<string | null>(null);
+  const [user, setUser] = useState<{ role: string } | null>(null);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const timestamp = Date.now();
-      const [authRes, reqRes, matEstRes, matFinRes] = await Promise.all([
+      const [authRes, reqRes] = await Promise.all([
         fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/materials?type=estoque&t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/materials?type=finalistico&t=${timestamp}`, { cache: 'no-store' })
+        fetch(`/api/solicitacoes?t=${timestamp}`, { cache: 'no-store' })
       ]);
 
       if (authRes.ok) setUser(await authRes.json());
       if (reqRes.ok) {
         const data = await reqRes.json();
-        console.log('Dashboard fetched requests:', data.length);
         setRequests(data);
       }
-      if (matEstRes.ok) setMaterialsEstoque(await matEstRes.json());
-      if (matFinRes.ok) setMaterialsFinalistico(await matFinRes.json());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -84,7 +81,7 @@ export default function Dashboard() {
       const data = await res.json();
       if (res.ok) {
         setSyncMessage(`${data.imported} novas solicitações importadas`);
-        fetchData(); // Refresh data
+        fetchData();
       } else {
         setSyncMessage(`Erro: ${data.error || 'Falha na sincronização'}`);
       }
@@ -96,148 +93,166 @@ export default function Dashboard() {
     }
   };
 
-  const getConsumptionByMonth = (materials: any[]) => {
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const currentYear = new Date().getFullYear();
-    
-    return months.map((month, index) => {
-      let total = 0;
-      materials.forEach(m => {
-        const records = m.consumptionRecords || [];
-        records.forEach((r: any) => {
-          const d = new Date(r.date);
-          if (d.getFullYear() === currentYear && d.getMonth() === index) {
-            total += r.quantity * m.valorUnitario;
-          }
-        });
-      });
-      return { name: month, value: total };
+  // --- KPI CALCULATIONS ---
+  const kpis = useMemo(() => {
+    if (requests.length === 0) return null;
+
+    const now = new Date();
+    const lastMonth = subMonths(now, 1);
+
+    // Card 1: Taxa de Resolução
+    const totalOS = requests.length;
+    const closedOS = requests.filter(r => r.status === 'Concluído').length;
+    const resolutionRate = (closedOS / totalOS) * 100;
+
+    const currentMonthOS = requests.filter(r => isSameMonth(parseISO(r.createdAt || r.date), now));
+    const currentMonthClosed = currentMonthOS.filter(r => r.status === 'Concluído').length;
+    const currentMonthRate = currentMonthOS.length > 0 ? (currentMonthClosed / currentMonthOS.length) * 100 : 0;
+
+    const lastMonthOS = requests.filter(r => isSameMonth(parseISO(r.createdAt || r.date), lastMonth));
+    const lastMonthClosed = lastMonthOS.filter(r => r.status === 'Concluído').length;
+    const lastMonthRate = lastMonthOS.length > 0 ? (lastMonthClosed / lastMonthOS.length) * 100 : 0;
+    const rateTrend = currentMonthRate - lastMonthRate;
+
+    // Card 2: OS em Aberto
+    const openOSList = requests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento');
+    const openOSCount = openOSList.length;
+
+    // Card 3: Tempo Médio de Atendimento (para OS abertas)
+    const totalDaysOpen = openOSList.reduce((acc, r) => {
+      const created = parseISO(r.createdAt || r.date);
+      return acc + differenceInDays(now, created);
+    }, 0);
+    const avgLeadTime = openOSCount > 0 ? totalDaysOpen / openOSCount : 0;
+
+    // Card 4: Manutenção Preventiva vs Corretiva
+    const preventiveCount = requests.filter(r => r.type === 'Preventiva' || r.status === 'Autorizado' || r.status === 'Concluído').length;
+    const preventiveRate = (preventiveCount / totalOS) * 100;
+
+    return {
+      resolutionRate,
+      rateTrend,
+      openOSCount,
+      avgLeadTime,
+      preventiveRate
+    };
+  }, [requests]);
+
+  // --- CHART DATA CALCULATIONS ---
+  const chartsData = useMemo(() => {
+    if (requests.length === 0) return null;
+
+    // Gráfico 1: Top Categorias com mais OS abertas
+    const openRequests = requests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento');
+    const categoryCounts: Record<string, number> = {};
+    openRequests.forEach(r => {
+      const type = r.type || 'Não Classificado';
+      categoryCounts[type] = (categoryCounts[type] || 0) + 1;
     });
-  };
+    const topCategories = Object.entries(categoryCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
 
-  const estoqueChartData = React.useMemo(() => getConsumptionByMonth(materialsEstoque), [materialsEstoque]);
-  const finalisticoChartData = React.useMemo(() => getConsumptionByMonth(materialsFinalistico), [materialsFinalistico]);
+    // Gráfico 2: Evolução mensal (Abertas vs Concluídas)
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      last6Months.push({
+        month: format(d, 'MMM', { locale: ptBR }),
+        date: d
+      });
+    }
 
-  const filteredRequests = requests.filter(req => {
-    const reqDate = req.createdAt ? new Date(req.createdAt) : new Date();
-    const matchesDate = !filterDate || (req.createdAt && req.createdAt.startsWith(filterDate));
-    const matchesMonth = !filterMonth || (reqDate.getMonth() + 1).toString() === filterMonth;
-    const matchesYear = !filterYear || reqDate.getFullYear().toString() === filterYear;
-    return matchesDate && matchesMonth && matchesYear;
-  });
-
-  const dynamicStats = [
-    { 
-      title: 'Chamados Abertos', 
-      value: filteredRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length.toString(), 
-      change: '+12%', 
-      trend: 'up', 
-      icon: Clock, 
-      color: 'blue' 
-    },
-    { 
-      title: 'Aguardando Aprovação', 
-      value: filteredRequests.filter(r => r.status === 'Aguardando Aprovação').length.toString(), 
-      change: '-2%', 
-      trend: 'down', 
-      icon: CheckCircle2, 
-      color: 'amber' 
-    },
-    { 
-      title: 'Serviços Atrasados', 
-      value: filteredRequests.filter(r => r.status === 'Atrasado').length.toString(), 
-      change: '+10%', 
-      trend: 'up', 
-      icon: AlertCircle, 
-      color: 'rose' 
-    },
-    { 
-      title: 'Concluídos', 
-      value: filteredRequests.filter(r => r.status === 'Concluído' || r.status === 'Autorizado').length.toString(), 
-      change: '+15%', 
-      trend: 'up', 
-      icon: CheckSquare, 
-      color: 'emerald' 
-    },
-  ];
-
-  const categoriesMap = filteredRequests.reduce((acc: any, req) => {
-    acc[req.type] = (acc[req.type] || 0) + 1;
-    return acc;
-  }, {});
-
-  const dynamicCategories = [
-    { name: 'Geral', value: categoriesMap['Geral'] || 0 },
-    { name: 'Civil', value: categoriesMap['Civil'] || 0 },
-    { name: 'Hidráulico', value: categoriesMap['Hidráulico'] || 0 },
-    { name: 'Elétrico', value: categoriesMap['Elétrico'] || 0 },
-    { name: 'Climatização', value: categoriesMap['Climatização'] || 0 },
-    { name: 'Marcenaria', value: categoriesMap['Marcenaria'] || 0 },
-  ];
-
-  const dynamicActivities = filteredRequests
-    .slice(0, 6)
-    .map(req => {
-      let icon = CheckCircle2;
-      let color = 'slate';
-      
-      switch (req.status) {
-        case 'Novo':
-          icon = Plus;
-          color = 'blue';
-          break;
-        case 'Em Andamento':
-          icon = Clock;
-          color = 'amber';
-          break;
-        case 'Aguardando Aprovação':
-          icon = AlertCircle;
-          color = 'amber';
-          break;
-        case 'Autorizado':
-          icon = ShieldCheck;
-          color = 'emerald';
-          break;
-        case 'Negado':
-          icon = ShieldAlert;
-          color = 'rose';
-          break;
-        case 'Concluído':
-          icon = CheckSquare;
-          color = 'emerald';
-          break;
-        case 'Atrasado':
-          icon = AlertTriangle;
-          color = 'rose';
-          break;
-      }
-
+    const monthlyEvolution = last6Months.map(m => {
+      const monthRequests = requests.filter(r => isSameMonth(parseISO(r.createdAt || r.date), m.date));
       return {
-        title: `Solicitação ${req.status}`,
-        description: `${req.type} • ${req.description} • ${req.unit}`,
-        time: req.date,
-        icon,
-        color
+        name: m.month,
+        abertas: monthRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length,
+        concluidas: monthRequests.filter(r => r.status === 'Concluído').length
       };
     });
 
+    // Gráfico 3: Distribuição por Status
+    const statusCounts: Record<string, number> = {};
+    requests.forEach(r => {
+      statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+    });
+    const statusDistribution = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+
+    // Gráfico 4: OS por Unidade
+    const unitCounts: Record<string, { open: number, closed: number, total: number }> = {};
+    requests.forEach(r => {
+      const unit = r.unit || 'Sem Unidade';
+      if (!unitCounts[unit]) unitCounts[unit] = { open: 0, closed: 0, total: 0 };
+      if (r.status === 'Novo' || r.status === 'Em Andamento') unitCounts[unit].open++;
+      if (r.status === 'Concluído') unitCounts[unit].closed++;
+      unitCounts[unit].total++;
+    });
+    const unitDistribution = Object.entries(unitCounts)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+
+    return {
+      topCategories,
+      monthlyEvolution,
+      statusDistribution,
+      unitDistribution
+    };
+  }, [requests]);
+
+  // --- CRITICAL ALERTS ---
+  const criticalAlerts = useMemo(() => {
+    const now = new Date();
+    return requests
+      .filter(r => r.status === 'Novo' || r.status === 'Em Andamento')
+      .map(r => ({
+        ...r,
+        diasEmAberto: differenceInDays(now, parseISO(r.createdAt || r.date))
+      }))
+      .sort((a, b) => b.diasEmAberto - a.diasEmAberto)
+      .slice(0, 5);
+  }, [requests]);
+
+  const STATUS_COLORS: Record<string, string> = {
+    'Novo': '#F59E0B',
+    'Em Andamento': '#3B82F6',
+    'Concluído': '#10B981',
+    'Negado': '#EF4444',
+    'Autorizado': '#64748B'
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Dashboard Executivo">
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout title="Visão Geral">
-      <div className="space-y-8">
+    <DashboardLayout title="Dashboard Executivo">
+      <div className="space-y-8 pb-12">
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-widest">
-              Bem-vindo, {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+              <LayoutDashboard className="text-amber-500" size={28} />
+              Visão Geral de Manutenção
             </h2>
-            <p className="text-slate-900 font-bold">Aqui está o resumo das atividades de hoje.</p>
+            <p className="text-slate-900 font-bold uppercase text-xs tracking-widest mt-1">
+              Indicadores de Performance e Gestão de Ativos
+            </p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-3">
             {syncMessage && (
               <motion.div 
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${syncMessage.startsWith('Erro') ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border ${syncMessage.startsWith('Erro') ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}
               >
                 {syncMessage}
               </motion.div>
@@ -245,304 +260,375 @@ export default function Dashboard() {
             <button 
               onClick={handleSync}
               disabled={isSyncing}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-50 text-slate-700 cursor-not-allowed' : 'bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-700'}`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${isSyncing ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-900 border-slate-200 hover:border-amber-500 hover:text-amber-600'}`}
             >
-              <FileSpreadsheet className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar Forms'}
+              <Activity className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Dados'}
             </button>
-            <div className="flex items-center gap-2 px-2 border-r border-slate-100">
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</span>
-              <input 
-                type="date" 
-                className="bg-transparent border-none text-xs outline-none text-slate-700 w-28 font-mono"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-              />
-            </div>
-            <select 
-              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer hover:text-amber-700 transition-colors"
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-            >
-              <option value="" className="bg-white">Mês (Todos)</option>
-              {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m, i) => (
-                <option key={m} value={(i + 1).toString()} className="bg-white">{m}</option>
-              ))}
-            </select>
-            <select 
-              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer hover:text-amber-700 transition-colors"
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
-            >
-              <option value="" className="bg-white">Ano (Todos)</option>
-              {[2023, 2024, 2025, 2026].map(y => (
-                <option key={y} value={y} className="bg-white">{y}</option>
-              ))}
-            </select>
-            {(filterDate || filterMonth || filterYear) && (
-              <button 
-                onClick={() => { setFilterDate(''); setFilterMonth(''); setFilterYear(''); }}
-                className="text-[10px] font-black text-amber-700 hover:text-amber-600 uppercase ml-2 tracking-widest"
-              >
-                Limpar
-              </button>
-            )}
           </div>
         </div>
-        {/* Stats Grid */}
+
+        {/* SEÇÃO A: KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {dynamicStats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-white p-6 rounded-xl border border-slate-200 hover:border-amber-500/30 transition-all shadow-sm group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`size-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110 ${
-                  stat.color === 'blue' || stat.color === 'amber' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' :
-                  stat.color === 'rose' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' :
-                  'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                }`}>
-                  <stat.icon size={20} />
-                </div>
-                <span className={`text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 uppercase tracking-tighter ${
-                  stat.trend === 'up' ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
-                }`}>
-                  {stat.trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  {stat.change}
-                </span>
+          {/* Card 1: Taxa de Resolução */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm group hover:border-amber-500/30 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <CheckCircle2 size={20} />
               </div>
-              <p className="text-slate-900 text-xs font-black uppercase tracking-widest">{stat.title}</p>
-              <p className="text-3xl font-black mt-1 text-slate-900 font-mono tracking-tighter">{stat.value}</p>
-            </motion.div>
-          ))}
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter ${kpis?.rateTrend && kpis.rateTrend >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                {kpis?.rateTrend && kpis.rateTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                {Math.abs(kpis?.rateTrend || 0).toFixed(1)}%
+              </div>
+            </div>
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Taxa de Resolução</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <h4 className="text-3xl font-black text-slate-900 font-mono tracking-tighter">
+                {kpis?.resolutionRate.toFixed(1)}%
+              </h4>
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                (kpis?.resolutionRate || 0) >= 70 ? 'bg-emerald-100 text-emerald-700' :
+                (kpis?.resolutionRate || 0) >= 40 ? 'bg-amber-100 text-amber-700' :
+                'bg-rose-100 text-rose-700'
+              }`}>
+                { (kpis?.resolutionRate || 0) >= 70 ? 'Excelente' : (kpis?.resolutionRate || 0) >= 40 ? 'Regular' : 'Crítico' }
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">vs. mês anterior</p>
+          </motion.div>
+
+          {/* Card 2: OS em Aberto */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm group hover:border-amber-500/30 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20">
+                <Clock size={20} />
+              </div>
+              {(kpis?.openOSCount || 0) > 10 && (
+                <div className="size-3 bg-rose-500 rounded-full animate-ping" />
+              )}
+            </div>
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">OS em Aberto</p>
+            <h4 className="text-3xl font-black text-slate-900 font-mono tracking-tighter mt-1">
+              {kpis?.openOSCount}
+            </h4>
+            <p className={`text-[10px] font-black uppercase mt-2 ${(kpis?.openOSCount || 0) > 10 ? 'text-rose-600' : 'text-slate-500'}`}>
+              {(kpis?.openOSCount || 0) > 10 ? 'Requerem atenção imediata' : 'Volume sob controle'}
+            </p>
+          </motion.div>
+
+          {/* Card 3: Tempo Médio de Atendimento */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm group hover:border-amber-500/30 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <CalendarIcon size={20} />
+              </div>
+              <div className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                (kpis?.avgLeadTime || 0) <= 7 ? 'bg-emerald-50 text-emerald-700' :
+                (kpis?.avgLeadTime || 0) <= 15 ? 'bg-amber-50 text-amber-700' :
+                'bg-rose-50 text-rose-700'
+              }`}>
+                {(kpis?.avgLeadTime || 0) <= 7 ? 'Rápido' : (kpis?.avgLeadTime || 0) <= 15 ? 'Moderado' : 'Lento'}
+              </div>
+            </div>
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Tempo Médio em Aberto</p>
+            <h4 className="text-3xl font-black text-slate-900 font-mono tracking-tighter mt-1">
+              {kpis?.avgLeadTime.toFixed(1)} <span className="text-sm">dias</span>
+            </h4>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Média de dias em aberto</p>
+          </motion.div>
+
+          {/* Card 4: Preventiva vs Corretiva */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm group hover:border-amber-500/30 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20">
+                <Activity size={20} />
+              </div>
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{kpis?.preventiveRate.toFixed(0)}%</span>
+            </div>
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Manutenção Preventiva</p>
+            <div className="mt-3">
+              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${kpis?.preventiveRate}%` }}
+                  className="h-full bg-amber-500"
+                />
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Corretiva</span>
+                <span className="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Preventiva</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Main Charts & Feed Section */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Chart Area */}
-          <div className="xl:col-span-2 space-y-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Status de Manutenção por Categoria</h3>
-                  <p className="text-sm text-slate-900 font-bold">Volume de ordens de serviço por especialidade</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-500/20">Semana</button>
-                  <button className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">Mês</button>
-                </div>
+        {/* SEÇÃO B: GRÁFICOS GRID 2x2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Gráfico 1: Top Categorias com mais OS abertas */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Top Categorias (OS Abertas)</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Distribuição por especialidade</p>
               </div>
-              
-              <div className="flex items-end justify-between h-64 px-4 gap-4">
-                {dynamicCategories.map((cat) => (
-                  <div key={cat.name} className="flex flex-col items-center flex-1 gap-3 h-full justify-end group">
-                    <div 
-                      className={`w-full rounded-t-lg relative transition-all cursor-pointer ${
-                        cat.value > 0 ? 'bg-amber-500 shadow-sm' : 'bg-slate-100'
-                      }`} 
-                      style={{ height: `${Math.max((cat.value / (Math.max(...dynamicCategories.map(c => c.value)) || 1)) * 100, 5)}%` }}
-                    >
-                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-black px-2 py-1 rounded border border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 uppercase tracking-widest">
-                        {cat.value} ordens
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-black text-slate-900 uppercase text-center leading-tight h-8 flex items-center tracking-tighter">
-                      {cat.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <BarChartIcon size={20} className="text-slate-300" />
             </div>
-
-            {/* Materials Consumption Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Estoque Chart */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <LineChartIcon className="text-amber-600" size={20} />
-                      Consumo Mensal: Estoque
-                    </h3>
-                    <p className="text-sm text-slate-900 font-bold">Consumo em R$ de materiais em estoque</p>
-                  </div>
-                </div>
-
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={estoqueChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorEstoque" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
-                        tickFormatter={(value) => `R$ ${value}`}
-                      />
-                      <Tooltip 
-                        formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))}
-                        contentStyle={{ 
-                          backgroundColor: '#FFF', 
-                          border: '1px solid #E2E8F0', 
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                          fontSize: '12px',
-                          fontWeight: '700'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="value" 
-                        name="Consumo"
-                        stroke="#F59E0B" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorEstoque)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Finalistico Chart */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                      <LineChartIcon className="text-slate-900" size={20} />
-                      Consumo Mensal: Finalísticos
-                    </h3>
-                    <p className="text-sm text-slate-900 font-bold">Consumo em R$ de materiais finalísticos</p>
-                  </div>
-                </div>
-
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={finalisticoChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorFinalistico" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0F172A" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#0F172A" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#334155', fontSize: 10, fontWeight: 900 }}
-                        tickFormatter={(value) => `R$ ${value}`}
-                      />
-                      <Tooltip 
-                        formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))}
-                        contentStyle={{ 
-                          backgroundColor: '#FFF', 
-                          border: '1px solid #E2E8F0', 
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                          fontSize: '12px',
-                          fontWeight: '700'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="value" 
-                        name="Consumo"
-                        stroke="#0F172A" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorFinalistico)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Context Card */}
-            <div className="grid grid-cols-1 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group">
-                <div className="absolute top-0 right-0 p-4 text-amber-500/10 group-hover:text-amber-500/20 transition-colors">
-                  <AlertTriangle size={48} />
-                </div>
-                <h4 className="font-black text-lg mb-2 uppercase tracking-widest text-slate-900">Alertas de Estoque</h4>
-                <div className="flex items-center gap-3 mt-4">
-                  <AlertTriangle className="text-amber-600" size={24} />
-                  <p className="text-sm font-bold text-slate-800">4 Peças críticas atingiram o nível mínimo de segurança.</p>
-                </div>
-                <button className="mt-4 text-[10px] font-black text-amber-700 hover:text-amber-600 uppercase tracking-widest underline underline-offset-4 transition-colors">
-                  Solicitar Insumos Agora
-                </button>
-              </div>
+            <div className="h-64 w-full">
+              {!chartsData || chartsData.topCategories.length === 0 ? (
+                <div className="h-full flex items-center justify-center italic text-slate-500 text-xs">Nenhuma solicitação registrada</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartsData.topCategories} layout="vertical" margin={{ left: 20, right: 30 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#F1F5F9" />
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#0F172A', fontSize: 10, fontWeight: 900 }}
+                      width={100}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#F8FAFC' }}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}
+                    />
+                    <Bar dataKey="value" fill="#F59E0B" radius={[0, 4, 4, 0]} barSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
-          {/* Activity Feed */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Atividade Recente</h3>
-              <Link href="/solicitacoes" className="text-amber-700 text-[10px] font-black uppercase tracking-widest hover:underline">Ver Tudo</Link>
-            </div>
-            
-            <div className="space-y-6">
-              {dynamicActivities.length === 0 ? (
-                <div className="py-8 text-center">
-                  <p className="text-slate-900 text-xs font-medium italic">Nenhuma atividade recente registrada.</p>
-                </div>
-              ) : dynamicActivities.map((activity, index) => (
-                <div key={index} className="flex gap-4 relative">
-                  {index !== dynamicActivities.length - 1 && (
-                    <div className="absolute left-[11px] top-8 bottom-[-24px] w-[1px] bg-slate-100" />
-                  )}
-                  <div className={`size-6 rounded-full flex items-center justify-center relative z-10 shadow-sm ${
-                    activity.color === 'emerald' ? 'bg-emerald-500' :
-                    activity.color === 'blue' ? 'bg-amber-500' :
-                    activity.color === 'amber' ? 'bg-amber-500' :
-                    activity.color === 'rose' ? 'bg-rose-500' :
-                    'bg-slate-400'
-                  }`}>
-                    <activity.icon size={12} className="text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{activity.title}</p>
-                    <p className="text-xs text-slate-900 mt-1 font-bold">{activity.description}</p>
-                    <p className="text-[10px] text-slate-900 mt-2 uppercase font-black font-mono tracking-widest">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 p-4 bg-amber-500/5 rounded-lg border border-amber-500/10">
-              <div className="flex items-center gap-3 mb-2">
-                <Info className="text-amber-700" size={18} />
-                <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Dica de Manutenção</h4>
+          {/* Gráfico 2: Evolução Mensal */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Evolução Mensal</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Abertas vs. Concluídas (6 meses)</p>
               </div>
-              <p className="text-xs text-slate-900 font-bold leading-relaxed">
+              <TrendingUp size={20} className="text-slate-300" />
+            </div>
+            <div className="h-64 w-full">
+              {!chartsData ? (
+                <div className="h-full flex items-center justify-center italic text-slate-500 text-xs">Nenhuma solicitação registrada</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartsData.monthlyEvolution}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#0F172A', fontSize: 10, fontWeight: 900 }}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#0F172A', fontSize: 10, fontWeight: 900 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}
+                    />
+                    <Legend 
+                      verticalAlign="top" 
+                      align="right" 
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', paddingBottom: '20px' }}
+                    />
+                    <Line type="monotone" dataKey="abertas" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B' }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="concluidas" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981' }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Gráfico 3: Distribuição por Status */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Distribuição por Status</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Visão geral do fluxo de trabalho</p>
+              </div>
+              <PieChartIcon size={20} className="text-slate-300" />
+            </div>
+            <div className="h-64 w-full">
+              {!chartsData ? (
+                <div className="h-full flex items-center justify-center italic text-slate-500 text-xs">Nenhuma solicitação registrada</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartsData.statusDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartsData.statusDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name] || '#CBD5E1'} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      align="center" 
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', paddingTop: '20px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Gráfico 4: OS por Unidade */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">OS por Unidade (Top 6)</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Comparativo Abertas vs. Concluídas</p>
+              </div>
+              <Building2 size={20} className="text-slate-300" />
+            </div>
+            <div className="h-64 w-full">
+              {!chartsData ? (
+                <div className="h-full flex items-center justify-center italic text-slate-500 text-xs">Nenhuma solicitação registrada</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartsData.unitDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#0F172A', fontSize: 9, fontWeight: 900 }}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#0F172A', fontSize: 9, fontWeight: 900 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}
+                    />
+                    <Bar dataKey="open" name="Abertas" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="closed" name="Concluídas" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SEÇÃO C: TABELA DE ALERTAS */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                <AlertTriangle className="text-rose-500" size={18} />
+                OS Críticas em Aberto
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Top 5 solicitações com maior tempo de espera</p>
+            </div>
+            <Link 
+              href="/solicitacoes"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-50 hover:text-amber-600 transition-all border border-slate-200"
+            >
+              Ver Todas <ChevronRight size={14} />
+            </Link>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">ID</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Unidade</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Dias em Aberto</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {criticalAlerts.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center italic text-slate-500 text-xs">Nenhuma OS crítica em aberto</td>
+                  </tr>
+                ) : criticalAlerts.map((req) => (
+                  <tr 
+                    key={req.id} 
+                    className={`transition-colors ${
+                      req.diasEmAberto > 30 ? 'bg-rose-50/50 hover:bg-rose-50' : 
+                      req.diasEmAberto > 15 ? 'bg-amber-50/50 hover:bg-amber-50' : 
+                      'hover:bg-slate-50/50'
+                    }`}
+                  >
+                    <td className="px-6 py-4 text-xs font-black text-slate-900 font-mono">#{req.displayId || req.id.slice(0, 8)}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-bold text-slate-900 truncate max-w-[300px]">{req.description}</p>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{req.type}</p>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-700">{req.unit}</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs font-black font-mono ${req.diasEmAberto > 30 ? 'text-rose-600' : req.diasEmAberto > 15 ? 'text-amber-600' : 'text-slate-900'}`}>
+                        {req.diasEmAberto} dias
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                        req.status === 'Novo' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'
+                      }`}>
+                        {req.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Maintenance Tip Footer */}
+        <div className="bg-amber-500 p-6 rounded-2xl shadow-lg shadow-amber-500/20 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
+              <Info size={24} />
+            </div>
+            <div>
+              <h4 className="text-white font-black uppercase tracking-widest">Dica de Gestão de Ativos</h4>
+              <p className="text-white/90 text-sm font-bold mt-1">
                 Agende inspeções de HVAC 2 semanas antes do pico do verão para reduzir chamados de emergência em até 30%.
               </p>
             </div>
           </div>
+          <Link href="/solicitacoes" className="px-6 py-3 bg-white text-amber-600 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+            Ver Cronograma Preventivo
+          </Link>
         </div>
       </div>
     </DashboardLayout>
