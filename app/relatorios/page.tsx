@@ -191,9 +191,9 @@ export default function RelatoriosPage() {
           supabase.from('repactuacoes').select('*').order('date', { ascending: false })
         ]);
         
-        setRequests(reqRes || []);
-        setInspections(inspRes || []);
-        setRecords(recRes || []);
+setRequests(Array.isArray(reqRes) ? reqRes : []);
+        setInspections(Array.isArray(inspRes) ? inspRes : []);
+        setRecords(Array.isArray(recRes) ? recRes : []);
         
         if (contractRes.data) setContract(contractRes.data);
         if (financialRes.data) setFinancialRecords(financialRes.data);
