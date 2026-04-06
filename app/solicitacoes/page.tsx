@@ -19,11 +19,20 @@ import {
   ShieldCheck,
   ShieldAlert,
   X,
-  Trash2
+  Trash2,
+  Clock,
+  CheckCircle,
+  CheckCheck,
+  XCircle
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
+
+interface Professional {
+  name: string;
+  role: string;
+}
 
 interface MaintenanceRequest {
   id: string;
@@ -34,8 +43,9 @@ interface MaintenanceRequest {
   type: string;
   status: string;
   statusColor: string;
-  professionals: string[];
+  professionals: (string | Professional)[];
   avatar: string | null;
+  displayId?: string;
 }
 
 const getTypeColor = (type: string) => {
@@ -146,19 +156,44 @@ export default function RequestsPage() {
     }
   };
 
-  const filteredRequests = requests.filter(req => {
-    const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (req.professionals && req.professionals.some(p => p.toLowerCase().includes(searchTerm.toLowerCase())));
-    
-    const reqDate = req.createdAt ? new Date(req.createdAt) : new Date();
-    
-    const matchesDate = !filterDate || (req.createdAt && req.createdAt.startsWith(filterDate));
-    const matchesMonth = !filterMonth || (reqDate.getMonth() + 1).toString() === filterMonth;
-    const matchesYear = !filterYear || reqDate.getFullYear().toString() === filterYear;
+  const filteredRequests = React.useMemo(() => {
+    // Group all requests by year to calculate sequential IDs
+    const groupedByYear: { [year: string]: MaintenanceRequest[] } = {};
+    requests.forEach(req => {
+      const year = new Date(req.createdAt || req.date).getFullYear().toString();
+      if (!groupedByYear[year]) groupedByYear[year] = [];
+      groupedByYear[year].push(req);
+    });
 
-    return matchesSearch && matchesDate && matchesMonth && matchesYear;
-  });
+    // Assign sequential IDs within each year
+    const requestsWithDisplayId = requests.map(req => {
+      const year = new Date(req.createdAt || req.date).getFullYear().toString();
+      const yearRequests = groupedByYear[year].sort((a, b) => 
+        new Date(a.createdAt || a.date).getTime() - new Date(b.createdAt || b.date).getTime()
+      );
+      const index = yearRequests.findIndex(r => r.id === req.id);
+      const sequence = (index + 1).toString().padStart(2, '0');
+      return { ...req, displayId: `${sequence}/${year}` };
+    });
+
+        return requestsWithDisplayId.filter(req => {
+          const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            req.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            req.displayId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (req.professionals && req.professionals.some(p => {
+              if (typeof p === 'string') return p.toLowerCase().includes(searchTerm.toLowerCase());
+              return p.name.toLowerCase().includes(searchTerm.toLowerCase());
+            }));
+      
+      const reqDate = req.createdAt ? new Date(req.createdAt) : new Date();
+      
+      const matchesDate = !filterDate || (req.createdAt && req.createdAt.startsWith(filterDate));
+      const matchesMonth = !filterMonth || (reqDate.getMonth() + 1).toString() === filterMonth;
+      const matchesYear = !filterYear || reqDate.getFullYear().toString() === filterYear;
+
+      return matchesSearch && matchesDate && matchesMonth && matchesYear;
+    });
+  }, [requests, searchTerm, filterDate, filterMonth, filterYear]);
 
   return (
     <DashboardLayout title="Solicitações de Manutenção">
@@ -249,7 +284,7 @@ export default function RequestsPage() {
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Data</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Tipo</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Profissional</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest">Profissionais</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-700 uppercase tracking-widest"></th>
                 </tr>
               </thead>
@@ -266,7 +301,7 @@ export default function RequestsPage() {
                   <tr key={req.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 text-xs font-black text-amber-600 font-mono">
                       <Link href={`/solicitacoes/${req.id}`}>
-                        {req.id}
+                        {req.displayId}
                       </Link>
                     </td>
                     <td className="px-6 py-4 text-sm font-bold text-slate-800">
@@ -282,45 +317,50 @@ export default function RequestsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          req.status === 'Em Andamento' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
-                          req.status === 'Novo' ? 'bg-amber-300' :
-                          req.status === 'Autorizado' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
-                          'bg-slate-300'
-                        }`}></span>
-                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{req.status}</span>
-                      </div>
+                      {req.status === 'Pendente' || req.status === 'Novo' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-yellow-100 text-yellow-700 border border-yellow-200">
+                          <Clock size={12} />
+                          Pendente
+                        </span>
+                      ) : req.status === 'Autorizado' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          <CheckCircle size={12} />
+                          Autorizado
+                        </span>
+                      ) : req.status === 'Em Andamento' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 border border-blue-200">
+                          <Wrench size={12} />
+                          Em Andamento
+                        </span>
+                      ) : req.status === 'Concluído' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-700 border border-slate-200">
+                          <CheckCheck size={12} />
+                          Concluído
+                        </span>
+                      ) : req.status === 'Cancelado' || req.status === 'Negado' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-700 border border-red-200">
+                          <XCircle size={12} />
+                          {req.status === 'Negado' ? 'Cancelado' : req.status}
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            req.status === 'Em Andamento' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
+                            req.status === 'Novo' ? 'bg-amber-300' :
+                            req.status === 'Autorizado' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
+                            'bg-slate-300'
+                          }`}></span>
+                          <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{req.status}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {req.professionals && req.professionals.length > 0 ? (
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-2 overflow-hidden">
-                            {req.professionals.slice(0, 3).map((p, i) => (
-                              <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-slate-100 overflow-hidden relative border border-slate-200">
-                                {req.avatar && (
-                                  <Image 
-                                    src={req.avatar} 
-                                    alt={p} 
-                                    fill 
-                                    className="object-cover"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                )}
-                              </div>
-                            ))}
-                            {req.professionals.length > 3 && (
-                              <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-slate-200 text-[8px] font-black text-slate-900">
-                                +{req.professionals.length - 3}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-xs text-slate-800 font-bold tracking-tight truncate max-w-[120px]">
-                            {req.professionals.join(', ')}
-                          </span>
-                        </div>
+                        <span className="text-xs text-slate-800 font-bold tracking-tight">
+                          {req.professionals.map(p => typeof p === 'string' ? p : p.name).join(', ')}
+                        </span>
                       ) : (
-                        <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest italic">Não atribuído</span>
+                        <span className="text-xs text-slate-400 font-bold tracking-tight">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">

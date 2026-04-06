@@ -1,73 +1,20 @@
-# Sistema Integrado de Gestão de Manutenção Predial
-**CAV/UFPE — Centro Acadêmico da Vitória**
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Desenvolvido por Jonathan Carvalho, Administrador, Diretoria do CAV/UFPE.
+# Run and deploy your AI Studio app
 
----
+This contains everything you need to run your app locally.
 
-## Stack
+View your app in AI Studio: https://ai.studio/apps/cd857b95-ee57-40d9-bf86-11fb5bfc0903
 
-- **Frontend/Backend:** Next.js 15 (App Router)
-- **Banco de dados:** Supabase (PostgreSQL)
-- **Autenticação:** Supabase Auth + cookie de sessão
-- **Deploy:** Vercel
-- **Estilização:** Tailwind CSS + Framer Motion
+## Run Locally
 
----
+**Prerequisites:**  Node.js
 
-## Regras críticas para o AI Studio
 
-> ⚠️ O AI Studio não deve modificar os arquivos abaixo sem autorização explícita.
-
-### next.config.ts
-- **Nunca** adicionar `output: 'standalone'` — quebra os assets estáticos no Vercel
-- **Sempre** manter `qziaddfqzdmgvylfqbun.supabase.co` nos `remotePatterns`
-- **Nunca** remover `transpilePackages: ['motion']`
-
-### middleware.ts
-- **Nunca** remover as exceções de rotas públicas (`/login`, `/api/auth`)
-- **Nunca** bloquear arquivos de imagem (.png, .jpg, .svg)
-
-### app/login/page.tsx
-- A logomarca deve sempre usar a URL do Supabase Storage:
-  `https://qziaddfqzdmgvylfqbun.supabase.co/storage/v1/object/public/public-assets/Logomarca_CAV_padrao.png`
-- **Nunca** usar `/Logomarca_CAV_padrão.png` (caminho local com acento)
-- **Nunca** usar `raw.githubusercontent.com` para imagens
-
-### app/api/auth/login/route.ts
-- Manter o rate limiting de 5 tentativas por IP a cada 15 minutos
-- **Nunca** expor mensagens de erro que revelem se o usuário existe
-
----
-
-## Estrutura do projeto
-app/
-├── login/          → Página de acesso
-├── api/auth/       → Endpoints de autenticação
-├── agenda/         → Agenda de manutenções
-├── solicitacoes/   → Gestão de solicitações
-├── materiais/      → Controle de materiais
-├── inspecoes/      → Inspeções prediais
-lib/
-├── auth.ts         → Lógica de autenticação
-├── supabase.ts     → Cliente Supabase
-components/
-├── DashboardLayout → Layout principal
-
----
-
-## Variáveis de ambiente necessárias
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-```
-
----
-
-## Observações de segurança
-
-- Rate limiting ativo no endpoint de login (5 tentativas / 15 min)
-- Autenticação via cookie de sessão `auth_session`
-- Apenas usuários cadastrados no Supabase Auth têm acesso
-- Roles: `encarregado` (darleson.oliveira@hotmail.com) e `gestao` (demais usuários)
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

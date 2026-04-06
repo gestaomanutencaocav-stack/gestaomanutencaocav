@@ -52,7 +52,7 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <Image
-            src="https://qziaddfqzdmgvylfqbun.supabase.co/storage/v1/object/public/public-assets/Logomarca_CAV_padrao.png"
+src="https://qziaddfqzdmgvylfqbun.supabase.co/storage/v1/object/public/public-assets/Logomarca_CAV_padrao.png"
             alt="Logo CAV"
             width={180}
             height={70}

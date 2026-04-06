@@ -7,7 +7,7 @@ const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function getRateLimit(ip: string): { allowed: boolean; remaining: number } {
   const now = Date.now();
-  const windowMs = 15 * 60 * 1000; // 15 minutes
+  const windowMs = 15 * 60 * 1000;
   const maxAttempts = 5;
 
   const record = loginAttempts.get(ip);
@@ -26,20 +26,16 @@ function getRateLimit(ip: string): { allowed: boolean; remaining: number } {
 }
 
 export async function POST(request: Request) {
-  // Get IP from headers
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
-    || request.headers.get('x-real-ip') 
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
     || 'unknown';
 
-  const { allowed, remaining } = getRateLimit(ip);
+  const { allowed } = getRateLimit(ip);
 
   if (!allowed) {
     return NextResponse.json(
       { error: 'Muitas tentativas. Aguarde 15 minutos.' },
-      { 
-        status: 429,
-        headers: { 'Retry-After': '900' }
-      }
+      { status: 429, headers: { 'Retry-After': '900' } }
     );
   }
 

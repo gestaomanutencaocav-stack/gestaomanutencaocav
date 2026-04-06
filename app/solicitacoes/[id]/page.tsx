@@ -337,15 +337,20 @@ export default function RequestDetailsPage() {
   };
 
   const addTimelineEvent = (action: string, type: 'auto' | 'manual' = 'auto') => {
-    if (!request) return;
     const newEvent: TimelineEvent = {
       date: new Date().toISOString(),
       action,
       user: authName || 'Usuário',
       type
     };
-    const updatedTimeline = [newEvent, ...(request.timeline || [])];
-    setRequest({ ...request, timeline: updatedTimeline });
+    
+    setRequest(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        timeline: [newEvent, ...(prev.timeline || [])]
+      };
+    });
   };
 
   const handleAddComment = async () => {
@@ -935,13 +940,12 @@ export default function RequestDetailsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
                       {request.images.map((img, idx) => (
                         <div key={idx} className="aspect-video bg-slate-50 rounded-lg overflow-hidden relative group cursor-pointer border border-slate-200">
-                          <Image 
-                            src={img}
-                            alt={`Service image ${idx + 1}`}
-                            fill
-                            className="object-cover transition-all group-hover:scale-105"
-                            referrerPolicy="no-referrer"
-                          />
+                        <img
+  src={img}
+  alt={`Service image ${idx + 1}`}
+  className="object-cover w-full h-full transition-all group-hover:scale-105"
+  referrerPolicy="no-referrer"
+/> 
                           <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="flex gap-2">
                               <button 

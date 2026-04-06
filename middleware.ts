@@ -3,9 +3,9 @@ import { NextResponse, NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth_session');
   const { pathname } = request.nextUrl;
+
   const isAuthenticated = !!authCookie?.value;
 
-  // Allow access to login page and auth API
   if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
     if (isAuthenticated && pathname === '/login') {
       return NextResponse.redirect(new URL('/', request.url));
@@ -13,7 +13,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
