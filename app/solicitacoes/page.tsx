@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Professional {
   name: string;
@@ -67,6 +67,8 @@ export default function RequestsPage() {
   const [filterDate, setFilterDate] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
+  const [filterType, setFilterType] = useState('Todos');
+  const [filterStatus, setFilterStatus] = useState('Todos');
   const [userRole, setUserRole] = useState<string | null>(null);
 
   // Auth Modal State for Quick Action
@@ -190,10 +192,12 @@ export default function RequestsPage() {
       const matchesDate = !filterDate || (req.createdAt && req.createdAt.startsWith(filterDate));
       const matchesMonth = !filterMonth || (reqDate.getMonth() + 1).toString() === filterMonth;
       const matchesYear = !filterYear || reqDate.getFullYear().toString() === filterYear;
+      const matchesType = filterType === 'Todos' || req.type === filterType;
+      const matchesStatus = filterStatus === 'Todos' || req.status === filterStatus;
 
-      return matchesSearch && matchesDate && matchesMonth && matchesYear;
+      return matchesSearch && matchesDate && matchesMonth && matchesYear && matchesType && matchesStatus;
     });
-  }, [requests, searchTerm, filterDate, filterMonth, filterYear]);
+  }, [requests, searchTerm, filterDate, filterMonth, filterYear, filterType, filterStatus]);
 
   return (
     <DashboardLayout title="Solicitações de Manutenção">
@@ -257,12 +261,34 @@ export default function RequestsPage() {
                   <option key={y} value={y} className="bg-white text-slate-800">{y}</option>
                 ))}
               </select>
+              <select 
+                className="px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="Todos">Tipo (Todos)</option>
+                {['Civil', 'Hidráulico', 'Elétrico', 'Coberta', 'Pintura', 'Marcenaria'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <select 
+                className="px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="Todos">Status (Todos)</option>
+                {['Novo', 'Em Andamento', 'Autorizado', 'Concluído', 'Negado'].map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
               <button 
                 onClick={() => {
                   setSearchTerm('');
                   setFilterDate('');
                   setFilterMonth('');
                   setFilterYear('');
+                  setFilterType('Todos');
+                  setFilterStatus('Todos');
                 }}
                 className="px-3 py-2.5 text-slate-700 hover:text-amber-600 text-[10px] font-black uppercase tracking-widest transition-colors"
               >

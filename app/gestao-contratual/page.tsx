@@ -522,7 +522,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contrato nº</label>
                 {isEditingContract ? (
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.contract_number ?? ''} onChange={e => setContractForm({...contractForm, contract_number: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.contract_number ?? ''} onChange={e => setContractForm({...contractForm, contract_number: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.contract_number}</p>
                 )}
@@ -530,7 +530,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
                 {isEditingContract ? (
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.company_name ?? ''} onChange={e => setContractForm({...contractForm, company_name: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.company_name ?? ''} onChange={e => setContractForm({...contractForm, company_name: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.company_name}</p>
                 )}
@@ -538,7 +538,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">CNPJ</label>
                 {isEditingContract ? (
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.cnpj ?? ''} onChange={e => setContractForm({...contractForm, cnpj: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.cnpj ?? ''} onChange={e => setContractForm({...contractForm, cnpj: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.cnpj}</p>
                 )}
@@ -549,7 +549,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Início da Vigência</label>
                 {isEditingContract ? (
-                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.start_date ?? ''} onChange={e => setContractForm({...contractForm, start_date: e.target.value})} />
+                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.start_date ?? ''} onChange={e => setContractForm({...contractForm, start_date: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.start_date ? format(parseISO(contract.start_date), 'dd/MM/yyyy') : '-'}</p>
                 )}
@@ -557,7 +557,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Final da Vigência</label>
                 {isEditingContract ? (
-                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.end_date ?? ''} onChange={e => setContractForm({...contractForm, end_date: e.target.value})} />
+                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.end_date ?? ''} onChange={e => setContractForm({...contractForm, end_date: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.end_date ? format(parseISO(contract.end_date), 'dd/MM/yyyy') : '-'}</p>
                 )}
@@ -566,7 +566,7 @@ export default function GestaoContratualPage() {
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
                 <div className="flex items-center gap-3">
                   {isEditingContract ? (
-                    <input type="number" className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
+                    <input type="number" className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
                   ) : (
                     <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">{contract?.renewals_count}</span>
                   )}
@@ -579,7 +579,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contratante</label>
                 {isEditingContract ? (
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.contracting_party ?? ''} onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.contracting_party ?? ''} onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.contracting_party}</p>
                 )}
@@ -629,13 +629,13 @@ export default function GestaoContratualPage() {
               <Filter size={16} className="text-slate-900" />
               <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={financialFilter.year} onChange={e => setFinancialFilter({...financialFilter, year: e.target.value})}>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={financialFilter.year} onChange={e => setFinancialFilter({...financialFilter, year: e.target.value})}>
               <option value="">Todos os Anos</option>
               {Array.from(new Set(financialRecords.map(r => r.year))).sort().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={financialFilter.month} onChange={e => setFinancialFilter({...financialFilter, month: e.target.value})}>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={financialFilter.month} onChange={e => setFinancialFilter({...financialFilter, month: e.target.value})}>
               <option value="">Todos os Meses</option>
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>
@@ -732,13 +732,13 @@ export default function GestaoContratualPage() {
               <Filter size={16} className="text-slate-900" />
               <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={repactuacaoFilter.year} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, year: e.target.value})}>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoFilter.year} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, year: e.target.value})}>
               <option value="">Todos os Anos</option>
               {Array.from(new Set(repactuacoes.map(r => r.year))).sort().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={repactuacaoFilter.status} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value as any})}>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoFilter.status} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value as any})}>
               <option value="">Todos os Status</option>
               {Object.keys(statusColors).map(s => (<option key={s} value={s}>{s}</option>))}
             </select>
@@ -800,42 +800,42 @@ export default function GestaoContratualPage() {
               </div>
               <div className="p-6 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.year ?? new Date().getFullYear()} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano</label>
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.year ?? new Date().getFullYear()} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Mês</label>
-                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.month ?? new Date().getMonth() + 1} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Mês</label>
+                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.month ?? new Date().getMonth() + 1} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (<option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Fatura</label>
-                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.invoice_number ?? ''} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Nº Fatura</label>
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.invoice_number ?? ''} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Número do Processo</label>
-                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" placeholder="Ex: 23076.012345/2026-01" value={financialForm.process_number ?? ''} onChange={e => setFinancialForm({...financialForm, process_number: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Número do Processo</label>
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" placeholder="Ex: 23076.012345/2026-01" value={financialForm.process_number ?? ''} onChange={e => setFinancialForm({...financialForm, process_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Nota Fiscal</label>
-                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Nº Nota Fiscal</label>
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Fato Gerador (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Fato Gerador (R$)</label>
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Materiais (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Materiais (R$)</label>
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Mat + CITL (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Mat + CITL (R$)</label>
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Descontos (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Descontos (R$)</label>
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
@@ -863,27 +863,27 @@ export default function GestaoContratualPage() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Processo</label>
-                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.process_number ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Nº Processo</label>
+                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.process_number ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                    <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.year ?? new Date().getFullYear()} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano</label>
+                    <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.year ?? new Date().getFullYear()} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</label>
-                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Data</label>
+                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</label>
-                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.status ?? 'Em Análise'} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
+                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.status ?? 'Em Análise'} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
                     {Object.keys(statusColors).map(s => (<option key={s} value={s}>{s}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Fato Gerador</label>
-                  <textarea className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 min-h-[100px]" value={repactuacaoForm.triggering_factor ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Fato Gerador</label>
+                  <textarea className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px]" value={repactuacaoForm.triggering_factor ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">

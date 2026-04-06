@@ -111,6 +111,8 @@ export default function MaterialsManager({ title, description, type }: Materials
   
   // Monetary Correction State
   const [correctionPercentage, setCorrectionPercentage] = useState('');
+  const [correctionStartDate, setCorrectionStartDate] = useState('');
+  const [correctionEndDate, setCorrectionEndDate] = useState('');
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
@@ -164,7 +166,9 @@ export default function MaterialsManager({ title, description, type }: Materials
         body: JSON.stringify({
           type,
           percentage: Number(correctionPercentage),
-          appliedBy: 'Sistema'
+          appliedBy: 'Sistema',
+          startDate: correctionStartDate,
+          endDate: correctionEndDate
         }),
       });
 
@@ -551,7 +555,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                   <input 
                     type="number"
                     step="0.01"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-12 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                    className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-12 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all placeholder:text-slate-400"
                     placeholder="Ex: 10.5 para aumento ou -5.2 para redução"
                     value={correctionPercentage}
                     onChange={(e) => setCorrectionPercentage(e.target.value)}
@@ -575,7 +579,9 @@ export default function MaterialsManager({ title, description, type }: Materials
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
                   <input 
                     type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                    className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                    value={correctionStartDate}
+                    onChange={(e) => setCorrectionStartDate(e.target.value)}
                   />
                 </div>
               </div>
@@ -586,7 +592,9 @@ export default function MaterialsManager({ title, description, type }: Materials
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
                   <input 
                     type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                    className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                    value={correctionEndDate}
+                    onChange={(e) => setCorrectionEndDate(e.target.value)}
                   />
                 </div>
               </div>
@@ -972,7 +980,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     <input 
                       type="number"
                       step="any"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-16 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                      className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-16 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
                       placeholder="Ex: 5"
                       value={consumptionQty}
                       onChange={(e) => setConsumptionQty(e.target.value)}
@@ -993,7 +1001,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
                     <input 
                       type="date"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all font-mono"
                       value={consumptionDate}
                       onChange={(e) => setConsumptionDate(e.target.value)}
                     />
@@ -1336,7 +1344,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
                       <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                         value={refMonth}
                         onChange={(e) => setRefMonth(Number(e.target.value))}
                       >
@@ -1348,7 +1356,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano de Referência</label>
                       <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                         value={refYear}
                         onChange={(e) => setRefYear(Number(e.target.value))}
                       >
@@ -1366,7 +1374,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                       <input 
                         type="number"
                         step="0.01"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                         placeholder="0,00"
                         value={newPrice}
                         onChange={(e) => setNewPrice(e.target.value)}
@@ -1385,7 +1393,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa da Alteração</label>
                     <textarea 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px] resize-none"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px] resize-none"
                       placeholder="Ex: Reajuste contratual, inflação do período, etc..."
                       value={priceJustification}
                       onChange={(e) => setPriceJustification(e.target.value)}

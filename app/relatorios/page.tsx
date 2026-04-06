@@ -227,21 +227,23 @@ export default function RelatoriosPage() {
   }, [requests]);
 
   const typeData = useMemo(() => {
-    return Object.entries(
-      filteredRequests.reduce((acc: Record<string, number>, req) => {
-        acc[req.type] = (acc[req.type] || 0) + 1;
-        return acc;
-      }, {})
-    ).map(([name, value]) => ({ name, value }));
+    const counts: Record<string, number> = {};
+    (filteredRequests || []).forEach(req => {
+      if (req && req.type) {
+        counts[req.type] = (counts[req.type] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [filteredRequests]);
 
   const statusData = useMemo(() => {
-    return Object.entries(
-      filteredRequests.reduce((acc: Record<string, number>, req) => {
-        acc[req.status] = (acc[req.status] || 0) + 1;
-        return acc;
-      }, {})
-    ).map(([name, value]) => ({ name, value }));
+    const counts: Record<string, number> = {};
+    (filteredRequests || []).forEach(req => {
+      if (req && req.status) {
+        counts[req.status] = (counts[req.status] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [filteredRequests]);
 
   // --- Inspection Logic ---
@@ -321,28 +323,30 @@ export default function RelatoriosPage() {
 
   // KPIs Calculations
   const inspKPIs = useMemo(() => {
+    const records = enrichedRecords || [];
     const now = new Date();
-    const currentMonthRecords = enrichedRecords.filter(r => {
+    const currentMonthRecords = records.filter(r => {
+      if (!r) return false;
       const d = safeParseDate(r.createdAt || r.executionDate);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
 
-    const totalProblemsFound = currentMonthRecords.reduce((sum, r) => sum + (r.problemsFound || 0), 0);
-    const totalProblemsResolved = currentMonthRecords.reduce((sum, r) => sum + (r.problemsResolved || 0), 0);
-    const totalProblemsPending = enrichedRecords.reduce((sum, r) => sum + (r.problemsPending || 0), 0);
+    const totalProblemsFound = currentMonthRecords.reduce((sum, r) => sum + (Number(r.problemsFound) || 0), 0);
+    const totalProblemsResolved = currentMonthRecords.reduce((sum, r) => sum + (Number(r.problemsResolved) || 0), 0);
+    const totalProblemsPending = records.reduce((sum, r) => sum + (Number(r.problemsPending) || 0), 0);
     
     const realizedCount = currentMonthRecords.filter(r => r.executionStatus === 'Concluído').length;
     // Mocking predicted for now
     const predictedCount = Math.max(realizedCount + 2, 10); 
     const complianceRate = (realizedCount / predictedCount) * 100;
 
-    const delayedCount = inspections.filter(i => i.status === 'Atrasado').length;
-    const avgExecutionTime = enrichedRecords.length > 0 
-      ? enrichedRecords.reduce((sum, r) => sum + (r.executionTime || 0), 0) / enrichedRecords.length 
+    const delayedCount = (inspections || []).filter(i => i && i.status === 'Atrasado').length;
+    const avgExecutionTime = records.length > 0 
+      ? records.reduce((sum, r) => sum + (Number(r.executionTime) || 0), 0) / records.length 
       : 0;
 
     return {
-      totalRegistered: inspections.length,
+      totalRegistered: (inspections || []).length,
       realizedThisMonth: realizedCount,
       complianceRate: complianceRate.toFixed(1),
       problemsFound: totalProblemsFound,
@@ -355,11 +359,13 @@ export default function RelatoriosPage() {
 
   // Chart 1: Realized vs Predicted (Last 6 months)
   const realizedVsPredictedData = useMemo(() => {
+    const records = enrichedRecords || [];
     const data = [];
     for (let i = 5; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const monthRecords = enrichedRecords.filter(r => {
+      const monthRecords = records.filter(r => {
+        if (!r) return false;
         const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
       });
@@ -373,17 +379,22 @@ export default function RelatoriosPage() {
   // Chart 2: Distribution by Area
   const areaDistributionData = useMemo(() => {
     const distribution: Record<string, number> = {};
-    inspections.forEach(insp => {
-      distribution[insp.area] = (distribution[insp.area] || 0) + 1;
+    (inspections || []).forEach(insp => {
+      if (insp && insp.area) {
+        distribution[insp.area] = (distribution[insp.area] || 0) + 1;
+      }
     });
     return Object.entries(distribution).map(([name, value]) => ({ name, value }));
   }, [inspections]);
 
   // Chart 3: Top Areas with Problems
   const topProblemAreasData = useMemo(() => {
+    const records = enrichedRecords || [];
     const problemCounts: Record<string, number> = {};
-    enrichedRecords.forEach(rec => {
-      problemCounts[rec.area] = (problemCounts[rec.area] || 0) + (rec.problemsFound || 0);
+    records.forEach(rec => {
+      if (rec && rec.area) {
+        problemCounts[rec.area] = (problemCounts[rec.area] || 0) + (Number(rec.problemsFound) || 0);
+      }
     });
     return Object.entries(problemCounts)
       .map(([name, value]) => ({ name, value }))
@@ -393,16 +404,18 @@ export default function RelatoriosPage() {
 
   // Chart 4: Compliance Evolution (Last 12 months)
   const complianceEvolutionData = useMemo(() => {
+    const records = enrichedRecords || [];
     const data = [];
     for (let i = 11; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const realized = enrichedRecords.filter(r => {
+      const realized = records.filter(r => {
+        if (!r) return false;
         const d = safeParseDate(r.createdAt || r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear() && r.executionStatus === 'Concluído';
       }).length;
       const predicted = realized + 2; // Mocked
-      const rate = (realized / predicted) * 100;
+      const rate = predicted > 0 ? (realized / predicted) * 100 : 0;
       data.push({ name: monthName, taxa: Math.round(rate) });
     }
     return data;
@@ -410,17 +423,19 @@ export default function RelatoriosPage() {
 
   // Chart 5: Problems Status over time
   const problemsStatusData = useMemo(() => {
+    const records = enrichedRecords || [];
     const data = [];
     for (let i = 5; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const monthRecords = enrichedRecords.filter(r => {
+      const monthRecords = records.filter(r => {
+        if (!r) return false;
         const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
       });
-      const found = monthRecords.reduce((s, r) => s + (r.problemsFound || 0), 0);
-      const resolved = monthRecords.reduce((s, r) => s + (r.problemsResolved || 0), 0);
-      const pending = monthRecords.reduce((s, r) => s + (r.problemsPending || 0), 0);
+      const found = monthRecords.reduce((s, r) => s + (Number(r.problemsFound) || 0), 0);
+      const resolved = monthRecords.reduce((s, r) => s + (Number(r.problemsResolved) || 0), 0);
+      const pending = monthRecords.reduce((s, r) => s + (Number(r.problemsPending) || 0), 0);
       data.push({ name: monthName, encontrados: found, resolvidos: resolved, pendentes: pending });
     }
     return data;
@@ -610,14 +625,15 @@ export default function RelatoriosPage() {
   }, [financialRecords]);
 
   const contractKPIs = useMemo(() => {
-    const totalExecuted = financialRecords.reduce((sum, r) => sum + r.total_after_discounts, 0);
+    const records = financialRecords || [];
+    const totalExecuted = records.reduce((sum, r) => sum + (Number(r.total_after_discounts) || 0), 0);
     const currentYear = new Date().getFullYear();
-    const currentYearExecuted = financialRecords.filter(r => r.year === currentYear).reduce((sum, r) => sum + r.total_after_discounts, 0);
-    const avgInvoice = financialRecords.length > 0 ? totalExecuted / financialRecords.length : 0;
-    const totalDiscounts = financialRecords.reduce((sum, r) => sum + r.discounts, 0);
-    const maxInvoice = financialRecords.length > 0 ? Math.max(...financialRecords.map(r => r.total_after_discounts)) : 0;
-    const minInvoice = financialRecords.length > 0 ? Math.min(...financialRecords.map(r => r.total_after_discounts)) : 0;
-    const totalMaterials = financialRecords.reduce((sum, r) => sum + r.materials_value, 0);
+    const currentYearExecuted = records.filter(r => Number(r.year) === currentYear).reduce((sum, r) => sum + (Number(r.total_after_discounts) || 0), 0);
+    const avgInvoice = records.length > 0 ? totalExecuted / records.length : 0;
+    const totalDiscounts = records.reduce((sum, r) => sum + (Number(r.discounts) || 0), 0);
+    const maxInvoice = records.length > 0 ? Math.max(...records.map(r => Number(r.total_after_discounts) || 0)) : 0;
+    const minInvoice = records.length > 0 ? Math.min(...records.map(r => Number(r.total_after_discounts) || 0)) : 0;
+    const totalMaterials = records.reduce((sum, r) => sum + (Number(r.materials_value) || 0), 0);
     const discountPercentage = totalExecuted > 0 ? (totalDiscounts / (totalExecuted + totalDiscounts)) * 100 : 0;
     
     let remainingDays = 0;
@@ -639,7 +655,7 @@ export default function RelatoriosPage() {
   }, [financialRecords, contract]);
 
   const monthlyEvolutionData = useMemo(() => {
-    // Last 24 months evolution
+    const records = financialRecords || [];
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const data = [];
     const now = new Date();
@@ -650,34 +666,36 @@ export default function RelatoriosPage() {
       const monthIdx = d.getMonth();
       const monthName = months[monthIdx];
       
-      const record = financialRecords.find(r => r.year === year && r.month === monthName);
+      const record = records.find(r => Number(r.year) === year && r.month === monthName);
       data.push({
         name: `${monthName}/${year.toString().slice(-2)}`,
-        valor: record ? record.total_after_discounts : 0,
-        materiais: record ? record.materials_value : 0,
-        servicos: record ? record.payment_value : 0
+        valor: record ? (Number(record.total_after_discounts) || 0) : 0,
+        materiais: record ? (Number(record.materials_value) || 0) : 0,
+        servicos: record ? (Number(record.payment_value) || 0) : 0
       });
     }
     return data;
   }, [financialRecords]);
 
   const yearlyCompositionData = useMemo(() => {
-    const years = Array.from(new Set(financialRecords.map(r => r.year))).sort();
+    const records = financialRecords || [];
+    const years = Array.from(new Set(records.map(r => r.year))).filter(Boolean).sort();
     return years.map(year => {
-      const yearRecs = financialRecords.filter(r => r.year === year);
+      const yearRecs = records.filter(r => r.year === year);
       return {
         year: year.toString(),
-        total: yearRecs.reduce((sum, r) => sum + r.total_after_discounts, 0),
-        materiais: yearRecs.reduce((sum, r) => sum + r.materials_value, 0),
-        descontos: yearRecs.reduce((sum, r) => sum + r.discounts, 0)
+        total: yearRecs.reduce((sum, r) => sum + (Number(r.total_after_discounts) || 0), 0),
+        materiais: yearRecs.reduce((sum, r) => sum + (Number(r.materials_value) || 0), 0),
+        descontos: yearRecs.reduce((sum, r) => sum + (Number(r.discounts) || 0), 0)
       };
     });
   }, [financialRecords]);
 
   const invoiceComponentData = useMemo(() => {
-    const totalPayment = financialRecords.reduce((sum, r) => sum + r.payment_value, 0);
-    const totalMaterials = financialRecords.reduce((sum, r) => sum + r.materials_value, 0);
-    const totalCITL = financialRecords.reduce((sum, r) => sum + r.materials_citl_value, 0);
+    const records = financialRecords || [];
+    const totalPayment = records.reduce((sum, r) => sum + (Number(r.payment_value) || 0), 0);
+    const totalMaterials = records.reduce((sum, r) => sum + (Number(r.materials_value) || 0), 0);
+    const totalCITL = records.reduce((sum, r) => sum + (Number(r.materials_citl_value) || 0), 0);
     
     return [
       { name: 'Mão de Obra / Fato Gerador', value: totalPayment },
@@ -687,12 +705,13 @@ export default function RelatoriosPage() {
   }, [financialRecords]);
 
   const topInvoicesData = useMemo(() => {
-    return [...financialRecords]
-      .sort((a, b) => b.total_after_discounts - a.total_after_discounts)
+    const records = financialRecords || [];
+    return [...records]
+      .sort((a, b) => (Number(b.total_after_discounts) || 0) - (Number(a.total_after_discounts) || 0))
       .slice(0, 5)
       .map(r => ({
         name: `${r.month}/${r.year}`,
-        valor: r.total_after_discounts
+        valor: Number(r.total_after_discounts) || 0
       }));
   }, [financialRecords]);
 
@@ -788,11 +807,11 @@ export default function RelatoriosPage() {
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Categoria</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Categoria</label>
                     <select 
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       <option value="Todos">Todas</option>
                       <option value="Civil">Civil</option>
@@ -805,11 +824,11 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Status</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
                     <select 
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       <option value="Todos">Todos</option>
                       <option value="Novo">Novo</option>
@@ -821,11 +840,11 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Unidade</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Unidade</label>
                     <select 
                       value={filterUnit}
                       onChange={(e) => setFilterUnit(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       {units.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
@@ -833,7 +852,7 @@ export default function RelatoriosPage() {
 
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-900 dark:text-slate-200 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
                   >
                     Limpar
                   </button>
@@ -1040,11 +1059,11 @@ export default function RelatoriosPage() {
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Período</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Período</label>
                     <select 
                       value={inspPeriod}
                       onChange={(e) => setInspPeriod(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       <option value="week">Últimos 7 dias</option>
                       <option value="month">Mês Atual</option>
@@ -1057,32 +1076,32 @@ export default function RelatoriosPage() {
                   {inspPeriod === 'custom' && (
                     <>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Início</label>
+                        <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Início</label>
                         <input 
                           type="date"
                           value={customStartDate}
                           onChange={(e) => setCustomStartDate(e.target.value)}
-                          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Fim</label>
+                        <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Fim</label>
                         <input 
                           type="date"
                           value={customEndDate}
                           onChange={(e) => setCustomEndDate(e.target.value)}
-                          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                         />
                       </div>
                     </>
                   )}
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Área</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Área</label>
                     <select 
                       value={inspArea}
                       onChange={(e) => setInspArea(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       <option value="Todos">Todas</option>
                       <option value="Elétrica">Elétrica</option>
@@ -1094,11 +1113,11 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Periodicidade</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Periodicidade</label>
                     <select 
                       value={inspPeriodicity}
                       onChange={(e) => setInspPeriodicity(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       <option value="Todos">Todas</option>
                       <option value="Diária">Diária</option>
@@ -1109,11 +1128,11 @@ export default function RelatoriosPage() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">Profissional</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Profissional</label>
                     <select 
                       value={inspProfessional}
                       onChange={(e) => setInspProfessional(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       {allProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
@@ -1121,7 +1140,7 @@ export default function RelatoriosPage() {
 
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-900 dark:text-slate-200 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
                   >
                     Limpar
                   </button>
@@ -1409,11 +1428,11 @@ export default function RelatoriosPage() {
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">Ano de Exercício</label>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano de Exercício</label>
                     <select 
                       value={contractFilterYear}
                       onChange={(e) => setContractFilterYear(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
@@ -1421,7 +1440,7 @@ export default function RelatoriosPage() {
 
                   <button 
                     onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-700 hover:text-slate-900 underline underline-offset-4 cursor-pointer"
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
                   >
                     Limpar
                   </button>
@@ -1595,7 +1614,7 @@ export default function RelatoriosPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {yearlyCompositionData.reverse().map((row) => (
+                        {[...yearlyCompositionData].reverse().map((row) => (
                           <tr key={row.year} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
                             <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{row.year}</td>
                             <td className="px-6 py-4 text-sm font-bold text-emerald-600">{formatCurrency(row.total)}</td>
