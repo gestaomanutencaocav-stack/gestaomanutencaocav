@@ -44,7 +44,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, subDays, startOfDay, endOfDay, differenceInMinutes, isValid, differenceInDays, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
@@ -430,14 +430,13 @@ export default function RelatoriosPage() {
   const exportToExcel = () => {
     if (activeTab === 'solicitacoes') {
       const worksheet = XLSX.utils.json_to_sheet(filteredRequests.map(req => ({
-        'ID': req.id,
+        'Status': req.status,
         'Descrição': req.description,
         'Unidade': req.unit,
-        'Servidor Responsável': req.responsibleServer || 'N/A',
-        'Data': req.date,
         'Tipo': req.type,
-        'Status': req.status,
-        'Profissional': req.professional || 'Não Atribuído'
+        'Data': formatDate(req.createdAt || req.date),
+        'Profissionais': req.professional || 'Não Atribuído',
+        'Prazo': req.date // Fallback for deadline if not explicitly defined
       })));
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitações");
@@ -548,7 +547,7 @@ export default function RelatoriosPage() {
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#f8fafc' // slate-50
+          backgroundColor: '#ffffff'
         });
         
         const imgData = canvas.toDataURL('image/png');
@@ -556,22 +555,18 @@ export default function RelatoriosPage() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         
-        // If the report is longer than one A4 page, we might need multiple pages
-        // But for simplicity in this dashboard view, we'll just scale it to fit or add pages
-        let heightLeft = pdfHeight;
-        let position = 0;
-        const pageHeight = pdf.internal.pageSize.getHeight();
-
+        // Add Institutional Header
+        pdf.setFontSize(18);
+        pdf.setTextColor(153, 27, 27); // red-800
+        pdf.text('CAV/UFPE', pdfWidth / 2, 15, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.setTextColor(71, 85, 105); // slate-600
+        pdf.text('Relatório Gerencial de Manutenção Predial', pdfWidth / 2, 22, { align: 'center' });
+        pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 27, { align: 'center' });
+        
+        let position = 35; // Start after header
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft >= 0) {
-          position = heightLeft - pdfHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-        }
-
+        
         pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : activeTab === 'inspecoes' ? 'Inspecoes' : 'Contratual'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       } catch (error) {
         console.error('Erro ao gerar PDF:', error);
@@ -604,12 +599,13 @@ export default function RelatoriosPage() {
   // --- Contract Dashboard Logic ---
   const filteredFinancialRecords = useMemo(() => {
     return financialRecords.filter(rec => {
+      if (!rec || !rec.year) return false;
       return contractFilterYear === 'Todos' || rec.year.toString() === contractFilterYear;
     });
   }, [financialRecords, contractFilterYear]);
 
   const contractYears = useMemo(() => {
-    const years = Array.from(new Set(financialRecords.map(r => r.year.toString()))).sort((a, b) => b.localeCompare(a));
+    const years = Array.from(new Set(financialRecords.filter(r => r && r.year).map(r => r.year.toString()))).sort((a, b) => b.localeCompare(a));
     return ['Todos', ...years];
   }, [financialRecords]);
 
@@ -796,7 +792,7 @@ export default function RelatoriosPage() {
                     <select 
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Todos">Todas</option>
                       <option value="Civil">Civil</option>
@@ -813,7 +809,7 @@ export default function RelatoriosPage() {
                     <select 
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Todos">Todos</option>
                       <option value="Novo">Novo</option>
@@ -829,7 +825,7 @@ export default function RelatoriosPage() {
                     <select 
                       value={filterUnit}
                       onChange={(e) => setFilterUnit(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {units.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>

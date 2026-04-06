@@ -28,7 +28,7 @@ import {
   Download,
   Save
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -567,6 +567,28 @@ export default function MaterialsManager({ title, description, type }: Materials
                     {Number(correctionPercentage) >= 0 ? `Aumento de ${correctionPercentage}%` : `Redução de ${Math.abs(Number(correctionPercentage))}%`}
                   </motion.p>
                 )}
+              </div>
+
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Data Base Início</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
+                  <input 
+                    type="date"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2">Data Base Término</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
+                  <input 
+                    type="date"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-3 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none transition-all"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">

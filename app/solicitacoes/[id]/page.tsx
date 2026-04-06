@@ -52,7 +52,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/lib/supabase';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TimelineEvent {
@@ -263,6 +263,8 @@ export default function RequestDetailsPage() {
   // Completion Modal State
   const [isConcluirModalOpen, setIsConcluirModalOpen] = useState(false);
   const [conclusaoObs, setConclusaoObs] = useState('');
+  const [conclusaoData, setConclusaoData] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [conclusaoHora, setConclusaoHora] = useState(format(new Date(), 'HH:mm'));
 
   // Checklist States
   const [newItemTask, setNewItemTask] = useState('');
@@ -722,13 +724,12 @@ export default function RequestDetailsPage() {
     setIsSaving(true);
     
     try {
-      const now = new Date();
-      const dataFinal = format(now, 'yyyy-MM-dd');
-      const horaFinal = format(now, 'HH:mm');
-      const dataFormatada = format(now, 'dd/MM/yyyy');
+      const dataFinal = conclusaoData;
+      const horaFinal = conclusaoHora;
+      const dataFormatada = format(parseISO(dataFinal), 'dd/MM/yyyy');
       
       const newEvent: TimelineEvent = {
-        date: now.toISOString(),
+        date: new Date(`${dataFinal}T${horaFinal}:00`).toISOString(),
         action: `Serviço concluído em ${dataFormatada} às ${horaFinal}`,
         user: 'Sistema',
         type: 'auto'
@@ -1479,19 +1480,19 @@ export default function RequestDetailsPage() {
                   <div>
                     <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Data de Finalização</label>
                     <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-700 outline-none"
-                      value={format(new Date(), 'dd/MM/yyyy')}
-                      disabled
+                      type="date"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      value={conclusaoData}
+                      onChange={(e) => setConclusaoData(e.target.value)}
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Hora</label>
                     <input 
-                      type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-700 outline-none"
-                      value={format(new Date(), 'HH:mm')}
-                      disabled
+                      type="time"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      value={conclusaoHora}
+                      onChange={(e) => setConclusaoHora(e.target.value)}
                     />
                   </div>
                 </div>

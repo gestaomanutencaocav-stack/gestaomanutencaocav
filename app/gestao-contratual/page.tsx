@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
   FileText, 
@@ -24,15 +24,13 @@ import {
   Clock,
   Briefcase
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { format, differenceInDays, isAfter, isBefore, addMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
-// --- Types ---
 
 interface ContractInfo {
   id: string;
@@ -69,8 +67,6 @@ interface Repactuacao {
   status: 'Em Análise' | 'Aprovado' | 'Negado' | 'Aguardando Documentação' | 'Concluído';
 }
 
-// --- Page Component ---
-
 export default function GestaoContratualPage() {
   const [contract, setContract] = useState<ContractInfo | null>(null);
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
@@ -92,17 +88,14 @@ export default function GestaoContratualPage() {
     contracting_party: 'Centro Acadêmico da Vitória - CAV/UFPE'
   });
   
-  // Modals
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isRepactuacaoModalOpen, setIsRepactuacaoModalOpen] = useState(false);
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<any[]>([]);
 
-  // Filters
   const [financialFilter, setFinancialFilter] = useState({ year: '', month: '' });
   const [repactuacaoFilter, setRepactuacaoFilter] = useState({ year: '', status: '' });
 
-  // Form States
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -122,32 +115,22 @@ export default function GestaoContratualPage() {
     triggering_factor: ''
   });
 
-  useEffect(() => {
-    fetchFinancialRecords();
-  }, []);
-
   const sortByInvoice = (records: FinancialRecord[]) => {
     return [...records].sort((a, b) => {
       const invoiceA = String(a.invoice_number || '').trim();
       const invoiceB = String(b.invoice_number || '').trim();
-      
-      // Tenta ordenar numericamente primeiro
       const numA = Number(invoiceA.replace(/\D/g, ''));
       const numB = Number(invoiceB.replace(/\D/g, ''));
-      
       if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
         return numA - numB;
       }
-      
-      // Fallback para ordenação alfabética
       return invoiceA.localeCompare(invoiceB, 'pt-BR');
     });
   };
 
-  const fetchFinancialRecords = async () => {
+  const fetchFinancialRecords = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch Contract Info from API
       const contractRes = await fetch('/api/contract-info');
       if (contractRes.ok) {
         const data = await contractRes.json();
@@ -163,11 +146,8 @@ export default function GestaoContratualPage() {
           contracting_party: data.contracting_party ?? 'Centro Acadêmico da Vitória - CAV/UFPE'
         });
       }
-
-      // Fetch Financial Records and Repactuacoes from Supabase
       const { data: financialData } = await supabase.from('financial_records').select('*').order('invoice_number', { ascending: true });
       const { data: repactuacoesData } = await supabase.from('repactuacoes').select('*').order('date', { ascending: false });
-
       if (financialData) setFinancialRecords(sortByInvoice(financialData));
       if (repactuacoesData) setRepactuacoes(repactuacoesData);
     } catch (error) {
@@ -175,9 +155,11 @@ export default function GestaoContratualPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // --- Contract Actions ---
+  useEffect(() => {
+    fetchFinancialRecords();
+  }, [fetchFinancialRecords]);
 
   const handleSaveContract = async () => {
     setIsSaving(true);
@@ -187,21 +169,16 @@ export default function GestaoContratualPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(contractForm),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Erro detalhado:', errorData);
         throw new Error(errorData.error || 'Failed to save contract info');
       }
-
       const savedData = await response.json();
       setContract(savedData);
       setIsEditingContract(false);
-      
       setNotification({ type: 'success', message: 'Dados do contrato salvos com sucesso!' });
       setTimeout(() => setNotification(null), 5000);
     } catch (error: any) {
-      console.error('Error saving contract:', error);
       setNotification({ type: 'error', message: error.message || 'Erro ao salvar. Tente novamente.' });
       setTimeout(() => setNotification(null), 5000);
     } finally {
@@ -209,24 +186,16 @@ export default function GestaoContratualPage() {
     }
   };
 
-  // --- Financial Actions ---
-
   const handleAddFinancialRecord = async () => {
     try {
       const total_invoice = (Number(financialForm.payment_value) || 0) + 
                           (Number(financialForm.materials_value) || 0) + 
                           (Number(financialForm.materials_citl_value) || 0);
       const total_after_discounts = total_invoice - (Number(financialForm.discounts) || 0);
-
       const { data, error } = await supabase
         .from('financial_records')
-        .insert([{
-          ...financialForm,
-          total_invoice,
-          total_after_discounts
-        }])
+        .insert([{ ...financialForm, total_invoice, total_after_discounts }])
         .select();
-
       if (error) throw error;
       setFinancialRecords(sortByInvoice([data[0], ...financialRecords]));
       setIsFinancialModalOpen(false);
@@ -257,21 +226,13 @@ export default function GestaoContratualPage() {
   const handleUpdateFinancialRecord = async (id: string, field: keyof FinancialRecord, value: any) => {
     const record = financialRecords.find(r => r.id === id);
     if (!record) return;
-
     const updatedRecord = { ...record, [field]: value };
-    
-    // Recalculate totals
     updatedRecord.total_invoice = (Number(updatedRecord.payment_value) || 0) + 
                                  (Number(updatedRecord.materials_value) || 0) + 
                                  (Number(updatedRecord.materials_citl_value) || 0);
     updatedRecord.total_after_discounts = updatedRecord.total_invoice - (Number(updatedRecord.discounts) || 0);
-
     try {
-      const { error } = await supabase
-        .from('financial_records')
-        .update(updatedRecord)
-        .eq('id', id);
-
+      const { error } = await supabase.from('financial_records').update(updatedRecord).eq('id', id);
       if (error) throw error;
       setFinancialRecords(sortByInvoice(financialRecords.map(r => r.id === id ? updatedRecord : r)));
     } catch (error) {
@@ -279,15 +240,9 @@ export default function GestaoContratualPage() {
     }
   };
 
-  // --- Repactuacao Actions ---
-
   const handleAddRepactuacao = async () => {
     try {
-      const { data, error } = await supabase
-        .from('repactuacoes')
-        .insert([repactuacaoForm])
-        .select();
-
+      const { data, error } = await supabase.from('repactuacoes').insert([repactuacaoForm]).select();
       if (error) throw error;
       setRepactuacoes([data[0], ...repactuacoes]);
       setIsRepactuacaoModalOpen(false);
@@ -312,88 +267,47 @@ export default function GestaoContratualPage() {
     }
   };
 
-  // --- Import/Export ---
-
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsImporting(true);
     const reader = new FileReader();
-
     reader.onload = (evt) => {
       try {
         const data = evt.target?.result;
         if (!data) throw new Error('Falha ao ler arquivo');
-
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          cellDates: true,
-          cellNF: false,
-          cellText: false
-        });
-        
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: false, cellText: false });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        
-        // Lê como array para pegar cabeçalhos exatos
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { 
-          header: 1,
-          raw: false,
-          defval: ''
-        }) as any[][];
-
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' }) as any[][];
         if (!rawData || rawData.length < 2) {
           alert('Planilha vazia ou sem dados.');
           setIsImporting(false);
           return;
         }
-
-        // Pega cabeçalhos da primeira linha
-        // Remove espaços extras e normaliza
-        const headers = rawData[0].map((h: any) => 
-          String(h || '').trim()
-        );
-
-        console.log('Cabeçalhos encontrados:', headers);
-
-        // Converte as demais linhas em objetos
+        const headers = rawData[0].map((h: any) => String(h || '').trim());
         const jsonData = rawData.slice(1)
           .filter(row => row.some(cell => cell !== ''))
           .map(row => {
             const obj: any = {};
-            headers.forEach((header, idx) => {
-              obj[header] = row[idx] ?? '';
-            });
+            headers.forEach((header, idx) => { obj[header] = row[idx] ?? ''; });
             return obj;
           });
-
-        console.log('Primeiro registro:', 
-          JSON.stringify(jsonData[0], null, 2));
-
         if (jsonData.length === 0) {
           alert('Nenhum dado encontrado na planilha.');
           setIsImporting(false);
           return;
         }
-
         setImportPreviewData(jsonData);
         setIsImportPreviewOpen(true);
-
       } catch (error: any) {
-        console.error('Erro ao ler planilha:', error);
         alert(`Erro ao processar arquivo: ${error.message}`);
       } finally {
         setIsImporting(false);
         if (importFileRef.current) importFileRef.current.value = '';
       }
     };
-
-    reader.onerror = () => {
-      alert('Erro ao ler o arquivo.');
-      setIsImporting(false);
-    };
-
+    reader.onerror = () => { alert('Erro ao ler o arquivo.'); setIsImporting(false); };
     reader.readAsArrayBuffer(file);
   };
 
@@ -401,142 +315,65 @@ export default function GestaoContratualPage() {
     try {
       const parseValue = (val: any): number => {
         if (!val && val !== 0) return 0;
-        const str = String(val)
-          .replace(/R\$\s?/g, '')
-          .replace(/\./g, '')
-          .replace(',', '.')
-          .trim();
+        const str = String(val).replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.').trim();
         const num = parseFloat(str);
         return isNaN(num) ? 0 : num;
       };
-
       const getField = (row: any, keys: string[]): any => {
         for (const key of keys) {
-          const found = Object.keys(row).find(
-            k => k.trim().toUpperCase() === key.toUpperCase()
-          );
-          if (found !== undefined && row[found] !== undefined) {
-            return row[found];
-          }
+          const found = Object.keys(row).find(k => k.trim().toUpperCase() === key.toUpperCase());
+          if (found !== undefined && row[found] !== undefined) return row[found];
         }
         return '';
       };
-
       const recordsToInsert = importPreviewData.map(row => {
-        const payment = parseValue(getField(row, [
-          'VALOR PAGAMENTO FATO GERADOR',
-          'Valor Pagamento Fato Gerador',
-          'payment_value'
-        ]));
-
-        const materials = parseValue(getField(row, [
-          'VALOR MATERIAIS REQUISITADOS',
-          'Valor Materiais Requisitados',
-          'materials_value'
-        ]));
-
-        const citl = parseValue(getField(row, [
-          'VALOR MATERIAIS REQUISITADOS + CITL',
-          'Valor Materiais Requisitados + CITL',
-          'materials_citl_value'
-        ]));
-
-        const discounts = parseValue(getField(row, [
-          'DESCONTOS',
-          'Descontos',
-          'discounts'
-        ]));
-
-        const totalFromSheet = parseValue(getField(row, [
-          'TOTAL DA FATURA',
-          'Total da Fatura',
-          'total_invoice'
-        ]));
-        const total = totalFromSheet > 0
-          ? totalFromSheet
-          : payment + materials + citl;
-
-        const totalAfterFromSheet = parseValue(getField(row, [
-          'TOTAL DA FATURA APÓS DESCONTOS',
-          'TOTAL DA FATURA APOS DESCONTOS',
-          'Total da Fatura após descontos',
-          'total_after_discounts'
-        ]));
-        const totalAfter = totalAfterFromSheet > 0
-          ? totalAfterFromSheet
-          : total - discounts;
-
+        const payment = parseValue(getField(row, ['VALOR PAGAMENTO FATO GERADOR', 'Valor Pagamento Fato Gerador', 'payment_value']));
+        const materials = parseValue(getField(row, ['VALOR MATERIAIS REQUISITADOS', 'Valor Materiais Requisitados', 'materials_value']));
+        const citl = parseValue(getField(row, ['VALOR MATERIAIS REQUISITADOS + CITL', 'Valor Materiais Requisitados + CITL', 'materials_citl_value']));
+        const discounts = parseValue(getField(row, ['DESCONTOS', 'Descontos', 'discounts']));
+        const totalFromSheet = parseValue(getField(row, ['TOTAL DA FATURA', 'Total da Fatura', 'total_invoice']));
+        const total = totalFromSheet > 0 ? totalFromSheet : payment + materials + citl;
+        const totalAfterFromSheet = parseValue(getField(row, ['TOTAL DA FATURA APÓS DESCONTOS', 'TOTAL DA FATURA APOS DESCONTOS', 'Total da Fatura após descontos', 'total_after_discounts']));
+        const totalAfter = totalAfterFromSheet > 0 ? totalAfterFromSheet : total - discounts;
         return {
-          year: Number(getField(row, ['ANO', 'Ano', 'year']) || 
-            new Date().getFullYear()),
-          month: Number(getField(row, ['MÊS', 'MES', 'Mês', 'month']) || 
-            new Date().getMonth() + 1),
-          invoice_number: String(getField(row, [
-            'NÚMERO DA FATURA',
-            'Número da Fatura',
-            'invoice_number'
-          ])).trim(),
-          process_number: String(getField(row, [
-            'NÚMERO DO PROCESSO',
-            'Número do Processo',
-            'process_number'
-          ])).trim(),
+          year: Number(getField(row, ['ANO', 'Ano', 'year']) || new Date().getFullYear()),
+          month: Number(getField(row, ['MÊS', 'MES', 'Mês', 'month']) || new Date().getMonth() + 1),
+          invoice_number: String(getField(row, ['NÚMERO DA FATURA', 'Número da Fatura', 'invoice_number'])).trim(),
+          process_number: String(getField(row, ['NÚMERO DO PROCESSO', 'Número do Processo', 'process_number'])).trim(),
           payment_value: payment,
           materials_value: materials,
           materials_citl_value: citl,
           total_invoice: total,
           discounts: discounts,
           total_after_discounts: totalAfter,
-          fiscal_note_number: String(getField(row, [
-            'NÚMERO DA NOTA FISCAL',
-            'Número da Nota Fiscal',
-            'fiscal_note_number'
-          ])).trim(),
+          fiscal_note_number: String(getField(row, ['NÚMERO DA NOTA FISCAL', 'Número da Nota Fiscal', 'fiscal_note_number'])).trim(),
         };
       });
-
-      const { error } = await supabase
-        .from('financial_records')
-        .insert(recordsToInsert);
-
+      const { error } = await supabase.from('financial_records').insert(recordsToInsert);
       if (error) throw error;
-
       alert(`${recordsToInsert.length} registros importados com sucesso!`);
       setIsImportPreviewOpen(false);
       fetchFinancialRecords();
     } catch (error: any) {
-      console.error('Erro ao importar:', error);
       alert(`Erro ao importar dados: ${error.message}`);
     }
   };
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
-    
-    // Sheet 1: Contract Info
     const contractWS = XLSX.utils.json_to_sheet([contract || {}]);
     XLSX.utils.book_append_sheet(wb, contractWS, "Dados do Contrato");
-    
-    // Sheet 2: Financial Records
-    const financialDataExport = financialRecords.map(r => ({
-      'Ano': r.year,
-      'Mês': r.month,
-      'Nº Fatura': r.invoice_number,
-      'Nº Processo': r.process_number || '-',
-      'Valor Pagamento': r.payment_value,
-      'Valor Materiais': r.materials_value,
-      'Valor Mat + CITL': r.materials_citl_value,
-      'Total Bruto': r.total_invoice,
-      'Descontos': r.discounts,
-      'Total Líquido': r.total_after_discounts,
-      'NF': r.fiscal_note_number
+    const financialDataExport = filteredFinancial.map(r => ({
+      'Ano': r.year, 'Mês': r.month, 'Nº Fatura': r.invoice_number,
+      'Nº Processo': r.process_number || '-', 'Valor Pagamento': r.payment_value,
+      'Valor Materiais': r.materials_value, 'Valor Mat + CITL': r.materials_citl_value,
+      'Total Bruto': r.total_invoice, 'Descontos': r.discounts,
+      'Total Líquido': r.total_after_discounts, 'NF': r.fiscal_note_number
     }));
     const financialWS = XLSX.utils.json_to_sheet(financialDataExport);
     XLSX.utils.book_append_sheet(wb, financialWS, "Execução Financeira");
-    
-    // Sheet 3: Summary by Year
-    const summaryData = Array.from(new Set(financialRecords.map(r => r.year))).map(year => {
-      const yearRecords = financialRecords.filter(r => r.year === year);
+    const summaryData = Array.from(new Set(filteredFinancial.map(r => r.year))).map(year => {
+      const yearRecords = filteredFinancial.filter(r => r.year === year);
       return {
         Ano: year,
         'Total Faturas': yearRecords.reduce((acc, r) => acc + r.total_invoice, 0),
@@ -547,26 +384,31 @@ export default function GestaoContratualPage() {
     });
     const summaryWS = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWS, "Resumo por Ano");
-
     XLSX.writeFile(wb, `Gestao_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const exportToPDF = async () => {
     const element = document.getElementById('pdf-content');
     if (!element) return;
-    
-    const canvas = await html2canvas(element, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    try {
+      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.setFontSize(18);
+      pdf.setTextColor(153, 27, 27);
+      pdf.text('CAV/UFPE', pdfWidth / 2, 15, { align: 'center' });
+      pdf.setFontSize(10);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text('Relatório de Execução Financeira Contratual', pdfWidth / 2, 22, { align: 'center' });
+      pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 27, { align: 'center' });
+      pdf.addImage(imgData, 'PNG', 0, 35, pdfWidth, pdfHeight);
+      pdf.save(`Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+    }
   };
-
-  // --- Helpers ---
 
   const getVigenciaStatus = () => {
     if (!contract) return { color: 'bg-slate-200', text: 'N/A', days: 0 };
@@ -574,14 +416,9 @@ export default function GestaoContratualPage() {
     const endDate = parseISO(contract.end_date);
     const daysRemaining = differenceInDays(endDate, today);
     const sixMonthsFromNow = addMonths(today, 6);
-
-    if (isBefore(endDate, today)) {
-      return { color: 'bg-rose-500', text: 'Vencido', days: daysRemaining };
-    } else if (isBefore(endDate, sixMonthsFromNow)) {
-      return { color: 'bg-amber-500', text: 'Vencimento Próximo', days: daysRemaining };
-    } else {
-      return { color: 'bg-emerald-500', text: 'Em Vigência', days: daysRemaining };
-    }
+    if (isBefore(endDate, today)) return { color: 'bg-rose-500', text: 'Vencido', days: daysRemaining };
+    else if (isBefore(endDate, sixMonthsFromNow)) return { color: 'bg-amber-500', text: 'Vencimento Próximo', days: daysRemaining };
+    else return { color: 'bg-emerald-500', text: 'Em Vigência', days: daysRemaining };
   };
 
   const filteredFinancial = financialRecords.filter(r => {
@@ -629,7 +466,6 @@ export default function GestaoContratualPage() {
     <DashboardLayout title="Gestão Contratual">
       <div className="space-y-8" id="pdf-content">
         
-        {/* --- Contract Info Card --- */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <div className="flex items-center gap-3">
@@ -656,7 +492,6 @@ export default function GestaoContratualPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
-
               <div className={`px-3 py-1 rounded-full flex items-center gap-2 ${vigencia.color} text-white text-[10px] font-black uppercase tracking-widest`}>
                 <Clock size={12} />
                 {vigencia.text}
@@ -665,13 +500,7 @@ export default function GestaoContratualPage() {
                 {vigencia.days} Dias Restantes
               </div>
               <button 
-                onClick={() => {
-                  if (isEditingContract) {
-                    handleSaveContract();
-                  } else {
-                    setIsEditingContract(true);
-                  }
-                }}
+                onClick={() => { if (isEditingContract) { handleSaveContract(); } else { setIsEditingContract(true); } }}
                 disabled={isSaving}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
                   isEditingContract 
@@ -680,15 +509,9 @@ export default function GestaoContratualPage() {
                 } ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {isSaving ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Salvando...
-                  </>
+                  <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Salvando...</>
                 ) : (
-                  <>
-                    {isEditingContract ? <Save size={14} /> : <Edit2 size={14} />}
-                    {isEditingContract ? 'Salvar' : 'Editar'}
-                  </>
+                  <>{isEditingContract ? <Save size={14} /> : <Edit2 size={14} />}{isEditingContract ? 'Salvar' : 'Editar'}</>
                 )}
               </button>
             </div>
@@ -699,11 +522,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contrato nº</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.contract_number ?? ''}
-                    onChange={e => setContractForm({...contractForm, contract_number: e.target.value})}
-                  />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.contract_number ?? ''} onChange={e => setContractForm({...contractForm, contract_number: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.contract_number}</p>
                 )}
@@ -711,11 +530,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Empresa Contratada</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.company_name ?? ''}
-                    onChange={e => setContractForm({...contractForm, company_name: e.target.value})}
-                  />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.company_name ?? ''} onChange={e => setContractForm({...contractForm, company_name: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.company_name}</p>
                 )}
@@ -723,11 +538,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">CNPJ</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.cnpj ?? ''}
-                    onChange={e => setContractForm({...contractForm, cnpj: e.target.value})}
-                  />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.cnpj ?? ''} onChange={e => setContractForm({...contractForm, cnpj: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.cnpj}</p>
                 )}
@@ -738,12 +549,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Início da Vigência</label>
                 {isEditingContract ? (
-                  <input 
-                    type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.start_date ?? ''}
-                    onChange={e => setContractForm({...contractForm, start_date: e.target.value})}
-                  />
+                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.start_date ?? ''} onChange={e => setContractForm({...contractForm, start_date: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.start_date ? format(parseISO(contract.start_date), 'dd/MM/yyyy') : '-'}</p>
                 )}
@@ -751,12 +557,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Final da Vigência</label>
                 {isEditingContract ? (
-                  <input 
-                    type="date"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.end_date ?? ''}
-                    onChange={e => setContractForm({...contractForm, end_date: e.target.value})}
-                  />
+                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.end_date ?? ''} onChange={e => setContractForm({...contractForm, end_date: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.end_date ? format(parseISO(contract.end_date), 'dd/MM/yyyy') : '-'}</p>
                 )}
@@ -765,12 +566,7 @@ export default function GestaoContratualPage() {
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
                 <div className="flex items-center gap-3">
                   {isEditingContract ? (
-                    <input 
-                      type="number"
-                      className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                      value={contractForm.renewals_count ?? 0}
-                      onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})}
-                    />
+                    <input type="number" className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
                   ) : (
                     <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">{contract?.renewals_count}</span>
                   )}
@@ -783,11 +579,7 @@ export default function GestaoContratualPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Contratante</label>
                 {isEditingContract ? (
-                  <input 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900"
-                    value={contractForm.contracting_party ?? ''}
-                    onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})}
-                  />
+                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900" value={contractForm.contracting_party ?? ''} onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})} />
                 ) : (
                   <p className="text-sm font-black text-slate-900">{contract?.contracting_party}</p>
                 )}
@@ -805,7 +597,6 @@ export default function GestaoContratualPage() {
           </div>
         </section>
 
-        {/* --- Financial Execution Section --- */}
         <section className="space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -816,99 +607,54 @@ export default function GestaoContratualPage() {
               <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Faturas e Pagamentos</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button 
-                onClick={() => setIsFinancialModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
-              >
-                <Plus size={16} />
-                Adicionar Registro
+              <button onClick={() => setIsFinancialModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">
+                <Plus size={16} />Adicionar Registro
               </button>
-              
-              <button 
-                onClick={() => importFileRef.current?.click()}
-                disabled={isImporting}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isImporting ? (
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Upload size={16} />
-                )}
+              <button onClick={() => importFileRef.current?.click()} disabled={isImporting} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50">
+                {isImporting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Upload size={16} />}
                 {isImporting ? 'Importando...' : 'Importar Planilha'}
               </button>
-              
-              <input
-                type="file"
-                ref={importFileRef}
-                onChange={handleImportExcel}
-                className="hidden"
-                accept=".xlsx,.xls,.csv"
-              />
-
-              <button 
-                onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
-              >
-                <Download size={16} />
-                Excel
+              <input type="file" ref={importFileRef} onChange={handleImportExcel} className="hidden" accept=".xlsx,.xls,.csv" />
+              <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                <Download size={16} />Excel
               </button>
-              <button 
-                onClick={exportToPDF}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
-              >
-                <Download size={16} />
-                PDF
+              <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+                <Download size={16} />PDF
               </button>
             </div>
           </div>
 
-          {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter size={16} className="text-slate-900" />
               <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
-              value={financialFilter.year}
-              onChange={e => setFinancialFilter({...financialFilter, year: e.target.value})}
-            >
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={financialFilter.year} onChange={e => setFinancialFilter({...financialFilter, year: e.target.value})}>
               <option value="">Todos os Anos</option>
               {Array.from(new Set(financialRecords.map(r => r.year))).sort().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
-              value={financialFilter.month}
-              onChange={e => setFinancialFilter({...financialFilter, month: e.target.value})}
-            >
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={financialFilter.month} onChange={e => setFinancialFilter({...financialFilter, month: e.target.value})}>
               <option value="">Todos os Meses</option>
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>
               ))}
             </select>
             {(financialFilter.year || financialFilter.month) && (
-              <button 
-                onClick={() => setFinancialFilter({ year: '', month: '' })}
-                className="text-[10px] font-black text-amber-600 uppercase tracking-widest hover:underline"
-              >
+              <button onClick={() => setFinancialFilter({ year: '', month: '' })} className="text-[10px] font-black text-amber-600 uppercase tracking-widest hover:underline">
                 Limpar Filtros
               </button>
             )}
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Ano/Mês</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest cursor-pointer select-none">
-                    <div className="flex items-center gap-1">
-                      Fatura
-                      <ChevronUp size={12} className="text-amber-500" />
-                    </div>
+                    <div className="flex items-center gap-1">Fatura<ChevronUp size={12} className="text-amber-500" /></div>
                   </th>
                   <th className="px-4 py-3 text-[10px] font-black text-slate-700 uppercase tracking-widest text-left whitespace-nowrap">Nº Processo</th>
                   <th className="px-4 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest">Fato Gerador</th>
@@ -932,74 +678,17 @@ export default function GestaoContratualPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.invoice_number ?? ''}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'invoice_number', e.target.value)}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        className="w-32 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.process_number ?? ''}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'process_number', e.target.value)}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.payment_value ?? 0}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'payment_value', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.materials_value ?? 0}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'materials_value', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.materials_citl_value ?? 0}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'materials_citl_value', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs font-black text-slate-900">
-                        {record.total_invoice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        type="number"
-                        className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-rose-600 p-0"
-                        value={record.discounts ?? 0}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'discounts', Number(e.target.value))}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs font-black text-emerald-600">
-                        {record.total_after_discounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <input 
-                        className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0"
-                        value={record.fiscal_note_number ?? ''}
-                        onChange={e => handleUpdateFinancialRecord(record.id, 'fiscal_note_number', e.target.value)}
-                      />
-                    </td>
+                    <td className="px-4 py-4"><input className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.invoice_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'invoice_number', e.target.value)} /></td>
+                    <td className="px-4 py-4"><input className="w-32 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.process_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'process_number', e.target.value)} /></td>
+                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.payment_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'payment_value', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.materials_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'materials_value', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.materials_citl_value ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'materials_citl_value', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><span className="text-xs font-black text-slate-900">{record.total_invoice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></td>
+                    <td className="px-4 py-4"><input type="number" className="w-24 bg-transparent border-none focus:ring-0 text-xs font-bold text-rose-600 p-0" value={record.discounts ?? 0} onChange={e => handleUpdateFinancialRecord(record.id, 'discounts', Number(e.target.value))} /></td>
+                    <td className="px-4 py-4"><span className="text-xs font-black text-emerald-600">{record.total_after_discounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></td>
+                    <td className="px-4 py-4"><input className="w-20 bg-transparent border-none focus:ring-0 text-xs font-bold text-slate-900 p-0" value={record.fiscal_note_number ?? ''} onChange={e => handleUpdateFinancialRecord(record.id, 'fiscal_note_number', e.target.value)} /></td>
                     <td className="px-4 py-4 text-right">
-                      <button 
-                        onClick={() => handleDeleteFinancialRecord(record.id)}
-                        className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                      >
+                      <button onClick={() => handleDeleteFinancialRecord(record.id)} className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                         <Trash2 size={16} />
                       </button>
                     </td>
@@ -1009,84 +698,52 @@ export default function GestaoContratualPage() {
               <tfoot className="bg-slate-900 text-white">
                 <tr>
                   <td colSpan={3} className="px-4 py-4 text-[10px] font-black uppercase tracking-widest">Totais Gerais</td>
-                  <td className="px-4 py-4 text-xs font-black">
-                    {financialTotals.payment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-4 py-4 text-xs font-black">
-                    {financialTotals.materials.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-4 py-4 text-xs font-black">
-                    {financialTotals.citl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-4 py-4 text-xs font-black">
-                    {financialTotals.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-4 py-4 text-xs font-black text-rose-400">
-                    {financialTotals.discounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="px-4 py-4 text-xs font-black text-emerald-400">
-                    {financialTotals.afterDiscounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
+                  <td className="px-4 py-4 text-xs font-black">{financialTotals.payment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td className="px-4 py-4 text-xs font-black">{financialTotals.materials.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td className="px-4 py-4 text-xs font-black">{financialTotals.citl.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td className="px-4 py-4 text-xs font-black">{financialTotals.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td className="px-4 py-4 text-xs font-black text-rose-400">{financialTotals.discounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                  <td className="px-4 py-4 text-xs font-black text-emerald-400">{financialTotals.afterDiscounts.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
             </table>
             {filteredFinancial.length === 0 && (
-              <div className="py-12 text-center text-slate-700 italic text-xs">
-                Nenhum registro financeiro encontrado.
-              </div>
+              <div className="py-12 text-center text-slate-700 italic text-xs">Nenhum registro financeiro encontrado.</div>
             )}
           </div>
         </section>
 
-        {/* --- Repactuacoes Section --- */}
         <section className="space-y-4">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                <TrendingUp className="text-amber-500" size={24} />
-                Repactuações
+                <TrendingUp className="text-amber-500" size={24} />Repactuações
               </h2>
               <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Processos e Reajustes</p>
             </div>
-            <button 
-              onClick={() => setIsRepactuacaoModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
-            >
-              <Plus size={16} />
-              Nova Repactuação
+            <button onClick={() => setIsRepactuacaoModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">
+              <Plus size={16} />Nova Repactuação
             </button>
           </div>
 
-          {/* Filters */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter size={16} className="text-slate-900" />
               <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
             </div>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
-              value={repactuacaoFilter.year}
-              onChange={e => setRepactuacaoFilter({...repactuacaoFilter, year: e.target.value})}
-            >
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={repactuacaoFilter.year} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, year: e.target.value})}>
               <option value="">Todos os Anos</option>
               {Array.from(new Set(repactuacoes.map(r => r.year))).sort().map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 outline-none"
-              value={repactuacaoFilter.status}
-              onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value as any})}
-            >
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none" value={repactuacaoFilter.status} onChange={e => setRepactuacaoFilter({...repactuacaoFilter, status: e.target.value as any})}>
               <option value="">Todos os Status</option>
-              {Object.keys(statusColors).map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {Object.keys(statusColors).map(s => (<option key={s} value={s}>{s}</option>))}
             </select>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1101,30 +758,19 @@ export default function GestaoContratualPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredRepactuacoes.map((rep) => (
                   <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-black text-slate-900">{rep.process_number}</span>
-                    </td>
+                    <td className="px-6 py-4"><span className="text-xs font-black text-slate-900">{rep.process_number}</span></td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-xs font-black text-slate-900">{rep.year}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                          {format(parseISO(rep.date), 'dd/MM/yyyy')}
-                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{format(parseISO(rep.date), 'dd/MM/yyyy')}</span>
                       </div>
                     </td>
+                    <td className="px-6 py-4"><p className="text-xs font-medium text-slate-700 max-w-md">{rep.triggering_factor}</p></td>
                     <td className="px-6 py-4">
-                      <p className="text-xs font-medium text-slate-700 max-w-md">{rep.triggering_factor}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[rep.status]}`}>
-                        {rep.status}
-                      </span>
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[rep.status]}`}>{rep.status}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleDeleteRepactuacao(rep.id)}
-                        className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                      >
+                      <button onClick={() => handleDeleteRepactuacao(rep.id)} className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                         <Trash2 size={16} />
                       </button>
                     </td>
@@ -1133,79 +779,63 @@ export default function GestaoContratualPage() {
               </tbody>
             </table>
             {filteredRepactuacoes.length === 0 && (
-              <div className="py-12 text-center text-slate-700 italic text-xs">
-                Nenhuma repactuação encontrada.
-              </div>
+              <div className="py-12 text-center text-slate-700 italic text-xs">Nenhuma repactuação encontrada.</div>
             )}
           </div>
         </section>
-
       </div>
-
-      {/* --- Modals --- */}
 
       {/* Financial Modal */}
       <AnimatePresence>
         {isFinancialModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsFinancialModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsFinancialModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase text-emerald-700">Novo Registro Financeiro</h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Lançamento de Fatura</p>
                 </div>
-                <button onClick={() => setIsFinancialModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
-                  <X size={20} />
-                </button>
+                <button onClick={() => setIsFinancialModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors"><X size={20} /></button>
               </div>
               <div className="p-6 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.year ?? new Date().getFullYear()} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.year ?? new Date().getFullYear()} onChange={e => setFinancialForm({...financialForm, year: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Mês</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.month ?? new Date().getMonth() + 1} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                      <option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>
-                    ))}
+                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.month ?? new Date().getMonth() + 1} onChange={e => setFinancialForm({...financialForm, month: Number(e.target.value)})}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (<option key={m} value={m}>{format(new Date(2022, m - 1), 'MMMM', { locale: ptBR })}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Fatura</label>
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.invoice_number ?? ''} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.invoice_number ?? ''} onChange={e => setFinancialForm({...financialForm, invoice_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Número do Processo</label>
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Ex: 23076.012345/2026-01" value={financialForm.process_number ?? ''} onChange={e => setFinancialForm({...financialForm, process_number: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" placeholder="Ex: 23076.012345/2026-01" value={financialForm.process_number ?? ''} onChange={e => setFinancialForm({...financialForm, process_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Nota Fiscal</label>
-                  <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Fato Gerador (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Materiais (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Valor Mat + CITL (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Descontos (R$)</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
@@ -1221,50 +851,39 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isRepactuacaoModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsRepactuacaoModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRepactuacaoModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">Nova Repactuação</h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Abertura de Processo</p>
                 </div>
-                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors">
-                  <X size={20} />
-                </button>
+                <button onClick={() => setIsRepactuacaoModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors"><X size={20} /></button>
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Nº Processo</label>
-                    <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.process_number ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
+                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.process_number ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, process_number: e.target.value})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Ano</label>
-                    <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.year ?? new Date().getFullYear()} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
+                    <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.year ?? new Date().getFullYear()} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Data</label>
-                  <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
+                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Status</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" value={repactuacaoForm.status ?? 'Em Análise'} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
-                    {Object.keys(statusColors).map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" value={repactuacaoForm.status ?? 'Em Análise'} onChange={e => setRepactuacaoForm({...repactuacaoForm, status: e.target.value as any})}>
+                    {Object.keys(statusColors).map(s => (<option key={s} value={s}>{s}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Fato Gerador</label>
-                  <textarea className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm min-h-[100px]" value={repactuacaoForm.triggering_factor ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
+                  <textarea className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 min-h-[100px]" value={repactuacaoForm.triggering_factor ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, triggering_factor: e.target.value})} />
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
@@ -1280,23 +899,14 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isImportPreviewOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsImportPreviewOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsImportPreviewOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                 <div>
                   <h3 className="text-lg font-black tracking-tight uppercase">Preview de Importação</h3>
-                  <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Confirme os dados antes de salvar</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Confirme os dados antes de salvar</p>
                 </div>
-                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-700 hover:text-white transition-colors">
-                  <X size={20} />
-                </button>
+                <button onClick={() => setIsImportPreviewOpen(false)} className="text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
               </div>
               <div className="flex-1 overflow-auto p-6">
                 <table className="w-full text-left border-collapse">
@@ -1317,15 +927,10 @@ export default function GestaoContratualPage() {
                     {importPreviewData.map((row, idx) => {
                       const parseValue = (val: any): number => {
                         if (!val && val !== 0) return 0;
-                        const str = String(val)
-                          .replace(/R\$\s?/g, '')
-                          .replace(/\./g, '')
-                          .replace(',', '.')
-                          .trim();
+                        const str = String(val).replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.').trim();
                         const num = parseFloat(str);
                         return isNaN(num) ? 0 : num;
                       };
-
                       const payment = parseValue(row['Valor Pagamento Fato Gerador'] || row['Fato Gerador'] || row['payment_value']);
                       const materials = parseValue(row['Valor Materiais Requisitados'] || row['Materiais'] || row['materials_value']);
                       const citl = parseValue(row['Valor Materiais Requisitados + CITL'] || row['Mat + CITL'] || row['materials_citl_value']);
@@ -1334,13 +939,9 @@ export default function GestaoContratualPage() {
                       const total = totalFromSheet > 0 ? totalFromSheet : payment + materials + citl;
                       const totalAfterFromSheet = parseValue(row['Total da Fatura após descontos'] || row['Total Líquido'] || row['Total Apos Descontos'] || row['total_after_discounts']);
                       const totalAfter = totalAfterFromSheet > 0 ? totalAfterFromSheet : total - discounts;
-
                       return (
                         <tr key={idx}>
-                          <td className="px-3 py-3 text-xs font-bold">
-                            {(row['Ano'] || row['year'] || new Date().getFullYear())}/
-                            {(row['Mês'] || row['month'] || new Date().getMonth() + 1)}
-                          </td>
+                          <td className="px-3 py-3 text-xs font-bold">{(row['Ano'] || row['year'] || new Date().getFullYear())}/{(row['Mês'] || row['month'] || new Date().getMonth() + 1)}</td>
                           <td className="px-3 py-3 text-xs">{String(row['Número da Fatura'] || row['Fatura'] || row['invoice_number'] || '').trim()}</td>
                           <td className="px-3 py-3 text-xs">{String(row['Número do Processo'] || row['Processo'] || row['process_number'] || '').trim()}</td>
                           <td className="px-3 py-3 text-xs">{payment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
