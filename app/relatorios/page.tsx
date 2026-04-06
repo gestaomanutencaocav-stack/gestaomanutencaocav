@@ -135,7 +135,6 @@ export default function RelatoriosPage() {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return 'N/A';
     try {
-      // Tenta ISO primeiro (createdAt)
       const isoDate = new Date(dateStr);
       if (!isNaN(isoDate.getTime())) {
         return format(isoDate, 'dd/MM/yyyy');
@@ -163,12 +162,10 @@ export default function RelatoriosPage() {
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Maintenance Filters
   const [filterType, setFilterType] = useState('Todos');
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterUnit, setFilterUnit] = useState('Todos');
 
-  // Inspection Filters
   const [inspPeriod, setInspPeriod] = useState('month');
   const [inspArea, setInspArea] = useState('Todos');
   const [inspPeriodicity, setInspPeriodicity] = useState('Todos');
@@ -177,7 +174,6 @@ export default function RelatoriosPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // Contract Filters
   const [contractFilterYear, setContractFilterYear] = useState('Todos');
 
   const reportRef = useRef<HTMLDivElement>(null);
@@ -211,7 +207,6 @@ export default function RelatoriosPage() {
     fetchData();
   }, []);
 
-  // --- Maintenance Logic ---
   const filteredRequests = useMemo(() => {
     return requests.filter(req => {
       const typeMatch = filterType === 'Todos' || req.type === filterType;
@@ -246,22 +241,18 @@ export default function RelatoriosPage() {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [filteredRequests]);
 
-  // --- Inspection Logic ---
   const enrichedRecords = useMemo(() => {
     return records.map(rec => {
       const inspection = inspections.find(i => i.id === rec.inspectionId);
       
-      // Calculate execution time
       let execTime = 0;
       if (rec.startTime && rec.endTime) {
         try {
-          // If they are full ISO strings
           const start = safeParseDate(rec.startTime);
           const end = safeParseDate(rec.endTime);
           if (isValid(start) && isValid(end) && start.getTime() !== 0) {
             execTime = differenceInMinutes(end, start);
           } else {
-            // If they are just "HH:mm" strings, we use the executionDate
             const dateStr = rec.executionDate.split('T')[0];
             const startFull = safeParseDate(`${dateStr}T${rec.startTime}`);
             const endFull = safeParseDate(`${dateStr}T${rec.endTime}`);
@@ -286,7 +277,6 @@ export default function RelatoriosPage() {
 
   const filteredRecords = useMemo(() => {
     return enrichedRecords.filter(rec => {
-      // Period filter
       let dateMatch = true;
       const recDate = safeParseDate(rec.createdAt || rec.executionDate);
       const now = new Date();
@@ -321,11 +311,10 @@ export default function RelatoriosPage() {
     return ['Todos', ...Array.from(profs).sort()];
   }, [records]);
 
-  // KPIs Calculations
   const inspKPIs = useMemo(() => {
-    const records = enrichedRecords || [];
+    const recs = enrichedRecords || [];
     const now = new Date();
-    const currentMonthRecords = records.filter(r => {
+    const currentMonthRecords = recs.filter(r => {
       if (!r) return false;
       const d = safeParseDate(r.createdAt || r.executionDate);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -333,16 +322,15 @@ export default function RelatoriosPage() {
 
     const totalProblemsFound = currentMonthRecords.reduce((sum, r) => sum + (Number(r.problemsFound) || 0), 0);
     const totalProblemsResolved = currentMonthRecords.reduce((sum, r) => sum + (Number(r.problemsResolved) || 0), 0);
-    const totalProblemsPending = records.reduce((sum, r) => sum + (Number(r.problemsPending) || 0), 0);
+    const totalProblemsPending = recs.reduce((sum, r) => sum + (Number(r.problemsPending) || 0), 0);
     
     const realizedCount = currentMonthRecords.filter(r => r.executionStatus === 'Concluído').length;
-    // Mocking predicted for now
     const predictedCount = Math.max(realizedCount + 2, 10); 
     const complianceRate = (realizedCount / predictedCount) * 100;
 
     const delayedCount = (inspections || []).filter(i => i && i.status === 'Atrasado').length;
-    const avgExecutionTime = records.length > 0 
-      ? records.reduce((sum, r) => sum + (Number(r.executionTime) || 0), 0) / records.length 
+    const avgExecutionTime = recs.length > 0 
+      ? recs.reduce((sum, r) => sum + (Number(r.executionTime) || 0), 0) / recs.length 
       : 0;
 
     return {
@@ -357,26 +345,24 @@ export default function RelatoriosPage() {
     };
   }, [inspections, enrichedRecords]);
 
-  // Chart 1: Realized vs Predicted (Last 6 months)
   const realizedVsPredictedData = useMemo(() => {
-    const records = enrichedRecords || [];
+    const recs = enrichedRecords || [];
     const data = [];
     for (let i = 5; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const monthRecords = records.filter(r => {
+      const monthRecords = recs.filter(r => {
         if (!r) return false;
         const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
       });
       const realized = monthRecords.filter(r => r.executionStatus === 'Concluído').length;
-      const predicted = realized + Math.floor(Math.random() * 5); // Mocked predicted
+      const predicted = realized + Math.floor(Math.random() * 5);
       data.push({ name: monthName, realizada: realized, prevista: predicted });
     }
     return data;
   }, [enrichedRecords]);
 
-  // Chart 2: Distribution by Area
   const areaDistributionData = useMemo(() => {
     const distribution: Record<string, number> = {};
     (inspections || []).forEach(insp => {
@@ -387,11 +373,10 @@ export default function RelatoriosPage() {
     return Object.entries(distribution).map(([name, value]) => ({ name, value }));
   }, [inspections]);
 
-  // Chart 3: Top Areas with Problems
   const topProblemAreasData = useMemo(() => {
-    const records = enrichedRecords || [];
+    const recs = enrichedRecords || [];
     const problemCounts: Record<string, number> = {};
-    records.forEach(rec => {
+    recs.forEach(rec => {
       if (rec && rec.area) {
         problemCounts[rec.area] = (problemCounts[rec.area] || 0) + (Number(rec.problemsFound) || 0);
       }
@@ -402,33 +387,31 @@ export default function RelatoriosPage() {
       .slice(0, 5);
   }, [enrichedRecords]);
 
-  // Chart 4: Compliance Evolution (Last 12 months)
   const complianceEvolutionData = useMemo(() => {
-    const records = enrichedRecords || [];
+    const recs = enrichedRecords || [];
     const data = [];
     for (let i = 11; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const realized = records.filter(r => {
+      const realized = recs.filter(r => {
         if (!r) return false;
         const d = safeParseDate(r.createdAt || r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear() && r.executionStatus === 'Concluído';
       }).length;
-      const predicted = realized + 2; // Mocked
+      const predicted = realized + 2;
       const rate = predicted > 0 ? (realized / predicted) * 100 : 0;
       data.push({ name: monthName, taxa: Math.round(rate) });
     }
     return data;
   }, [enrichedRecords]);
 
-  // Chart 5: Problems Status over time
   const problemsStatusData = useMemo(() => {
-    const records = enrichedRecords || [];
+    const recs = enrichedRecords || [];
     const data = [];
     for (let i = 5; i >= 0; i--) {
       const date = subMonths(new Date(), i);
       const monthName = format(date, 'MMM', { locale: ptBR });
-      const monthRecords = records.filter(r => {
+      const monthRecords = recs.filter(r => {
         if (!r) return false;
         const d = safeParseDate(r.executionDate);
         return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
@@ -441,7 +424,6 @@ export default function RelatoriosPage() {
     return data;
   }, [enrichedRecords]);
 
-  // --- Export Functions ---
   const exportToExcel = () => {
     if (activeTab === 'solicitacoes') {
       const worksheet = XLSX.utils.json_to_sheet(filteredRequests.map(req => ({
@@ -451,15 +433,13 @@ export default function RelatoriosPage() {
         'Tipo': req.type,
         'Data': formatDate(req.createdAt || req.date),
         'Profissionais': req.professional || 'Não Atribuído',
-        'Prazo': req.date // Fallback for deadline if not explicitly defined
+        'Prazo': req.date
       })));
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Solicitações");
       XLSX.writeFile(workbook, `Relatorio_Manutencao_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } else if (activeTab === 'inspecoes') {
       const workbook = XLSX.utils.book_new();
-      
-      // Sheet 1: KPIs
       const kpiData = [
         { Indicador: 'Total de Inspeções Cadastradas', Valor: inspKPIs.totalRegistered },
         { Indicador: 'Inspeções Realizadas (Mês)', Valor: inspKPIs.realizedThisMonth },
@@ -472,8 +452,6 @@ export default function RelatoriosPage() {
       ];
       const wsKPI = XLSX.utils.json_to_sheet(kpiData);
       XLSX.utils.book_append_sheet(workbook, wsKPI, "Resumo KPIs");
-
-      // Sheet 2: Inspections List
       const wsInsp = XLSX.utils.json_to_sheet(inspections.map(i => ({
         'Nome': i.name,
         'Área': i.area,
@@ -482,8 +460,6 @@ export default function RelatoriosPage() {
         'Próxima Data': i.nextDate
       })));
       XLSX.utils.book_append_sheet(workbook, wsInsp, "Lista de Inspeções");
-
-      // Sheet 3: Execution History
       const wsHist = XLSX.utils.json_to_sheet(filteredRecords.map(r => ({
         'Inspeção': r.inspectionName,
         'Área': r.area,
@@ -496,12 +472,9 @@ export default function RelatoriosPage() {
         'Tempo (min)': r.executionTime
       })));
       XLSX.utils.book_append_sheet(workbook, wsHist, "Histórico de Execuções");
-
       XLSX.writeFile(workbook, `Relatorio_Inspecoes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } else {
       const workbook = XLSX.utils.book_new();
-      
-      // Sheet 1: Contract Info
       if (contract) {
         const contractData = [{
           'Contrato nº': contract.contract_number,
@@ -515,8 +488,6 @@ export default function RelatoriosPage() {
         const wsContract = XLSX.utils.json_to_sheet(contractData);
         XLSX.utils.book_append_sheet(workbook, wsContract, "Dados do Contrato");
       }
-
-      // Sheet 2: Financial Records
       const wsFinancial = XLSX.utils.json_to_sheet(financialRecords.map(r => ({
         'Ano': r.year,
         'Mês': r.month,
@@ -530,8 +501,6 @@ export default function RelatoriosPage() {
         'Nota Fiscal': r.fiscal_note
       })));
       XLSX.utils.book_append_sheet(workbook, wsFinancial, "Execução Financeira");
-
-      // Sheet 3: Yearly Summary
       const wsSummary = XLSX.utils.json_to_sheet(yearlyCompositionData.map(row => ({
         'Ano': row.year,
         'Total Executado': row.total,
@@ -540,22 +509,16 @@ export default function RelatoriosPage() {
         'Média Mensal': row.total / 12
       })));
       XLSX.utils.book_append_sheet(workbook, wsSummary, "Resumo Anual");
-
       XLSX.writeFile(workbook, `Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     }
   };
 
   const exportToPDF = async () => {
     if (!reportRef.current) return;
-    
-    // Temporarily show all records for export if they are hidden
     const prevShowAllRequests = showAllRequests;
     const prevShowAllRecords = showAllRecords;
-    
     if (activeTab === 'solicitacoes') setShowAllRequests(true);
     else setShowAllRecords(true);
-
-    // Wait for state update and re-render
     setTimeout(async () => {
       try {
         const canvas = await html2canvas(reportRef.current!, {
@@ -564,29 +527,23 @@ export default function RelatoriosPage() {
           logging: false,
           backgroundColor: '#ffffff'
         });
-        
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        // Add Institutional Header
         pdf.setFontSize(18);
-        pdf.setTextColor(153, 27, 27); // red-800
+        pdf.setTextColor(153, 27, 27);
         pdf.text('CAV/UFPE', pdfWidth / 2, 15, { align: 'center' });
         pdf.setFontSize(10);
-        pdf.setTextColor(71, 85, 105); // slate-600
+        pdf.setTextColor(71, 85, 105);
         pdf.text('Relatório Gerencial de Manutenção Predial', pdfWidth / 2, 22, { align: 'center' });
         pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 27, { align: 'center' });
-        
-        let position = 35; // Start after header
+        let position = 35;
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        
         pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : activeTab === 'inspecoes' ? 'Inspecoes' : 'Contratual'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       } catch (error) {
         console.error('Erro ao gerar PDF:', error);
       } finally {
-        // Restore previous state
         setShowAllRequests(prevShowAllRequests);
         setShowAllRecords(prevShowAllRecords);
       }
@@ -624,8 +581,9 @@ export default function RelatoriosPage() {
     return ['Todos', ...years];
   }, [financialRecords]);
 
+  // CORREÇÃO: contractKPIs agora usa filteredFinancialRecords
   const contractKPIs = useMemo(() => {
-    const records = financialRecords || [];
+    const records = filteredFinancialRecords || [];
     const totalExecuted = records.reduce((sum, r) => sum + (Number(r.total_after_discounts) || 0), 0);
     const currentYear = new Date().getFullYear();
     const currentYearExecuted = records.filter(r => Number(r.year) === currentYear).reduce((sum, r) => sum + (Number(r.total_after_discounts) || 0), 0);
@@ -652,20 +610,18 @@ export default function RelatoriosPage() {
       discountPercentage,
       remainingDays: Math.max(0, remainingDays)
     };
-  }, [financialRecords, contract]);
+  }, [filteredFinancialRecords, contract]);
 
   const monthlyEvolutionData = useMemo(() => {
-    const records = financialRecords || [];
+    const records = filteredFinancialRecords || [];
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const data = [];
     const now = new Date();
-    
     for (let i = 23; i >= 0; i--) {
       const d = subMonths(now, i);
       const year = d.getFullYear();
       const monthIdx = d.getMonth();
       const monthName = months[monthIdx];
-      
       const record = records.find(r => Number(r.year) === year && r.month === monthName);
       data.push({
         name: `${monthName}/${year.toString().slice(-2)}`,
@@ -675,10 +631,10 @@ export default function RelatoriosPage() {
       });
     }
     return data;
-  }, [financialRecords]);
+  }, [filteredFinancialRecords]);
 
   const yearlyCompositionData = useMemo(() => {
-    const records = financialRecords || [];
+    const records = filteredFinancialRecords || [];
     const years = Array.from(new Set(records.map(r => r.year))).filter(Boolean).sort();
     return years.map(year => {
       const yearRecs = records.filter(r => r.year === year);
@@ -689,23 +645,22 @@ export default function RelatoriosPage() {
         descontos: yearRecs.reduce((sum, r) => sum + (Number(r.discounts) || 0), 0)
       };
     });
-  }, [financialRecords]);
+  }, [filteredFinancialRecords]);
 
   const invoiceComponentData = useMemo(() => {
-    const records = financialRecords || [];
+    const records = filteredFinancialRecords || [];
     const totalPayment = records.reduce((sum, r) => sum + (Number(r.payment_value) || 0), 0);
     const totalMaterials = records.reduce((sum, r) => sum + (Number(r.materials_value) || 0), 0);
     const totalCITL = records.reduce((sum, r) => sum + (Number(r.materials_citl_value) || 0), 0);
-    
     return [
       { name: 'Mão de Obra / Fato Gerador', value: totalPayment },
       { name: 'Materiais', value: totalMaterials },
       { name: 'Materiais + CITL', value: totalCITL }
     ];
-  }, [financialRecords]);
+  }, [filteredFinancialRecords]);
 
   const topInvoicesData = useMemo(() => {
-    const records = financialRecords || [];
+    const records = filteredFinancialRecords || [];
     return [...records]
       .sort((a, b) => (Number(b.total_after_discounts) || 0) - (Number(a.total_after_discounts) || 0))
       .slice(0, 5)
@@ -713,7 +668,7 @@ export default function RelatoriosPage() {
         name: `${r.month}/${r.year}`,
         valor: Number(r.total_after_discounts) || 0
       }));
-  }, [financialRecords]);
+  }, [filteredFinancialRecords]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -722,11 +677,10 @@ export default function RelatoriosPage() {
   return (
     <DashboardLayout title="Relatórios e Estatísticas">
       <div className="space-y-8 pb-12">
-        {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-black tracking-widest text-slate-900 dark:text-white uppercase">Relatórios do Sistema</h2>
-            <p className="text-slate-900 dark:text-slate-200 font-bold">Análise detalhada de desempenho e exportação de dados.</p>
+            <h2 className="text-3xl font-black tracking-widest text-slate-900 uppercase">Relatórios do Sistema</h2>
+            <p className="text-slate-900 font-bold">Análise detalhada de desempenho e exportação de dados.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button 
@@ -746,14 +700,11 @@ export default function RelatoriosPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-slate-200 dark:border-slate-700">
+        <div className="flex border-b border-slate-200">
           <button
             onClick={() => setActiveTab('solicitacoes')}
             className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
-              activeTab === 'solicitacoes' 
-                ? 'text-blue-600' 
-                : 'text-slate-700 hover:text-slate-900'
+              activeTab === 'solicitacoes' ? 'text-blue-600' : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Solicitações
@@ -764,9 +715,7 @@ export default function RelatoriosPage() {
           <button
             onClick={() => setActiveTab('inspecoes')}
             className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
-              activeTab === 'inspecoes' 
-                ? 'text-amber-600' 
-                : 'text-slate-700 hover:text-slate-900'
+              activeTab === 'inspecoes' ? 'text-amber-600' : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Rotinas de Inspeções
@@ -777,9 +726,7 @@ export default function RelatoriosPage() {
           <button
             onClick={() => setActiveTab('gestao-contratual')}
             className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
-              activeTab === 'gestao-contratual' 
-                ? 'text-emerald-600' 
-                : 'text-slate-700 hover:text-slate-900'
+              activeTab === 'gestao-contratual' ? 'text-emerald-600' : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Gestão Contratual
@@ -792,27 +739,15 @@ export default function RelatoriosPage() {
         <div ref={reportRef} className="space-y-8">
           <AnimatePresence mode="wait">
             {activeTab === 'solicitacoes' ? (
-              <motion.div
-                key="solicitacoes"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-8"
-              >
-                {/* Maintenance Filters */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
+              <motion.div key="solicitacoes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
                     <Filter size={18} className="text-slate-700" />
                     <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
-                  
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Categoria</label>
-                    <select 
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       <option value="Todos">Todas</option>
                       <option value="Civil">Civil</option>
                       <option value="Hidráulico">Hidráulico</option>
@@ -822,14 +757,9 @@ export default function RelatoriosPage() {
                       <option value="Marcenaria">Marcenaria</option>
                     </select>
                   </div>
-
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
-                    <select 
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       <option value="Todos">Todos</option>
                       <option value="Novo">Novo</option>
                       <option value="Em Andamento">Em Andamento</option>
@@ -838,61 +768,38 @@ export default function RelatoriosPage() {
                       <option value="Atrasado">Atrasado</option>
                     </select>
                   </div>
-
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Unidade</label>
-                    <select 
-                      value={filterUnit}
-                      onChange={(e) => setFilterUnit(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       {units.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                   </div>
-
-                  <button 
-                    onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
-                  >
-                    Limpar
-                  </button>
+                  <button onClick={clearFilters} className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">Limpar</button>
                 </div>
 
-                {/* Maintenance Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
                     { title: 'Total de Demandas', value: filteredRequests.length, icon: FileText, color: 'blue' },
                     { title: 'Concluídas', value: filteredRequests.filter(r => r.status === 'Concluído' || r.status === 'Autorizado').length, icon: CheckCircle2, color: 'emerald' },
                     { title: 'Em Aberto', value: filteredRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length, icon: Clock, color: 'amber' },
                   ].map((stat, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow"
-                    >
+                    <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-4">
-                        <div className={`p-3 rounded-xl ${
-                          stat.color === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' :
-                          stat.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' :
-                          'bg-amber-100 text-amber-600 dark:bg-amber-900/30'
-                        }`}>
+                        <div className={`p-3 rounded-xl ${stat.color === 'blue' ? 'bg-blue-100 text-blue-600' : stat.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
                           <stat.icon size={24} />
                         </div>
                       </div>
-                      <p className="text-slate-900 dark:text-white text-xs font-black uppercase tracking-widest">{stat.title}</p>
-                      <p className="text-4xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
+                      <p className="text-slate-900 text-xs font-black uppercase tracking-widest">{stat.title}</p>
+                      <p className="text-4xl font-black text-slate-900 mt-1">{stat.value}</p>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Maintenance Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <BarChart3 size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Demandas por Categoria</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Demandas por Categoria</h3>
                     </div>
                     <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -900,142 +807,93 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                            itemStyle={{ color: '#fff' }}
-                            cursor={{ fill: '#f1f5f9' }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} itemStyle={{ color: '#fff' }} cursor={{ fill: '#f1f5f9' }} />
                           <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={40} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <PieChartIcon size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Distribuição por Status</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição por Status</h3>
                     </div>
                     <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie
-                            data={statusData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={70}
-                            outerRadius={100}
-                            paddingAngle={8}
-                            dataKey="value"
-                          >
+                          <Pie data={statusData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value">
                             {statusData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
-                          <Legend 
-                            verticalAlign="bottom" 
-                            height={36} 
-                            iconType="circle"
-                            formatter={(value) => <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tighter">{value}</span>}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(value) => <span className="text-xs font-bold text-slate-900 uppercase tracking-tighter">{value}</span>} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                       <TrendingUp size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Resumo de Análise</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Resumo de Análise</h3>
                     </div>
                     <div className="space-y-4">
-                      <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
-                        Com base nos dados filtrados, observamos que a categoria <span className="font-black text-blue-600">
-                          {[...typeData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
-                        </span> é a que possui maior volume de solicitações, representando <span className="font-black">
-                          {filteredRequests.length > 0 ? Math.round(([...typeData].sort((a, b) => b.value - a.value)[0]?.value / filteredRequests.length) * 100) : 0}%
-                        </span> do total.
+                      <p className="text-sm text-slate-800 leading-relaxed">
+                        Com base nos dados filtrados, observamos que a categoria <span className="font-black text-blue-600">{[...typeData].sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}</span> é a que possui maior volume de solicitações, representando <span className="font-black">{filteredRequests.length > 0 ? Math.round(([...typeData].sort((a, b) => b.value - a.value)[0]?.value / filteredRequests.length) * 100) : 0}%</span> do total.
                       </p>
-                      <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
-                        Atualmente, <span className="font-black text-amber-600">
-                          {filteredRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length}
-                        </span> solicitações estão aguardando resolução, o que requer atenção da equipe técnica para evitar atrasos no cronograma.
+                      <p className="text-sm text-slate-800 leading-relaxed">
+                        Atualmente, <span className="font-black text-amber-600">{filteredRequests.filter(r => r.status === 'Novo' || r.status === 'Em Andamento').length}</span> solicitações estão aguardando resolução, o que requer atenção da equipe técnica para evitar atrasos no cronograma.
                       </p>
                     </div>
                   </div>
 
-                  {/* Maintenance Detailed Table */}
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                    <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Listagem Detalhada de Solicitações</h3>
-                      <span className="text-[10px] font-black text-slate-900 dark:text-slate-200 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
-                        {filteredRequests.length} registros encontrados
-                      </span>
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Listagem Detalhada de Solicitações</h3>
+                      <span className="text-[10px] font-black text-slate-900 bg-white px-3 py-1.5 rounded-lg border border-slate-200 uppercase tracking-widest">{filteredRequests.length} registros encontrados</span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">ID / Data</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Descrição</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Unidade</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Tipo</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Status</th>
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Profissional</th>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">ID / Data</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Descrição</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Unidade</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Tipo</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Status</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Profissional</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        <tbody className="divide-y divide-slate-200">
                           {filteredRequests.length > 0 ? (
                             (showAllRequests ? filteredRequests : filteredRequests.slice(0, 10)).map((req) => (
-                              <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                              <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-6 py-4">
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-black text-slate-900 dark:text-white">#{req.id.slice(-4)}</span>
-                                    <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200">{formatDate(req.createdAt || req.date)}</span>
+                                    <span className="text-xs font-black text-slate-900">#{req.id.slice(-4)}</span>
+                                    <span className="text-[10px] font-bold text-slate-900">{formatDate(req.createdAt || req.date)}</span>
                                   </div>
                                 </td>
+                                <td className="px-6 py-4"><p className="text-sm font-bold text-slate-800 line-clamp-1">{req.description}</p></td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-900">{req.unit}</td>
+                                <td className="px-6 py-4"><span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase tracking-widest">{req.type}</span></td>
                                 <td className="px-6 py-4">
-                                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{req.description}</p>
+                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${req.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700' : req.status === 'Atrasado' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{req.status}</span>
                                 </td>
-                                <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{req.unit}</td>
-                                <td className="px-6 py-4">
-                                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg uppercase tracking-widest">
-                                    {req.type}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                                    req.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' :
-                                    req.status === 'Atrasado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30' :
-                                    'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
-                                  }`}>
-                                    {req.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">
-                                  {req.professional || <span className="italic opacity-50">Não atribuído</span>}
-                                </td>
+                                <td className="px-6 py-4 text-xs font-bold text-slate-700">{req.professional || <span className="italic opacity-50">Não atribuído</span>}</td>
                               </tr>
                             ))
                           ) : (
-                            <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center text-slate-700 font-medium italic">
-                                Nenhuma solicitação encontrada para os filtros aplicados.
-                              </td>
-                            </tr>
+                            <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-700 font-medium italic">Nenhuma solicitação encontrada para os filtros aplicados.</td></tr>
                           )}
                         </tbody>
                       </table>
                     </div>
                     {filteredRequests.length > 10 && (
-                      <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-center">
-                        <button 
-                          onClick={() => setShowAllRequests(!showAllRequests)}
-                          className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer"
-                        >
+                      <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-center">
+                        <button onClick={() => setShowAllRequests(!showAllRequests)} className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer">
                           {showAllRequests ? 'Ver menos' : 'Ver todos os registros'} <ArrowRight size={14} className={showAllRequests ? 'rotate-180' : ''} />
                         </button>
                       </div>
@@ -1044,27 +902,15 @@ export default function RelatoriosPage() {
                 </div>
               </motion.div>
             ) : activeTab === 'inspecoes' ? (
-              <motion.div
-                key="inspecoes"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-8"
-              >
-                {/* Inspection Filters */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
+              <motion.div key="inspecoes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
                     <Filter size={18} className="text-slate-900" />
                     <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Filtros</span>
                   </div>
-                  
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Período</label>
-                    <select 
-                      value={inspPeriod}
-                      onChange={(e) => setInspPeriod(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={inspPeriod} onChange={(e) => setInspPeriod(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       <option value="week">Últimos 7 dias</option>
                       <option value="month">Mês Atual</option>
                       <option value="quarter">Trimestre</option>
@@ -1072,37 +918,21 @@ export default function RelatoriosPage() {
                       <option value="custom">Personalizado</option>
                     </select>
                   </div>
-
                   {inspPeriod === 'custom' && (
                     <>
                       <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Início</label>
-                        <input 
-                          type="date"
-                          value={customStartDate}
-                          onChange={(e) => setCustomStartDate(e.target.value)}
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        />
+                        <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" />
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Fim</label>
-                        <input 
-                          type="date"
-                          value={customEndDate}
-                          onChange={(e) => setCustomEndDate(e.target.value)}
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        />
+                        <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" />
                       </div>
                     </>
                   )}
-
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Área</label>
-                    <select 
-                      value={inspArea}
-                      onChange={(e) => setInspArea(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={inspArea} onChange={(e) => setInspArea(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       <option value="Todos">Todas</option>
                       <option value="Elétrica">Elétrica</option>
                       <option value="Hidráulica">Hidráulica</option>
@@ -1111,14 +941,9 @@ export default function RelatoriosPage() {
                       <option value="Segurança">Segurança</option>
                     </select>
                   </div>
-
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Periodicidade</label>
-                    <select 
-                      value={inspPeriodicity}
-                      onChange={(e) => setInspPeriodicity(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={inspPeriodicity} onChange={(e) => setInspPeriodicity(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       <option value="Todos">Todas</option>
                       <option value="Diária">Diária</option>
                       <option value="Semanal">Semanal</option>
@@ -1126,27 +951,15 @@ export default function RelatoriosPage() {
                       <option value="Mensal">Mensal</option>
                     </select>
                   </div>
-
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Profissional</label>
-                    <select 
-                      value={inspProfessional}
-                      onChange={(e) => setInspProfessional(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={inspProfessional} onChange={(e) => setInspProfessional(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       {allProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
-
-                  <button 
-                    onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
-                  >
-                    Limpar
-                  </button>
+                  <button onClick={clearFilters} className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">Limpar</button>
                 </div>
 
-                {/* Inspection KPIs */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { title: 'Total Cadastradas', value: inspKPIs.totalRegistered, icon: FileText, color: 'slate' },
@@ -1158,37 +971,23 @@ export default function RelatoriosPage() {
                     { title: 'Probs. Pendentes', value: inspKPIs.problemsPending, icon: Activity, color: 'amber' },
                     { title: 'Inspeções Atrasadas', value: inspKPIs.delayed, icon: AlertCircle, color: 'red' },
                   ].map((kpi, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm"
-                    >
+                    <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className={`p-2 rounded-lg ${
-                          kpi.color === 'slate' ? 'bg-slate-100 text-slate-600 dark:bg-slate-900/30' :
-                          kpi.color === 'amber' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' :
-                          kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' :
-                          kpi.color === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' :
-                          'bg-red-100 text-red-600 dark:bg-red-900/30'
-                        }`}>
+                        <div className={`p-2 rounded-lg ${kpi.color === 'slate' ? 'bg-slate-100 text-slate-600' : kpi.color === 'amber' ? 'bg-amber-100 text-amber-600' : kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : kpi.color === 'blue' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
                           <kpi.icon size={16} />
                         </div>
-                        <p className="text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-tight">{kpi.title}</p>
                       </div>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{kpi.value}</p>
+                      <p className="text-2xl font-black text-slate-900">{kpi.value}</p>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Inspection Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Chart 1: Realized vs Predicted */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <BarChart3 size={20} className="text-amber-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Realizadas vs Previstas (6 Meses)</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Realizadas vs Previstas (6 Meses)</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1196,10 +995,7 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                            cursor={{ fill: '#f1f5f9' }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} cursor={{ fill: '#f1f5f9' }} />
                           <Legend iconType="circle" />
                           <Bar name="Previstas" dataKey="prevista" fill={SLATE_COLOR} radius={[4, 4, 0, 0]} barSize={30} />
                           <Bar name="Realizadas" dataKey="realizada" fill={AMBER_COLOR} radius={[4, 4, 0, 0]} barSize={30} />
@@ -1208,48 +1004,30 @@ export default function RelatoriosPage() {
                     </div>
                   </div>
 
-                  {/* Chart 2: Distribution by Area */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <PieChartIcon size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Distribuição por Área</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição por Área</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie
-                            data={areaDistributionData}
-                            cx="40%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
+                          <Pie data={areaDistributionData} cx="40%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
                             {areaDistributionData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
-                          <Legend 
-                            layout="vertical" 
-                            verticalAlign="middle" 
-                            align="right"
-                            iconType="circle"
-                            formatter={(value) => <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">{value}</span>}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
+                          <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" formatter={(value) => <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">{value}</span>} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Chart 3: Top Problem Areas */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <BarChart3 size={20} className="text-red-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Ranking de Problemas por Área</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Ranking de Problemas por Área</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1257,20 +1035,17 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                           <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={100} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
                           <Bar dataKey="value" fill={RED_COLOR} radius={[0, 4, 4, 0]} barSize={20} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Chart 4: Compliance Evolution */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <TrendingUp size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Evolução da Conformidade (12 Meses)</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Evolução da Conformidade (12 Meses)</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1278,27 +1053,17 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="taxa" 
-                            stroke={EMERALD_COLOR} 
-                            strokeWidth={4} 
-                            dot={{ r: 6, fill: EMERALD_COLOR, strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 8 }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
+                          <Line type="monotone" dataKey="taxa" stroke={EMERALD_COLOR} strokeWidth={4} dot={{ r: 6, fill: EMERALD_COLOR, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Chart 5: Problems Status Stacked */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                     <div className="flex items-center gap-2 mb-8">
                       <Activity size={20} className="text-slate-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Status de Problemas por Mês</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Status de Problemas por Mês</h3>
                     </div>
                     <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1306,9 +1071,7 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
                           <Legend iconType="circle" />
                           <Bar name="Resolvidos" dataKey="resolvidos" stackId="a" fill={EMERALD_COLOR} radius={[0, 0, 0, 0]} />
                           <Bar name="Pendentes" dataKey="pendentes" stackId="a" fill={AMBER_COLOR} radius={[0, 0, 0, 0]} />
@@ -1318,94 +1081,66 @@ export default function RelatoriosPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                     <div className="flex items-center gap-2 mb-4">
                       <TrendingUp size={20} className="text-amber-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Análise de Desempenho Operacional</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Análise de Desempenho Operacional</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
-                          A taxa de conformidade atual é de <span className="font-black text-emerald-600">{inspKPIs.complianceRate}%</span>. 
-                          A área de <span className="font-black text-red-600">{topProblemAreasData[0]?.name || 'N/A'}</span> apresenta o maior índice de problemas detectados, sugerindo a necessidade de uma revisão preventiva mais profunda ou substituição de componentes críticos.
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        <p className="text-sm text-slate-800 dark:text-slate-300 leading-relaxed">
-                          O tempo médio de execução das inspeções é de <span className="font-black text-blue-600">{inspKPIs.avgTime} minutos</span>. 
-                          Manter este indicador sob controle é fundamental para garantir que todas as rotinas diárias sejam cumpridas sem sobrecarregar a equipe.
-                        </p>
-                      </div>
+                      <p className="text-sm text-slate-800 leading-relaxed">A taxa de conformidade atual é de <span className="font-black text-emerald-600">{inspKPIs.complianceRate}%</span>. A área de <span className="font-black text-red-600">{topProblemAreasData[0]?.name || 'N/A'}</span> apresenta o maior índice de problemas detectados, sugerindo a necessidade de uma revisão preventiva mais profunda ou substituição de componentes críticos.</p>
+                      <p className="text-sm text-slate-800 leading-relaxed">O tempo médio de execução das inspeções é de <span className="font-black text-blue-600">{inspKPIs.avgTime} minutos</span>. Manter este indicador sob controle é fundamental para garantir que todas as rotinas diárias sejam cumpridas sem sobrecarregar a equipe.</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Detailed Inspection Table */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                  <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Histórico Detalhado de Execuções</h3>
-                    <span className="text-[10px] font-black text-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 uppercase tracking-widest">
-                      {filteredRecords.length} registros encontrados
-                    </span>
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Histórico Detalhado de Execuções</h3>
+                    <span className="text-[10px] font-black text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 uppercase tracking-widest">{filteredRecords.length} registros encontrados</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Inspeção</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Área</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Data</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Profissional</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Status</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Tempo</th>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Inspeção</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Área</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Data</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Profissional</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Probs. (E/R/P)</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Status</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Tempo</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      <tbody className="divide-y divide-slate-200">
                         {filteredRecords.length > 0 ? (
                           (showAllRecords ? filteredRecords : filteredRecords.slice(0, 10)).map((rec) => (
-                            <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
-                              <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{rec.inspectionName}</td>
+                            <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 text-sm font-black text-slate-900">{rec.inspectionName}</td>
                               <td className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-tighter">{rec.area}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-400">
-                                {formatDate(rec.createdAt || rec.executionDate)}
-                              </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{rec.professionals.join(', ')}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700">{formatDate(rec.createdAt || rec.executionDate)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-900">{rec.professionals.join(', ')}</td>
                               <td className="px-6 py-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">{rec.problemsFound}</span>
-                                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded">{rec.problemsResolved}</span>
-                                  <span className="text-[10px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">{rec.problemsPending}</span>
+                                  <span className="text-[10px] font-black text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{rec.problemsFound}</span>
+                                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">{rec.problemsResolved}</span>
+                                  <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{rec.problemsPending}</span>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
-                                  rec.executionStatus === 'Concluído' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' :
-                                  rec.executionStatus === 'Atrasado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30' :
-                                  'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
-                                }`}>
-                                  {rec.executionStatus}
-                                </span>
+                                <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${rec.executionStatus === 'Concluído' ? 'bg-emerald-100 text-emerald-700' : rec.executionStatus === 'Atrasado' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{rec.executionStatus}</span>
                               </td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-white">{rec.executionTime} min</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-900">{rec.executionTime} min</td>
                             </tr>
                           ))
                         ) : (
-                          <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-slate-700 font-medium italic">
-                              Nenhum registro encontrado para os filtros aplicados.
-                            </td>
-                          </tr>
+                          <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-700 font-medium italic">Nenhum registro encontrado para os filtros aplicados.</td></tr>
                         )}
                       </tbody>
                     </table>
                   </div>
                   {filteredRecords.length > 10 && (
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-center">
-                      <button 
-                        onClick={() => setShowAllRecords(!showAllRecords)}
-                        className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer"
-                      >
+                    <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-center">
+                      <button onClick={() => setShowAllRecords(!showAllRecords)} className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer">
                         {showAllRecords ? 'Ver menos' : 'Ver todos os registros'} <ArrowRight size={14} className={showAllRecords ? 'rotate-180' : ''} />
                       </button>
                     </div>
@@ -1413,40 +1148,21 @@ export default function RelatoriosPage() {
                 </div>
               </motion.div>
             ) : (
-              <motion.div
-                key="gestao-contratual"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-8"
-              >
-                {/* Contract Filters */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-center shadow-sm">
+              <motion.div key="gestao-contratual" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
                   <div className="flex items-center gap-2 mr-2">
                     <Filter size={18} className="text-slate-700" />
                     <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
                   </div>
-                  
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano de Exercício</label>
-                    <select 
-                      value={contractFilterYear}
-                      onChange={(e) => setContractFilterYear(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    >
+                    <select value={contractFilterYear} onChange={(e) => setContractFilterYear(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
                       {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
-
-                  <button 
-                    onClick={clearFilters}
-                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
-                  >
-                    Limpar
-                  </button>
+                  <button onClick={clearFilters} className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">Limpar</button>
                 </div>
 
-                {/* Contract KPIs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
                     { title: 'Total Executado', value: formatCurrency(contractKPIs.totalExecuted), icon: DollarSign, color: 'emerald' },
@@ -1458,37 +1174,23 @@ export default function RelatoriosPage() {
                     { title: 'Custo Materiais', value: formatCurrency(contractKPIs.totalMaterials), icon: Building2, color: 'slate' },
                     { title: 'Dias para Vencimento', value: contractKPIs.remainingDays, icon: Clock, color: contractKPIs.remainingDays < 180 ? 'red' : 'emerald' },
                   ].map((kpi, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm"
-                    >
+                    <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className={`p-2 rounded-lg ${
-                          kpi.color === 'slate' ? 'bg-slate-100 text-slate-600 dark:bg-slate-900/30' :
-                          kpi.color === 'amber' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' :
-                          kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' :
-                          kpi.color === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' :
-                          'bg-red-100 text-red-600 dark:bg-red-900/30'
-                        }`}>
+                        <div className={`p-2 rounded-lg ${kpi.color === 'slate' ? 'bg-slate-100 text-slate-600' : kpi.color === 'amber' ? 'bg-amber-100 text-amber-600' : kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : kpi.color === 'blue' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
                           <kpi.icon size={16} />
                         </div>
-                        <p className="text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest leading-tight">{kpi.title}</p>
+                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-tight">{kpi.title}</p>
                       </div>
-                      <p className="text-xl font-black text-slate-900 dark:text-white truncate">{kpi.value}</p>
+                      <p className="text-xl font-black text-slate-900 truncate">{kpi.value}</p>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Contract Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Chart 1: Evolution */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                     <div className="flex items-center gap-2 mb-8">
                       <TrendingUp size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Evolução de Faturamento (24 Meses)</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Evolução de Faturamento (24 Meses)</h3>
                     </div>
                     <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1502,21 +1204,17 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <Tooltip 
-                            formatter={(value) => formatCurrency(Number(value))}
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
                           <Area type="monotone" dataKey="valor" stroke="#10b981" fillOpacity={1} fill="url(#colorValor)" strokeWidth={3} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Chart 2: Yearly Composition */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <BarChart3 size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Composição Anual de Faturamento</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Composição Anual de Faturamento</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1524,10 +1222,7 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <Tooltip 
-                            formatter={(value) => formatCurrency(Number(value))}
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
                           <Legend iconType="circle" />
                           <Bar name="Materiais" dataKey="materiais" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
                           <Bar name="Serviços" dataKey="total" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -1536,49 +1231,30 @@ export default function RelatoriosPage() {
                     </div>
                   </div>
 
-                  {/* Chart 3: Invoice Components */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <PieChartIcon size={20} className="text-amber-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Distribuição de Componentes</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição de Componentes</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie
-                            data={invoiceComponentData}
-                            cx="40%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
+                          <Pie data={invoiceComponentData} cx="40%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
                             {invoiceComponentData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            formatter={(value) => formatCurrency(Number(value))}
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
-                          <Legend 
-                            layout="vertical" 
-                            verticalAlign="middle" 
-                            align="right"
-                            iconType="circle"
-                            formatter={(value) => <span className="text-[10px] font-bold text-slate-900 dark:text-slate-200 uppercase tracking-tighter">{value}</span>}
-                          />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
+                          <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" formatter={(value) => <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">{value}</span>} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  {/* Chart 4: Top Invoices */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                     <div className="flex items-center gap-2 mb-8">
                       <BarChart3 size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Top 5 Maiores Faturas</h3>
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Top 5 Maiores Faturas</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1586,10 +1262,7 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                           <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
                           <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={80} />
-                          <Tooltip 
-                            formatter={(value) => formatCurrency(Number(value))}
-                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }}
-                          />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
                           <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={30} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -1597,30 +1270,29 @@ export default function RelatoriosPage() {
                   </div>
                 </div>
 
-                {/* Yearly Summary Table */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                  <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm">Resumo Anual de Execução</h3>
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Resumo Anual de Execução</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Ano</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Total Executado</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Materiais</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Descontos</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-widest">Média Mensal</th>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Ano</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Total Executado</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Materiais</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Descontos</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Média Mensal</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      <tbody className="divide-y divide-slate-200">
                         {[...yearlyCompositionData].reverse().map((row) => (
-                          <tr key={row.year} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
-                            <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{row.year}</td>
+                          <tr key={row.year} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 text-sm font-black text-slate-900">{row.year}</td>
                             <td className="px-6 py-4 text-sm font-bold text-emerald-600">{formatCurrency(row.total)}</td>
                             <td className="px-6 py-4 text-sm font-bold text-blue-600">{formatCurrency(row.materiais)}</td>
                             <td className="px-6 py-4 text-sm font-bold text-amber-600">{formatCurrency(row.descontos)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(row.total / 12)}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(row.total / 12)}</td>
                           </tr>
                         ))}
                       </tbody>
