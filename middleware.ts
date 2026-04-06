@@ -3,7 +3,6 @@ import { NextResponse, NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth_session');
   const { pathname } = request.nextUrl;
-
   const isAuthenticated = !!authCookie?.value;
 
   // Allow access to login page and auth API
@@ -24,13 +23,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.ico|.*\\.webp|.*\\.woff|.*\\.woff2|.*\\.ttf).*)',
   ],
 };
