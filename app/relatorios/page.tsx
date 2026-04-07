@@ -151,15 +151,17 @@ export default function RelatoriosPage() {
     return isNaN(d.getTime()) ? new Date(0) : d;
   };
 
-  const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes' | 'gestao-contratual'>('solicitacoes');
+  const [activeTab, setActiveTab] = useState<'solicitacoes' | 'inspecoes' | 'gestao-contratual' | 'materiais'>('solicitacoes');
   const [showAllRequests, setShowAllRequests] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [showAllMaterials, setShowAllMaterials] = useState(false);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [records, setRecords] = useState<InspectionRecord[]>([]);
   const [contract, setContract] = useState<ContractInfo | null>(null);
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [filterType, setFilterType] = useState('Todos');
@@ -182,18 +184,25 @@ export default function RelatoriosPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [reqRes, inspRes, recRes, contractRes, financialRes, repactuacoesRes] = await Promise.all([
-          fetch('/api/solicitacoes').then(res => res.json()),
-          fetch('/api/inspecoes').then(res => res.json()),
-          fetch('/api/inspecoes/records').then(res => res.json()),
+        const [reqRes, inspRes, recRes, contractRes, financialRes, repactuacoesRes, materialsRes] = await Promise.all([
+          fetch('/api/solicitacoes'),
+          fetch('/api/inspecoes'),
+          fetch('/api/inspecoes/records'),
           supabase.from('contract_info').select('*').single(),
           supabase.from('financial_records').select('*').order('year', { ascending: false }).order('month', { ascending: false }),
-          supabase.from('repactuacoes').select('*').order('date', { ascending: false })
+          supabase.from('repactuacoes').select('*').order('date', { ascending: false }),
+          fetch('/api/materials?type=finalistico')
         ]);
         
-setRequests(Array.isArray(reqRes) ? reqRes : []);
-        setInspections(Array.isArray(inspRes) ? inspRes : []);
-        setRecords(Array.isArray(recRes) ? recRes : []);
+        const reqData = reqRes.ok ? await reqRes.json() : [];
+        const inspData = inspRes.ok ? await inspRes.json() : [];
+        const recData = recRes.ok ? await recRes.json() : [];
+        const materialsData = materialsRes.ok ? await materialsRes.json() : [];
+
+        setRequests(Array.isArray(reqData) ? reqData : []);
+        setInspections(Array.isArray(inspData) ? inspData : []);
+        setRecords(Array.isArray(recData) ? recData : []);
+        setMaterials(Array.isArray(materialsData) ? materialsData : []);
         
         if (contractRes.data) setContract(contractRes.data);
         if (financialRes.data) setFinancialRecords(financialRes.data);
@@ -473,7 +482,7 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
       })));
       XLSX.utils.book_append_sheet(workbook, wsHist, "Histórico de Execuções");
       XLSX.writeFile(workbook, `Relatorio_Inspecoes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-    } else {
+    } else if (activeTab === 'gestao-contratual') {
       const workbook = XLSX.utils.book_new();
       if (contract) {
         const contractData = [{
@@ -510,6 +519,47 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
       })));
       XLSX.utils.book_append_sheet(workbook, wsSummary, "Resumo Anual");
       XLSX.writeFile(workbook, `Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    } else if (activeTab === 'materiais') {
+      const workbook = XLSX.utils.book_new();
+      
+      // Aba 1: Curva ABC
+      const wsABC = XLSX.utils.json_to_sheet(curvaABC.map(item => ({
+        'Código': item.code,
+        'Descrição': item.name,
+        'Unidade': item.unit,
+        'Preço Unitário': item.unit_price,
+        'Estoque Atual': item.current_stock,
+        'Valor em Estoque': item.valorEstoque,
+        '% do Total': item.percentual.toFixed(2) + '%',
+        '% Acumulado': item.percentualAcumulado.toFixed(2) + '%',
+        'Classe': item.classe
+      })));
+      XLSX.utils.book_append_sheet(workbook, wsABC, "Curva ABC");
+
+      // Aba 2: Estoque de Segurança
+      const wsSeguranca = XLSX.utils.json_to_sheet(estoqueSeguranca.map(item => ({
+        'Descrição': item.name,
+        'Consumo Mensal': item.average_monthly_consumption,
+        'Estoque Atual': item.current_stock,
+        'Estoque Segurança': item.estoqueSeguranca,
+        'Ponto de Pedido': item.pontoPedido,
+        'Lote Econômico': item.loteEconomico,
+        'Status': item.statusEstoque
+      })));
+      XLSX.utils.book_append_sheet(workbook, wsSeguranca, "Estoque Segurança");
+
+      // Aba 3: Itens Críticos
+      const wsCriticos = XLSX.utils.json_to_sheet(estoqueSeguranca.filter(i => i.statusEstoque !== 'Normal').map(item => ({
+        'Descrição': item.name,
+        'Classe': item.classe,
+        'Estoque Atual': item.current_stock,
+        'Estoque Segurança': item.estoqueSeguranca,
+        'Status': item.statusEstoque,
+        'Valor em Estoque': item.valorEstoque
+      })));
+      XLSX.utils.book_append_sheet(workbook, wsCriticos, "Itens Críticos");
+
+      XLSX.writeFile(workbook, `Relatorio_Materiais_ABC_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     }
   };
 
@@ -674,6 +724,108 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  // --- Materiais / Curva ABC Logic ---
+  const curvaABC = useMemo(() => {
+    if (!Array.isArray(materials) || materials.length === 0) return [];
+    
+    // 1. Calcular Valor Total em Estoque por Item
+    const itemsComValor = materials.map(item => ({
+      ...item,
+      valorEstoque: (Number(item.current_stock) || 0) * (Number(item.unit_price) || 0)
+    }));
+
+    // 2. Ordenar por Valor de Estoque (Decrescente)
+    const itemsOrdenados = [...itemsComValor].sort((a, b) => b.valorEstoque - a.valorEstoque);
+
+    // 3. Calcular Valor Total Geral
+    const valorTotalGeral = itemsOrdenados.reduce((sum, item) => sum + item.valorEstoque, 0);
+
+    // 4. Calcular Porcentagem Acumulada e Classificar
+    let acumulado = 0;
+    return itemsOrdenados.map(item => {
+      const percentual = (item.valorEstoque / valorTotalGeral) * 100;
+      acumulado += percentual;
+      
+      let classe: 'A' | 'B' | 'C' = 'C';
+      if (acumulado <= 80) classe = 'A';
+      else if (acumulado <= 95) classe = 'B';
+
+      return {
+        ...item,
+        percentual,
+        percentualAcumulado: acumulado,
+        classe
+      };
+    });
+  }, [materials]);
+
+  const estoqueSeguranca = useMemo(() => {
+    if (!Array.isArray(curvaABC) || curvaABC.length === 0) return [];
+    return curvaABC.map(item => {
+      const consumoMensal = Number(item.average_monthly_consumption) || 0;
+      const leadTime = 30; // 30 dias padrão
+      
+      // Fator de segurança baseado na classe ABC
+      const fatorSeguranca = item.classe === 'A' ? 2.0 : item.classe === 'B' ? 1.5 : 1.2;
+      
+      const estoqueSeg = Math.ceil(consumoMensal * (leadTime / 30) * (fatorSeguranca - 1));
+      const pontoPedido = Math.ceil(consumoMensal * (leadTime / 30) + estoqueSeg);
+      
+      // Lote Econômico Simplificado
+      const custoPedido = 50; // Mock
+      const custoEstoque = (Number(item.unit_price) || 0) * 0.2; // 20% do valor unitário ao ano
+      const lec = custoEstoque > 0 ? Math.sqrt((2 * consumoMensal * 12 * custoPedido) / custoEstoque) : 0;
+
+      let status: 'Normal' | 'Atenção' | 'Crítico' = 'Normal';
+      if (item.current_stock <= estoqueSeg) status = 'Crítico';
+      else if (item.current_stock <= pontoPedido) status = 'Atenção';
+
+      return {
+        ...item,
+        estoqueSeguranca: estoqueSeg,
+        pontoPedido,
+        loteEconomico: Math.ceil(lec),
+        statusEstoque: status
+      };
+    });
+  }, [curvaABC]);
+
+  const abcChartData = useMemo(() => {
+    if (!Array.isArray(curvaABC) || curvaABC.length === 0) return { counts: [], values: [] };
+    const counts = { A: 0, B: 0, C: 0 };
+    const values = { A: 0, B: 0, C: 0 };
+    
+    curvaABC.forEach(item => {
+      counts[item.classe]++;
+      values[item.classe] += item.valorEstoque;
+    });
+
+    return {
+      counts: [
+        { name: 'Classe A', value: counts.A, fill: '#8b5cf6' },
+        { name: 'Classe B', value: counts.B, fill: '#a78bfa' },
+        { name: 'Classe C', value: counts.C, fill: '#c4b5fd' }
+      ],
+      values: [
+        { name: 'Classe A (80%)', value: values.A, fill: '#8b5cf6' },
+        { name: 'Classe B (15%)', value: values.B, fill: '#a78bfa' },
+        { name: 'Classe C (5%)', value: values.C, fill: '#c4b5fd' }
+      ]
+    };
+  }, [curvaABC]);
+
+  const criticosData = useMemo(() => {
+    if (!Array.isArray(estoqueSeguranca) || estoqueSeguranca.length === 0) return [];
+    return estoqueSeguranca
+      .filter(item => item.statusEstoque !== 'Normal')
+      .sort((a, b) => {
+        if (a.statusEstoque === 'Crítico' && b.statusEstoque !== 'Crítico') return -1;
+        if (a.statusEstoque !== 'Crítico' && b.statusEstoque === 'Crítico') return 1;
+        return b.valorEstoque - a.valorEstoque;
+      })
+      .slice(0, 20);
+  }, [estoqueSeguranca]);
+
   return (
     <DashboardLayout title="Relatórios e Estatísticas">
       <div className="space-y-8 pb-12">
@@ -732,6 +884,17 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
             Gestão Contratual
             {activeTab === 'gestao-contratual' && (
               <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-600 rounded-t-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('materiais')}
+            className={`px-6 py-3 text-sm font-black tracking-widest uppercase transition-all relative cursor-pointer ${
+              activeTab === 'materiais' ? 'text-violet-600' : 'text-slate-700 hover:text-slate-900'
+            }`}
+          >
+            Materiais
+            {activeTab === 'materiais' && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-violet-600 rounded-t-full" />
             )}
           </button>
         </div>
@@ -1148,35 +1311,17 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
                 </div>
               </motion.div>
             ) : (
-              <motion.div key="gestao-contratual" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
-                  <div className="flex items-center gap-2 mr-2">
-                    <Filter size={18} className="text-slate-700" />
-                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano de Exercício</label>
-                    <select value={contractFilterYear} onChange={(e) => setContractFilterYear(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
-                      {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={clearFilters} className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">Limpar</button>
-                </div>
-
+              <motion.div key="materiais" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { title: 'Total Executado', value: formatCurrency(contractKPIs.totalExecuted), icon: DollarSign, color: 'emerald' },
-                    { title: 'Executado Ano Atual', value: formatCurrency(contractKPIs.currentYearExecuted), icon: Calendar, color: 'blue' },
-                    { title: 'Média Mensal', value: formatCurrency(contractKPIs.avgInvoice), icon: Activity, color: 'slate' },
-                    { title: 'Total Descontos', value: formatCurrency(contractKPIs.totalDiscounts), icon: TrendingUp, color: 'amber' },
-                    { title: 'Maior Fatura', value: formatCurrency(contractKPIs.maxInvoice), icon: ChevronUp, color: 'emerald' },
-                    { title: 'Menor Fatura', value: formatCurrency(contractKPIs.minInvoice), icon: ChevronDown, color: 'red' },
-                    { title: 'Custo Materiais', value: formatCurrency(contractKPIs.totalMaterials), icon: Building2, color: 'slate' },
-                    { title: 'Dias para Vencimento', value: contractKPIs.remainingDays, icon: Clock, color: contractKPIs.remainingDays < 180 ? 'red' : 'emerald' },
+                    { title: 'Total de Itens', value: (curvaABC || []).length, icon: Briefcase, color: 'slate' },
+                    { title: 'Valor Total Estoque', value: formatCurrency((curvaABC || []).reduce((s, i) => s + i.valorEstoque, 0)), icon: DollarSign, color: 'emerald' },
+                    { title: 'Itens Classe A', value: (curvaABC || []).filter(i => i.classe === 'A').length, icon: TrendingUp, color: 'violet' },
+                    { title: 'Itens Críticos', value: (estoqueSeguranca || []).filter(i => i.statusEstoque === 'Crítico').length, icon: AlertCircle, color: 'red' },
                   ].map((kpi, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className={`p-2 rounded-lg ${kpi.color === 'slate' ? 'bg-slate-100 text-slate-600' : kpi.color === 'amber' ? 'bg-amber-100 text-amber-600' : kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : kpi.color === 'blue' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                        <div className={`p-2 rounded-lg ${kpi.color === 'slate' ? 'bg-slate-100 text-slate-600' : kpi.color === 'violet' ? 'bg-violet-100 text-violet-600' : kpi.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
                           <kpi.icon size={16} />
                         </div>
                         <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-tight">{kpi.title}</p>
@@ -1187,45 +1332,19 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
-                    <div className="flex items-center gap-2 mb-8">
-                      <TrendingUp size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Evolução de Faturamento (24 Meses)</h3>
-                    </div>
-                    <div className="h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={monthlyEvolutionData}>
-                          <defs>
-                            <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
-                          <Area type="monotone" dataKey="valor" stroke="#10b981" fillOpacity={1} fill="url(#colorValor)" strokeWidth={3} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
-                      <BarChart3 size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Composição Anual de Faturamento</h3>
+                      <BarChart3 size={20} className="text-violet-600" />
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição de Itens por Classe</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={yearlyCompositionData}>
+                        <BarChart data={(abcChartData.counts || [])}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
-                          <Legend iconType="circle" />
-                          <Bar name="Materiais" dataKey="materiais" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                          <Bar name="Serviços" dataKey="total" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} cursor={{ fill: '#f1f5f9' }} />
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={40} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1233,19 +1352,19 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
-                      <PieChartIcon size={20} className="text-amber-600" />
-                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição de Componentes</h3>
+                      <PieChartIcon size={20} className="text-violet-600" />
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Distribuição de Valor por Classe</h3>
                     </div>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={invoiceComponentData} cx="40%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
-                            {invoiceComponentData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Pie data={(abcChartData.values || [])} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
+                            {(abcChartData.values || []).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
                             ))}
                           </Pie>
                           <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
-                          <Legend layout="vertical" verticalAlign="middle" align="right" iconType="circle" formatter={(value) => <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">{value}</span>} />
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(value) => <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">{value}</span>} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -1253,17 +1372,19 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
 
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                     <div className="flex items-center gap-2 mb-8">
-                      <BarChart3 size={20} className="text-emerald-600" />
-                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Top 5 Maiores Faturas</h3>
+                      <TrendingUp size={20} className="text-violet-600" />
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Análise de Pareto (Top 20 Itens por Valor)</h3>
                     </div>
-                    <div className="h-72 w-full">
+                    <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={topInvoicesData}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} tickFormatter={(value) => `R$ ${value/1000}k`} />
-                          <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#334155' }} width={80} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
-                          <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={30} />
+                        <BarChart data={(curvaABC || []).slice(0, 20)}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 700, fill: '#64748b' }} interval={0} angle={-45} textAnchor="end" height={80} />
+                          <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} tickFormatter={(v) => `R$${v/1000}k`} />
+                          <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#8b5cf6' }} tickFormatter={(v) => `${v}%`} />
+                          <Tooltip formatter={(value, name) => name === 'percentualAcumulado' ? [`${Number(value).toFixed(2)}%`, 'Acumulado'] : [formatCurrency(Number(value)), 'Valor em Estoque']} contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} />
+                          <Bar yAxisId="left" dataKey="valorEstoque" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                          <Line yAxisId="right" type="monotone" dataKey="percentualAcumulado" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, fill: '#ef4444' }} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1272,32 +1393,91 @@ setRequests(Array.isArray(reqRes) ? reqRes : []);
 
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                   <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Resumo Anual de Execução</h3>
+                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Gestão de Estoque e Reposição</h3>
+                    <span className="text-[10px] font-black text-red-600 bg-white px-3 py-1.5 rounded-lg border border-red-200 uppercase tracking-widest">{estoqueSeguranca.filter(i => i.statusEstoque !== 'Normal').length} itens requerem atenção</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Ano</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Total Executado</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Materiais</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Descontos</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Média Mensal</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Material</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Consumo Mensal</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Estoque Atual</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Estoque Seg.</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Ponto Pedido</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Lote Econ.</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {[...yearlyCompositionData].reverse().map((row) => (
-                          <tr key={row.year} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 text-sm font-black text-slate-900">{row.year}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-emerald-600">{formatCurrency(row.total)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-blue-600">{formatCurrency(row.materiais)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-amber-600">{formatCurrency(row.descontos)}</td>
-                            <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(row.total / 12)}</td>
+                        {(estoqueSeguranca || []).filter(i => i.statusEstoque !== 'Normal').map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-black text-slate-900">{item.name}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Classe {item.classe}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-900">{item.average_monthly_consumption} {item.unit}</td>
+                            <td className="px-6 py-4 text-center text-xs font-black text-slate-900">{item.current_stock}</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.estoqueSeguranca}</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.pontoPedido}</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-blue-600">{item.loteEconomico}</td>
+                            <td className="px-6 py-4">
+                              <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${item.statusEstoque === 'Crítico' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{item.statusEstoque}</span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Classificação Curva ABC Completa</h3>
+                    <span className="text-[10px] font-black text-slate-900 bg-white px-3 py-1.5 rounded-lg border border-slate-200 uppercase tracking-widest">{curvaABC.length} itens catalogados</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Pos.</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Material</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Valor Estoque</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">% do Total</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">% Acumulada</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Classe</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {(showAllMaterials ? (curvaABC || []) : (curvaABC || []).slice(0, 15)).map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 text-xs font-black text-slate-400">#{idx + 1}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                                <span className="text-[10px] font-medium text-slate-500 uppercase tracking-tighter">{item.code}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-black text-slate-900">{formatCurrency(item.valorEstoque)}</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.percentual.toFixed(2)}%</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.percentualAcumulado.toFixed(2)}%</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${item.classe === 'A' ? 'bg-violet-100 text-violet-700' : item.classe === 'B' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{item.classe}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {curvaABC.length > 15 && (
+                    <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-center">
+                      <button onClick={() => setShowAllMaterials(!showAllMaterials)} className="text-xs font-black text-violet-600 hover:text-violet-700 uppercase tracking-widest flex items-center gap-2 cursor-pointer">
+                        {showAllMaterials ? 'Ver menos' : 'Ver todos os registros'} <ArrowRight size={14} className={showAllMaterials ? 'rotate-180' : ''} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

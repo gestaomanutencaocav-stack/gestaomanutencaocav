@@ -401,11 +401,21 @@ export default function MaterialsManager({ title, description, type }: Materials
         setPriceJustification('');
       } else {
         const err = await res.json();
-        alert(`Erro ao atualizar preço: ${err.error}`);
+        const errorMsg = err.error || '';
+        if (errorMsg.includes('schema cache') || errorMsg.includes('does not exist')) {
+          alert("Tabela de histórico não encontrada. Execute o SQL de criação no Supabase e tente novamente.");
+        } else {
+          alert(`Erro ao atualizar preço: ${errorMsg}`);
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating price:', error);
-      alert('Erro ao atualizar preço.');
+      const errorMsg = error.message || '';
+      if (errorMsg.includes('schema cache') || errorMsg.includes('does not exist')) {
+        alert("Tabela de histórico não encontrada. Execute o SQL de criação no Supabase e tente novamente.");
+      } else {
+        alert('Erro ao atualizar preço.');
+      }
     } finally {
       setIsSavingPrice(false);
     }
@@ -1316,7 +1326,7 @@ export default function MaterialsManager({ title, description, type }: Materials
         )}
 
         {/* Modal de Atualização de Preço */}
-          {isPriceUpdateModalOpen && (
+          {isPriceUpdateModalOpen && selectedMaterial && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1331,7 +1341,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     </div>
                     <div>
                       <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Atualizar Preço</h3>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial.codigo} - {selectedMaterial.descricao}</p>
                     </div>
                   </div>
                   <button onClick={() => setIsPriceUpdateModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -1340,6 +1350,13 @@ export default function MaterialsManager({ title, description, type }: Materials
                 </div>
 
                 <div className="p-6 space-y-6">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Preço Atual de Referência</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedMaterial.valorUnitario)}
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
@@ -1348,8 +1365,21 @@ export default function MaterialsManager({ title, description, type }: Materials
                         value={refMonth}
                         onChange={(e) => setRefMonth(Number(e.target.value))}
                       >
-                        {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-                          <option key={m} value={i + 1}>{m}</option>
+                        {[
+                          { val: 1, label: 'Janeiro' },
+                          { val: 2, label: 'Fevereiro' },
+                          { val: 3, label: 'Março' },
+                          { val: 4, label: 'Abril' },
+                          { val: 5, label: 'Maio' },
+                          { val: 6, label: 'Junho' },
+                          { val: 7, label: 'Julho' },
+                          { val: 8, label: 'Agosto' },
+                          { val: 9, label: 'Setembro' },
+                          { val: 10, label: 'Outubro' },
+                          { val: 11, label: 'Novembro' },
+                          { val: 12, label: 'Dezembro' }
+                        ].map((m) => (
+                          <option key={m.val} value={m.val}>{m.label}</option>
                         ))}
                       </select>
                     </div>
@@ -1360,7 +1390,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                         value={refYear}
                         onChange={(e) => setRefYear(Number(e.target.value))}
                       >
-                        {[2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                        {[2023, 2024, 2025, 2026].map(y => (
                           <option key={y} value={y}>{y}</option>
                         ))}
                       </select>
@@ -1373,27 +1403,32 @@ export default function MaterialsManager({ title, description, type }: Materials
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                       <input 
                         type="number"
-                        step="0.01"
+                        step="0.0001"
                         className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                         placeholder="0,00"
                         value={newPrice}
                         onChange={(e) => setNewPrice(e.target.value)}
                       />
                     </div>
-                    {selectedMaterial && newPrice && (
+                    {newPrice && !isNaN(Number(newPrice)) && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variação:</span>
-                        <span className={`text-[10px] font-black ${Number(newPrice) > selectedMaterial.valorUnitario ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100).toFixed(2)}%
-                        </span>
+                        {(() => {
+                          const variation = ((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100);
+                          return (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black font-mono ${variation >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                              {variation > 0 ? '+' : ''}{variation.toFixed(2)}%
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa da Alteração</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa (Opcional)</label>
                     <textarea 
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[100px] resize-none"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[80px] resize-none"
                       placeholder="Ex: Reajuste contratual, inflação do período, etc..."
                       value={priceJustification}
                       onChange={(e) => setPriceJustification(e.target.value)}
@@ -1409,7 +1444,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                     </button>
                     <button 
                       onClick={handleUpdatePrice}
-                      disabled={isSavingPrice || !newPrice}
+                      disabled={isSavingPrice || !newPrice || isNaN(Number(newPrice))}
                       className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {isSavingPrice ? (

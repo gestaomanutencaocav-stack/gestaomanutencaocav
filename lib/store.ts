@@ -242,51 +242,56 @@ export const addPriceHistory = async (materialId: string, payload: {
   unitPrice: number;
   justification?: string;
 }) => {
-  // 1. Get the material to get its current price and code
-  const { data: material, error: fetchError } = await supabase
-    .from('materials')
-    .select('*')
-    .eq('id', materialId)
-    .single();
+  try {
+    // 1. Buscar material atual
+    const { data: material, error: fetchError } = await supabase
+      .from('materials')
+      .select('*')
+      .eq('id', materialId)
+      .single();
 
-  if (fetchError) throw fetchError;
+    if (fetchError) throw fetchError;
 
-  const previousPrice = Number(material.valor_unitario || 0);
-  const variationPercent = previousPrice > 0 
-    ? ((payload.unitPrice - previousPrice) / previousPrice) * 100 
-    : 0;
+    const previousPrice = Number(material.valor_unitario || 0);
+    const variationPercent = previousPrice > 0
+      ? ((payload.unitPrice - previousPrice) / previousPrice) * 100
+      : 0;
 
-  // 2. Insert into history
-  const { data: historyData, error: historyError } = await supabase
-    .from('material_price_history')
-    .insert([{
-      material_id: materialId,
-      material_codigo: material.codigo,
-      reference_month: payload.referenceMonth,
-      reference_year: payload.referenceYear,
-      unit_price: payload.unitPrice,
-      previous_price: previousPrice,
-      variation_percent: variationPercent,
-      justification: payload.justification,
-      material_type: material.type
-    }])
-    .select()
-    .single();
+    // 2. Registrar no histórico
+    const { data: historyData, error: historyError } = await supabase
+      .from('material_price_history')
+      .insert([{
+        material_id: materialId,
+        material_codigo: material.codigo,
+        reference_month: payload.referenceMonth,
+        reference_year: payload.referenceYear,
+        unit_price: payload.unitPrice,
+        previous_price: previousPrice,
+        variation_percent: variationPercent,
+        justification: payload.justification || null,
+        material_type: material.type
+      }])
+      .select()
+      .single();
 
-  if (historyError) throw historyError;
+    if (historyError) throw historyError;
 
-  // 3. Update the material's current price
-  const { error: updateError } = await supabase
-    .from('materials')
-    .update({
-      valor_unitario: payload.unitPrice,
-      valor_total: payload.unitPrice * Number(material.saldo_atual || 0)
-    })
-    .eq('id', materialId);
+    // 3. Atualizar preço atual do material
+    const { error: updateError } = await supabase
+      .from('materials')
+      .update({
+        valor_unitario: payload.unitPrice,
+        valor_total: payload.unitPrice * Number(material.saldo_atual || 0)
+      })
+      .eq('id', materialId);
 
-  if (updateError) throw updateError;
+    if (updateError) throw updateError;
 
-  return mapPriceHistory(historyData);
+    return mapPriceHistory(historyData);
+  } catch (error: any) {
+    console.error('Erro em addPriceHistory:', error);
+    throw error;
+  }
 };
 
 export const getMaterials = async (type: 'estoque' | 'finalistico', month?: number, year?: number) => {
@@ -665,16 +670,16 @@ export const getInspections = async () => {
       .order('created_at', { ascending: false });
     
     if (error) {
+      const errorMsg = `Supabase error fetching inspections: ${error.message} (${error.code})`;
+      console.error(errorMsg, error);
       if (error.code === '42P01') {
         console.error('CRITICAL: Table "inspections" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
-      } else {
-        console.error('Error fetching inspections from Supabase:', JSON.stringify(error, null, 2));
       }
-      throw error;
+      throw new Error(errorMsg);
     }
     return data.map(mapInspection);
   } catch (error: any) {
-    console.error('Error in getInspections store function:', error);
+    console.error('Error in getInspections store function:', error.message || error);
     throw error;
   }
 };
@@ -687,16 +692,16 @@ export const getInspectionRecords = async (inspectionId?: string) => {
     }
     const { data, error } = await query;
     if (error) {
+      const errorMsg = `Supabase error fetching inspection records: ${error.message} (${error.code})`;
+      console.error(errorMsg, error);
       if (error.code === '42P01') {
         console.error('CRITICAL: Table "inspection_records" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
-      } else {
-        console.error('Error fetching records from Supabase:', JSON.stringify(error, null, 2));
       }
-      throw error;
+      throw new Error(errorMsg);
     }
     return data.map(mapInspectionRecord);
   } catch (error: any) {
-    console.error('Error in getInspectionRecords store function:', error);
+    console.error('Error in getInspectionRecords store function:', error.message || error);
     throw error;
   }
 };

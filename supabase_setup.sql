@@ -180,23 +180,23 @@ ALTER TABLE price_corrections ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access to price_corrections" ON price_corrections FOR ALL USING (true) WITH CHECK (true);
 
 -- Create material_price_history table
-CREATE TABLE IF NOT EXISTS material_price_history (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
-    material_codigo TEXT NOT NULL,
-    reference_month INTEGER NOT NULL,
-    reference_year INTEGER NOT NULL,
-    unit_price NUMERIC NOT NULL,
-    previous_price NUMERIC,
-    variation_percent NUMERIC,
-    justification TEXT,
-    material_type TEXT DEFAULT 'finalistico',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS public.material_price_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  material_id UUID REFERENCES public.materials(id) ON DELETE CASCADE,
+  material_codigo TEXT NOT NULL,
+  reference_month INTEGER NOT NULL,
+  reference_year INTEGER NOT NULL,
+  unit_price NUMERIC(15,4) NOT NULL,
+  previous_price NUMERIC(15,4),
+  variation_percent NUMERIC(10,4),
+  justification TEXT,
+  material_type TEXT DEFAULT 'finalistico',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable RLS for material_price_history
-ALTER TABLE material_price_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to material_price_history" ON material_price_history FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE public.material_price_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on material_price_history" ON public.material_price_history FOR ALL USING (true) WITH CHECK (true);
 
 -- Insert initial professionals if not exists
 INSERT INTO professionals (name, specialty, registration, phone)
