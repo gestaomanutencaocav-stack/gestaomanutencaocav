@@ -792,12 +792,13 @@ export default function RelatoriosPage() {
 
   const abcChartData = useMemo(() => {
     if (!Array.isArray(curvaABC) || curvaABC.length === 0) return { counts: [], values: [] };
-    const counts = { A: 0, B: 0, C: 0 };
-    const values = { A: 0, B: 0, C: 0 };
+    const counts: Record<'A' | 'B' | 'C', number> = { A: 0, B: 0, C: 0 };
+    const values: Record<'A' | 'B' | 'C', number> = { A: 0, B: 0, C: 0 };
     
     curvaABC.forEach(item => {
-      counts[item.classe]++;
-      values[item.classe] += item.valorEstoque;
+      const classe = item.classe as 'A' | 'B' | 'C';
+      counts[classe]++;
+      values[classe] += item.valorEstoque;
     });
 
     return {
