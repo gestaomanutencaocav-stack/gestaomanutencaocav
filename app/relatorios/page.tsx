@@ -1385,7 +1385,7 @@ export default function RelatoriosPage() {
                           <XAxis dataKey="name" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
                           <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} formatter={(value) => formatCurrency(Number(value ?? 0))} />
                           <Area type="monotone" dataKey="valor" stroke={AMBER_COLOR} fillOpacity={1} fill="url(#colorUv)" name="Valor Total" />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -1399,7 +1399,7 @@ export default function RelatoriosPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                           <XAxis dataKey="year" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
                           <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
                           <Bar dataKey="materiais" fill={EMERALD_COLOR} name="Materiais" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="descontos" fill={RED_COLOR} name="Descontos" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -1427,7 +1427,7 @@ export default function RelatoriosPage() {
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1440,7 +1440,7 @@ export default function RelatoriosPage() {
                         <BarChart data={topInvoicesData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                           <XAxis dataKey="name" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
                           <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
                           <Bar dataKey="valor" fill={AMBER_COLOR} radius={4} name="Valor" />
                         </BarChart>
                       </ResponsiveContainer>

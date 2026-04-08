@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS materials (
     saldo_atual NUMERIC DEFAULT 0,
     type TEXT NOT NULL, -- 'estoque' or 'finalistico'
     consumption_records JSONB DEFAULT '[]'::jsonb,
+    average_monthly_consumption NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(codigo, type)
 );

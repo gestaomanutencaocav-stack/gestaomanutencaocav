@@ -99,7 +99,8 @@ export interface Material {
   saldoInicial: number;
   saldoAtual: number;
   type: 'estoque' | 'finalistico';
-  consumptionRecords?: { date: string; quantity: number }[];
+  consumptionRecords?: { date: string; quantity: number; month?: number; year?: number }[];
+  averageMonthlyConsumption?: number;
 }
 
 const mapMaterial = (m: any): Material => ({
@@ -114,6 +115,7 @@ const mapMaterial = (m: any): Material => ({
   saldoAtual: Number(m.saldo_atual || 0),
   type: m.type,
   consumptionRecords: m.consumption_records || [],
+  averageMonthlyConsumption: Number(m.average_monthly_consumption || 0),
 });
 
 export interface PriceCorrection {
@@ -387,6 +389,7 @@ export const updateMaterial = async (id: string, updates: Partial<Material>) => 
   if (updates.saldoInicial !== undefined) dbUpdates.saldo_inicial = updates.saldoInicial;
   if (updates.saldoAtual !== undefined) dbUpdates.saldo_atual = updates.saldoAtual;
   if (updates.consumptionRecords) dbUpdates.consumption_records = updates.consumptionRecords;
+  if (updates.averageMonthlyConsumption !== undefined) dbUpdates.average_monthly_consumption = updates.averageMonthlyConsumption;
 
   const { data, error } = await supabase
     .from('materials')

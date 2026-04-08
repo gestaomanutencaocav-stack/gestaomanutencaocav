@@ -73,6 +73,7 @@ interface Material {
   consumptionRecords: ConsumptionRecord[];
   priceVariation?: number;
   isHistoricalPrice?: boolean;
+  averageMonthlyConsumption?: number;
 }
 
 interface MaterialsManagerProps {
@@ -97,6 +98,10 @@ export default function MaterialsManager({ title, description, type }: Materials
   
   const [editingUnitValueId, setEditingUnitValueId] = useState<string | null>(null);
   const [tempUnitValue, setTempUnitValue] = useState('');
+  
+  // Estados para edição inline do consumo
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
   
   // Price History State
   const [isPriceUpdateModalOpen, setIsPriceUpdateModalOpen] = useState(false);
@@ -477,6 +482,74 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
   };
 
+  const handleSaveConsumo = async (materialId: string, newValue: number) => {
+    if (newValue < 0) {
+      alert('O consumo não pode ser negativo.');
+      return;
+    }
+
+    const material = materials.find(m => m.id === materialId);
+    if (!material) return;
+
+    try {
+      // Atualizar consumption_records com o novo consumo do mês atual
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      const existingRecords = Array.isArray(material.consumptionRecords) 
+        ? material.consumptionRecords 
+        : [];
+      
+      // Substituir ou adicionar o registro do mês atual
+      const updatedRecords = existingRecords.filter(
+        (r: any) => !(r.month === currentMonth && r.year === currentYear)
+      );
+      updatedRecords.push({ 
+        month: currentMonth, 
+        year: currentYear, 
+        quantity: newValue,
+        date: now.toISOString()
+      });
+
+      // Recalcular saldo atual
+      const totalConsumed = updatedRecords.reduce((acc, curr) => acc + curr.quantity, 0);
+      const newSaldoAtual = material.saldoInicial - totalConsumed;
+
+      // Recalcular média (exemplo simples: média dos últimos 12 meses ou todos os registros)
+      const avgConsumption = updatedRecords.length > 0 
+        ? totalConsumed / updatedRecords.length 
+        : 0;
+
+      const res = await fetch(`/api/materials/${materialId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consumptionRecords: updatedRecords,
+          saldoAtual: newSaldoAtual,
+          averageMonthlyConsumption: avgConsumption
+        }),
+      });
+
+      if (res.ok) {
+        const updatedMaterial = await res.json();
+        setMaterials(prev => prev.map(m => m.id === materialId ? {
+          ...m,
+          consumptionRecords: updatedMaterial.consumptionRecords,
+          saldoAtual: updatedMaterial.saldoAtual,
+          averageMonthlyConsumption: updatedMaterial.averageMonthlyConsumption
+        } : m));
+        setEditingCell(null);
+      } else {
+        const err = await res.json();
+        alert(`Erro ao salvar: ${err.error || 'Erro desconhecido'}`);
+      }
+    } catch (error) {
+      console.error('Error saving consumption:', error);
+      alert('Erro de conexão ao salvar consumo.');
+    }
+  };
+
   const filteredMaterials = useMemo(() => {
     return materials
       .filter(m => {
@@ -781,7 +854,13 @@ export default function MaterialsManager({ title, description, type }: Materials
                 <th className="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">V. Unitário</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">V. Total (Saldo)</th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-center">
-                  Consumo {selectedMonth === 0 ? 'no Ano' : 'no Mês'}
+                  <div className="flex items-center justify-center gap-1 group/h relative">
+                    <span>Consumo {selectedMonth === 0 ? 'no Ano' : 'no Mês'}</span>
+                    <Edit3 size={10} className="text-slate-400" />
+                    <div className="absolute bottom-full mb-2 hidden group-hover/h:block bg-slate-800 text-white text-[9px] px-2 py-1 rounded whitespace-nowrap">
+                      Clique no valor para editar
+                    </div>
+                  </div>
                 </th>
                 <th className="px-6 py-4 text-[10px] font-black text-slate-800 uppercase tracking-widest text-right">Ações</th>
               </tr>
@@ -890,16 +969,51 @@ export default function MaterialsManager({ title, description, type }: Materials
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.saldoAtual * item.valorUnitario)}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className={`text-xs font-black font-mono ${monthConsumption > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-                          {monthConsumption}
-                        </span>
-                        {monthConsumption > 0 && (
-                          <span className="text-[9px] text-slate-800 font-bold">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthConsumption * item.valorUnitario)}
+                      {editingCell === item.id ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="number"
+                            step="any"
+                            autoFocus
+                            className="w-20 bg-white border border-amber-300 rounded px-2 py-1 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/50"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() => handleSaveConsumo(item.id!, Number(editingValue))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveConsumo(item.id!, Number(editingValue));
+                              if (e.key === 'Escape') setEditingCell(null);
+                            }}
+                          />
+                          <span className="text-[8px] text-slate-400 font-black uppercase">Enter p/ salvar</span>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setEditingCell(item.id!);
+                            // Tenta pegar o consumo do mês atual ou usa 0
+                            const currentMonth = new Date().getMonth() + 1;
+                            const currentYear = new Date().getFullYear();
+                            const currentMonthRecord = item.consumptionRecords.find((r: any) => 
+                              (r.month === currentMonth && r.year === currentYear) || 
+                              (r.date && parseISO(r.date).getMonth() + 1 === currentMonth && parseISO(r.date).getFullYear() === currentYear)
+                            );
+                            setEditingValue(currentMonthRecord ? currentMonthRecord.quantity.toString() : monthConsumption.toString());
+                          }}
+                          className="flex flex-col items-center group/edit relative w-full"
+                        >
+                          <span className={`text-xs font-black font-mono transition-colors ${monthConsumption > 0 ? 'text-amber-600' : 'text-slate-700'} group-hover/edit:text-amber-500`}>
+                            {monthConsumption}
                           </span>
-                        )}
-                      </div>
+                          {monthConsumption > 0 && (
+                            <span className="text-[9px] text-slate-800 font-bold">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthConsumption * item.valorUnitario)}
+                            </span>
+                          )}
+                          <div className="absolute -top-1 opacity-0 group-hover/edit:opacity-100 transition-opacity bg-amber-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter">
+                            editar
+                          </div>
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
