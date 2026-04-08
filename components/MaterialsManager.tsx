@@ -44,6 +44,8 @@ import {
 interface ConsumptionRecord {
   date: string;
   quantity: number;
+  month?: number;
+  year?: number;
 }
 
 interface PriceHistory {
@@ -503,7 +505,7 @@ export default function MaterialsManager({ title, description, type }: Materials
       
       // Substituir ou adicionar o registro do mês atual
       const updatedRecords = existingRecords.filter(
-        (r: any) => !(r.month === currentMonth && r.year === currentYear)
+        (r) => !(r.month === currentMonth && r.year === currentYear)
       );
       updatedRecords.push({ 
         month: currentMonth, 
