@@ -986,10 +986,22 @@ export default function MaterialsManager({ title, description, type }: Materials
                             className="w-20 bg-white border border-amber-300 rounded px-2 py-1 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/50"
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
-                            onBlur={() => handleSaveConsumo(item.id!, Number(editingValue))}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveConsumo(item.id!, Number(editingValue));
-                              if (e.key === 'Escape') setEditingCell(null);
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur(); // dispara onBlur que salva
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault();
+                                setEditingCell(null);
+                                setEditingValue('');
+                              }
+                            }}
+                            onBlur={(e) => {
+                              // só salva se não foi Escape
+                              if (editingCell === item.id) {
+                                handleSaveConsumo(item.id!, Number(editingValue));
+                              }
                             }}
                           />
                           <span className="text-[8px] text-slate-400 font-black uppercase">Enter p/ salvar</span>
