@@ -485,6 +485,12 @@ export default function MaterialsManager({ title, description, type }: Materials
   };
 
   const handleSaveConsumo = async (materialId: string, newValue: number) => {
+    if (!materialId || materialId === 'undefined') {
+      alert('ID do material não encontrado. Recarregue a página.');
+      setEditingCell(null);
+      return;
+    }
+
     if (newValue < 0) {
       alert('O consumo não pode ser negativo.');
       return;
@@ -991,6 +997,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                       ) : (
                         <button 
                           onClick={() => {
+                            console.log('Material ID:', item.id, 'Material:', item.codigo);
                             setEditingCell(item.id!);
                             // Tenta pegar o consumo do mês atual ou usa 0
                             const currentMonth = new Date().getMonth() + 1;

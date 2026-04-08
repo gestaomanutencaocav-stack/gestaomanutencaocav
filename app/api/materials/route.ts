@@ -10,7 +10,11 @@ export async function GET(request: Request) {
   if (!type) return NextResponse.json({ error: 'Type is required' }, { status: 400 });
   
   const data = await getMaterials(type, month, year);
-  return NextResponse.json(data);
+  // Explicitly ensure id is present in the response
+  return NextResponse.json(data.map(m => ({
+    ...m,
+    id: m.id
+  })));
 }
 
 export async function POST(request: Request) {
