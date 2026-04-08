@@ -613,7 +613,7 @@ export default function RelatoriosPage() {
       setInspProfessional('Todos');
       setCustomStartDate('');
       setCustomEndDate('');
-    } else {
+    } else if (activeTab === 'gestao-contratual') {
       setContractFilterYear('Todos');
     }
   };
@@ -1311,7 +1311,171 @@ export default function RelatoriosPage() {
                   )}
                 </div>
               </motion.div>
-            ) : (
+            ) : activeTab === 'gestao-contratual' ? (
+              <motion.div key="gestao-contratual" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
+                  <div className="flex items-center gap-2 mr-2">
+                    <Filter size={18} className="text-slate-700" />
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano de Exercício</label>
+                    <select
+                      value={contractFilterYear}
+                      onChange={(e) => setContractFilterYear(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    >
+                      {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <button
+                    onClick={clearFilters}
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors"
+                  >
+                    Limpar
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Executado</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.totalExecuted)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Executado Ano Atual</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.currentYearExecuted)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Média Mensal</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.avgInvoice)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Descontos</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.totalDiscounts)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Maior Fatura</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.maxInvoice)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Menor Fatura</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.minInvoice)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Custo Materiais</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{formatCurrency(contractKPIs.totalMaterials)}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Dias para Vencimento</p>
+                    <p className="text-lg font-black text-slate-900 font-mono">{contractKPIs.remainingDays}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Evolução de Faturamento (24 meses)</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={monthlyEvolutionData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={AMBER_COLOR} stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor={AMBER_COLOR} stopOpacity={0.1}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="name" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
+                          <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} formatter={(value: number) => formatCurrency(value)} />
+                          <Area type="monotone" dataKey="valor" stroke={AMBER_COLOR} fillOpacity={1} fill="url(#colorUv)" name="Valor Total" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Composição Anual</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={yearlyCompositionData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis dataKey="year" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
+                          <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Bar dataKey="materiais" fill={EMERALD_COLOR} name="Materiais" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="descontos" fill={RED_COLOR} name="Descontos" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Distribuição de Componentes</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={invoiceComponentData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={80}
+                            outerRadius={110}
+                            fill="#8884d8"
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {invoiceComponentData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Top 5 Maiores Faturas</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topInvoicesData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                          <XAxis dataKey="name" fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} />
+                          <YAxis fontSize={10} fontWeight="bold" tick={{ fill: SLATE_COLOR }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Bar dataKey="valor" fill={AMBER_COLOR} radius={4} name="Valor" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Resumo Anual de Execução</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano</th>
+                          <th scope="col" className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Executado</th>
+                          <th scope="col" className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Materiais</th>
+                          <th scope="col" className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Descontos</th>
+                          <th scope="col" className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Média Mensal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-200">
+                        {yearlyCompositionData.map(row => (
+                          <tr key={row.year} className="text-xs font-bold text-slate-700">
+                            <td className="px-6 py-4 whitespace-nowrap font-mono">{row.year}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono">{formatCurrency(row.total)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono">{formatCurrency(row.materiais)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono">{formatCurrency(row.descontos)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono">{formatCurrency(row.total / 12)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            ) : activeTab === 'materiais' ? (
               <motion.div key="materiais" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
@@ -1481,7 +1645,7 @@ export default function RelatoriosPage() {
                   )}
                 </div>
               </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
       </div>
