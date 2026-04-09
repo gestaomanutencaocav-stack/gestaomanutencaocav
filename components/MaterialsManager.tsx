@@ -105,6 +105,19 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   
+  const editingCellRef = useRef<string | null>(null);
+  const editingValueRef = useRef<string>('');
+
+  const setEditingCellWithRef = (val: string | null) => {
+    editingCellRef.current = val;
+    setEditingCell(val);
+  };
+
+  const setEditingValueWithRef = (val: string) => {
+    editingValueRef.current = val;
+    setEditingValue(val);
+  };
+  
   // Price History State
   const [isPriceUpdateModalOpen, setIsPriceUpdateModalOpen] = useState(false);
   const [isPriceHistoryModalOpen, setIsPriceHistoryModalOpen] = useState(false);
@@ -487,7 +500,7 @@ export default function MaterialsManager({ title, description, type }: Materials
   const handleSaveConsumo = async (materialId: string, newValue: number) => {
     if (!materialId || materialId === 'undefined') {
       alert('ID do material não encontrado. Recarregue a página.');
-      setEditingCell(null);
+      setEditingCellWithRef(null);
       return;
     }
 
@@ -547,7 +560,7 @@ export default function MaterialsManager({ title, description, type }: Materials
           saldoAtual: updatedMaterial.saldoAtual,
           averageMonthlyConsumption: updatedMaterial.averageMonthlyConsumption
         } : m));
-        setEditingCell(null);
+        setEditingCellWithRef(null);
       } else {
         const err = await res.json();
         alert(`Erro ao salvar: ${err.error || 'Erro desconhecido'}`);
@@ -563,20 +576,10 @@ export default function MaterialsManager({ title, description, type }: Materials
       .filter(m => {
         const matchesSearch = m.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
           m.descricao.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        if (!matchesSearch) return false;
-
-        if (selectedMonth !== 0) {
-          return m.consumptionRecords.some(record => {
-            const date = parseISO(record.date);
-            return date.getFullYear() === selectedYear && (date.getMonth() + 1) === selectedMonth;
-          });
-        }
-
-        return true;
+        return matchesSearch;
       })
       .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
-  }, [materials, searchTerm, selectedMonth, selectedYear]);
+  }, [materials, searchTerm]);
 
   const monthStats = useMemo(() => {
     let totalConsumedValue = 0;
@@ -985,23 +988,24 @@ export default function MaterialsManager({ title, description, type }: Materials
                             autoFocus
                             className="w-20 bg-white border border-amber-300 rounded px-2 py-1 text-center text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/50"
                             value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
+                            onChange={(e) => setEditingValueWithRef(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                e.currentTarget.blur(); // dispara onBlur que salva
+                                const id = editingCellRef.current;
+                                const val = editingValueRef.current;
+                                if (id) handleSaveConsumo(id, Number(val));
                               }
                               if (e.key === 'Escape') {
                                 e.preventDefault();
-                                setEditingCell(null);
-                                setEditingValue('');
+                                setEditingCellWithRef(null);
+                                setEditingValueWithRef('');
                               }
                             }}
-                            onBlur={(e) => {
-                              // só salva se não foi Escape
-                              if (editingCell === item.id) {
-                                handleSaveConsumo(item.id!, Number(editingValue));
-                              }
+                            onBlur={() => {
+                              const id = editingCellRef.current;
+                              const val = editingValueRef.current;
+                              if (id) handleSaveConsumo(id, Number(val));
                             }}
                           />
                           <span className="text-[8px] text-slate-400 font-black uppercase">Enter p/ salvar</span>
@@ -1010,7 +1014,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                         <button 
                           onClick={() => {
                             console.log('Material ID:', item.id, 'Material:', item.codigo);
-                            setEditingCell(item.id!);
+                            setEditingCellWithRef(item.id!);
                             // Tenta pegar o consumo do mês atual ou usa 0
                             const currentMonth = new Date().getMonth() + 1;
                             const currentYear = new Date().getFullYear();
@@ -1018,7 +1022,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                               (r.month === currentMonth && r.year === currentYear) || 
                               (r.date && parseISO(r.date).getMonth() + 1 === currentMonth && parseISO(r.date).getFullYear() === currentYear)
                             );
-                            setEditingValue(currentMonthRecord ? currentMonthRecord.quantity.toString() : monthConsumption.toString());
+                            setEditingValueWithRef(currentMonthRecord ? currentMonthRecord.quantity.toString() : monthConsumption.toString());
                           }}
                           className="flex flex-col items-center group/edit relative w-full"
                         >
