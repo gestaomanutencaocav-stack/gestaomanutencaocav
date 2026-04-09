@@ -153,20 +153,21 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
   }, [type]);
 
+  // CORREÇÃO 1: fetch sem filtro de mês para mostrar todos os materiais
   const fetchMaterials = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/materials?type=${type}&month=${selectedMonth}&year=${selectedYear}`);
+      const res = await fetch(`/api/materials?type=${type}`);
       if (res.ok) {
         const data = await res.json();
-        setMaterials(data);
+        setMaterials(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching materials:', error);
     } finally {
       setLoading(false);
     }
-  }, [type, selectedMonth, selectedYear]);
+  }, [type]);
 
   React.useEffect(() => {
     fetchMaterials();
@@ -235,17 +236,14 @@ export default function MaterialsManager({ title, description, type }: Materials
 
         const findKey = (item: any, possibleKeys: string[]) => {
           const keys = Object.keys(item);
-          // Try exact match first
           let found = keys.find(k => possibleKeys.some(pk => k.toLowerCase() === pk.toLowerCase()));
           if (found) return found;
-          // Then try partial match
           return keys.find(k => possibleKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase())));
         };
 
         const parseCurrency = (val: any) => {
           if (typeof val === 'number') return val;
           if (!val) return 0;
-          // Remove R$, spaces, and handle PT-BR format (1.250,50 -> 1250.50)
           const clean = String(val)
             .replace(/R\$/g, '')
             .replace(/\s/g, '')
@@ -331,12 +329,10 @@ export default function MaterialsManager({ title, description, type }: Materials
     let newSaldoAtual = selectedMaterial.saldoAtual;
 
     if (editingRecordIndex !== null) {
-      // Editing an existing record
       const oldQty = newRecords[editingRecordIndex].quantity;
       newRecords[editingRecordIndex] = { date: consumptionDate, quantity: qty };
       newSaldoAtual = selectedMaterial.saldoAtual + oldQty - qty;
     } else {
-      // Adding a new record
       newRecords.push({ date: consumptionDate, quantity: qty });
       newSaldoAtual = selectedMaterial.saldoAtual - qty;
     }
@@ -384,7 +380,6 @@ export default function MaterialsManager({ title, description, type }: Materials
       });
 
       if (res.ok) {
-        // Update local state for the modal to reflect changes immediately if possible
         const updatedMaterial = { 
           ...selectedMaterial, 
           saldoAtual: newSaldoAtual, 
@@ -497,7 +492,8 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
   };
 
-  const handleSaveConsumo = async (materialId: string, newValue: number) => {
+  // CORREÇÃO 2: useCallback com dependência em materials para closure correta
+  const handleSaveConsumo = useCallback(async (materialId: string, newValue: number) => {
     if (!materialId || materialId === 'undefined') {
       alert('ID do material não encontrado. Recarregue a página.');
       setEditingCellWithRef(null);
@@ -510,10 +506,13 @@ export default function MaterialsManager({ title, description, type }: Materials
     }
 
     const material = materials.find(m => m.id === materialId);
-    if (!material) return;
+    if (!material) {
+      console.error('Material não encontrado no estado:', materialId, 'Total materiais:', materials.length);
+      setEditingCellWithRef(null);
+      return;
+    }
 
     try {
-      // Atualizar consumption_records com o novo consumo do mês atual
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
@@ -522,7 +521,6 @@ export default function MaterialsManager({ title, description, type }: Materials
         ? material.consumptionRecords 
         : [];
       
-      // Substituir ou adicionar o registro do mês atual
       const updatedRecords = existingRecords.filter(
         (r) => !(r.month === currentMonth && r.year === currentYear)
       );
@@ -533,11 +531,8 @@ export default function MaterialsManager({ title, description, type }: Materials
         date: now.toISOString()
       });
 
-      // Recalcular saldo atual
       const totalConsumed = updatedRecords.reduce((acc, curr) => acc + curr.quantity, 0);
       const newSaldoAtual = material.saldoInicial - totalConsumed;
-
-      // Recalcular média (exemplo simples: média dos últimos 12 meses ou todos os registros)
       const avgConsumption = updatedRecords.length > 0 
         ? totalConsumed / updatedRecords.length 
         : 0;
@@ -569,8 +564,9 @@ export default function MaterialsManager({ title, description, type }: Materials
       console.error('Error saving consumption:', error);
       alert('Erro de conexão ao salvar consumo.');
     }
-  };
+  }, [materials]);
 
+  // Filtro apenas por busca — sem filtro por mês
   const filteredMaterials = useMemo(() => {
     return materials
       .filter(m => {
@@ -711,7 +707,6 @@ export default function MaterialsManager({ title, description, type }: Materials
               </div>
             </div>
 
-            {/* History Toggle */}
             <div className="mt-6 pt-6 border-t border-slate-100">
               <button 
                 onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
@@ -1013,9 +1008,7 @@ export default function MaterialsManager({ title, description, type }: Materials
                       ) : (
                         <button 
                           onClick={() => {
-                            console.log('Material ID:', item.id, 'Material:', item.codigo);
                             setEditingCellWithRef(item.id!);
-                            // Tenta pegar o consumo do mês atual ou usa 0
                             const currentMonth = new Date().getMonth() + 1;
                             const currentYear = new Date().getFullYear();
                             const currentMonthRecord = item.consumptionRecords.find((r: any) => 
@@ -1465,284 +1458,253 @@ export default function MaterialsManager({ title, description, type }: Materials
         )}
 
         {/* Modal de Atualização de Preço */}
-          {isPriceUpdateModalOpen && selectedMaterial && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
-              >
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                      <DollarSign size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Atualizar Preço</h3>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial.codigo} - {selectedMaterial.descricao}</p>
-                    </div>
+        {isPriceUpdateModalOpen && selectedMaterial && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                    <DollarSign size={20} />
                   </div>
-                  <button onClick={() => setIsPriceUpdateModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Atualizar Preço</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial.codigo} - {selectedMaterial.descricao}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsPriceUpdateModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Preço Atual de Referência</p>
+                  <p className="text-lg font-black text-slate-900 font-mono">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedMaterial.valorUnitario)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
+                    <select 
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={refMonth}
+                      onChange={(e) => setRefMonth(Number(e.target.value))}
+                    >
+                      {[
+                        { val: 1, label: 'Janeiro' }, { val: 2, label: 'Fevereiro' },
+                        { val: 3, label: 'Março' }, { val: 4, label: 'Abril' },
+                        { val: 5, label: 'Maio' }, { val: 6, label: 'Junho' },
+                        { val: 7, label: 'Julho' }, { val: 8, label: 'Agosto' },
+                        { val: 9, label: 'Setembro' }, { val: 10, label: 'Outubro' },
+                        { val: 11, label: 'Novembro' }, { val: 12, label: 'Dezembro' }
+                      ].map((m) => (
+                        <option key={m.val} value={m.val}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano de Referência</label>
+                    <select 
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={refYear}
+                      onChange={(e) => setRefYear(Number(e.target.value))}
+                    >
+                      {[2023, 2024, 2025, 2026].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Novo Preço Unitário</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                    <input 
+                      type="number"
+                      step="0.0001"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                    />
+                  </div>
+                  {newPrice && !isNaN(Number(newPrice)) && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variação:</span>
+                      {(() => {
+                        const variation = ((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100);
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black font-mono ${variation >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {variation > 0 ? '+' : ''}{variation.toFixed(2)}%
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa (Opcional)</label>
+                  <textarea 
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[80px] resize-none"
+                    placeholder="Ex: Reajuste contratual, inflação do período, etc..."
+                    value={priceJustification}
+                    onChange={(e) => setPriceJustification(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => setIsPriceUpdateModalOpen(false)}
+                    className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleUpdatePrice}
+                    disabled={isSavingPrice || !newPrice || isNaN(Number(newPrice))}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingPrice ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        <span>Salvar Preço</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal de Histórico de Preços */}
+        {isPriceHistoryModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-200 text-slate-700 rounded-lg">
+                    <History size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Histórico de Preços</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => selectedMaterial && exportPriceHistoryToExcel(selectedMaterial, priceHistory)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
+                  >
+                    <Download size={14} />
+                    Exportar Excel
+                  </button>
+                  <button onClick={() => setIsPriceHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                     <X size={20} />
                   </button>
                 </div>
+              </div>
 
-                <div className="p-6 space-y-6">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Preço Atual de Referência</p>
-                    <p className="text-lg font-black text-slate-900 font-mono">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedMaterial.valorUnitario)}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mês de Referência</label>
-                      <select 
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        value={refMonth}
-                        onChange={(e) => setRefMonth(Number(e.target.value))}
-                      >
-                        {[
-                          { val: 1, label: 'Janeiro' },
-                          { val: 2, label: 'Fevereiro' },
-                          { val: 3, label: 'Março' },
-                          { val: 4, label: 'Abril' },
-                          { val: 5, label: 'Maio' },
-                          { val: 6, label: 'Junho' },
-                          { val: 7, label: 'Julho' },
-                          { val: 8, label: 'Agosto' },
-                          { val: 9, label: 'Setembro' },
-                          { val: 10, label: 'Outubro' },
-                          { val: 11, label: 'Novembro' },
-                          { val: 12, label: 'Dezembro' }
-                        ].map((m) => (
-                          <option key={m.val} value={m.val}>{m.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano de Referência</label>
-                      <select 
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        value={refYear}
-                        onChange={(e) => setRefYear(Number(e.target.value))}
-                      >
-                        {[2023, 2024, 2025, 2026].map(y => (
-                          <option key={y} value={y}>{y}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Novo Preço Unitário</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
-                      <input 
-                        type="number"
-                        step="0.0001"
-                        className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                        placeholder="0,00"
-                        value={newPrice}
-                        onChange={(e) => setNewPrice(e.target.value)}
-                      />
-                    </div>
-                    {newPrice && !isNaN(Number(newPrice)) && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variação:</span>
-                        {(() => {
-                          const variation = ((Number(newPrice) / selectedMaterial.valorUnitario - 1) * 100);
-                          return (
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black font-mono ${variation >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                              {variation > 0 ? '+' : ''}{variation.toFixed(2)}%
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Justificativa (Opcional)</label>
-                    <textarea 
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50 min-h-[80px] resize-none"
-                      placeholder="Ex: Reajuste contratual, inflação do período, etc..."
-                      value={priceJustification}
-                      onChange={(e) => setPriceJustification(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button 
-                      onClick={() => setIsPriceUpdateModalOpen(false)}
-                      className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                    >
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={handleUpdatePrice}
-                      disabled={isSavingPrice || !newPrice || isNaN(Number(newPrice))}
-                      className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isSavingPrice ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Save size={16} />
-                          <span>Salvar Preço</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-
-          {/* Modal de Histórico de Preços */}
-          {isPriceHistoryModalOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-              >
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-200 text-slate-700 rounded-lg">
-                      <History size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Histórico de Preços</h3>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{selectedMaterial?.codigo} - {selectedMaterial?.descricao}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => selectedMaterial && exportPriceHistoryToExcel(selectedMaterial, priceHistory)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
-                    >
-                      <Download size={14} />
-                      Exportar Excel
-                    </button>
-                    <button onClick={() => setIsPriceHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                      <X size={20} />
-                    </button>
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Evolução de Preços</h4>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={[...priceHistory].reverse()}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey={(h) => `${h.referenceMonth}/${h.referenceYear}`} 
+                          fontSize={10} fontWeight="bold" tick={{ fill: '#64748b' }}
+                          axisLine={false} tickLine={false}
+                        />
+                        <YAxis 
+                          fontSize={10} fontWeight="bold" tick={{ fill: '#64748b' }}
+                          axisLine={false} tickLine={false}
+                          tickFormatter={(val) => `R$ ${val}`}
+                        />
+                        <RechartsTooltip 
+                          contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                        />
+                        <Line 
+                          type="monotone" dataKey="unitPrice" stroke="#f59e0b" strokeWidth={3}
+                          dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                          activeDot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
+                          name="Preço Unitário"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                  {/* Gráfico de Evolução */}
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Evolução de Preços</h4>
-                    <div className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={[...priceHistory].reverse()}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis 
-                            dataKey={(h) => `${h.referenceMonth}/${h.referenceYear}`} 
-                            fontSize={10} 
-                            fontWeight="bold" 
-                            tick={{ fill: '#64748b' }}
-                            axisLine={false}
-                            tickLine={false}
-                          />
-                          <YAxis 
-                            fontSize={10} 
-                            fontWeight="bold" 
-                            tick={{ fill: '#64748b' }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(val) => `R$ ${val}`}
-                          />
-                          <RechartsTooltip 
-                            contentStyle={{ 
-                              backgroundColor: '#fff', 
-                              borderRadius: '12px', 
-                              border: '1px solid #e2e8f0',
-                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                              fontSize: '10px',
-                              fontWeight: 'bold'
-                            }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="unitPrice" 
-                            stroke="#f59e0b" 
-                            strokeWidth={3} 
-                            dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
-                            activeDot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }}
-                            name="Preço Unitário"
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Tabela de Histórico */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registros Detalhados</h4>
-                    <div className="border border-slate-100 rounded-xl overflow-hidden">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Período</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Valor Unitário</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Variação</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Justificativa</th>
-                            <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Atualizado em</th>
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registros Detalhados</h4>
+                  <div className="border border-slate-100 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Período</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Valor Unitário</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Variação</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Justificativa</th>
+                          <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Atualizado em</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {isLoadingHistory ? (
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Carregando histórico...</td></tr>
+                        ) : priceHistory.length === 0 ? (
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Nenhum histórico registrado.</td></tr>
+                        ) : priceHistory.map((h) => (
+                          <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 text-[10px] font-black text-slate-800">{h.referenceMonth}/{h.referenceYear}</td>
+                            <td className="px-4 py-3 text-right text-[10px] font-black text-slate-800 font-mono">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(h.unitPrice)}
+                            </td>
+                            <td className={`px-4 py-3 text-right text-[10px] font-black font-mono ${!h.variationPercent || h.variationPercent === 0 ? 'text-slate-400' : h.variationPercent > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {h.variationPercent ? (h.variationPercent > 0 ? '+' : '') + h.variationPercent.toFixed(2) + '%' : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-600 max-w-[200px] truncate" title={h.justification ?? undefined}>
+                              {h.justification || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-500">
+                              {format(parseISO(h.createdAt), 'dd/MM/yyyy HH:mm')}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {isLoadingHistory ? (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Carregando histórico...</td>
-                            </tr>
-                          ) : priceHistory.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Nenhum histórico registrado.</td>
-                            </tr>
-                          ) : priceHistory.map((h) => (
-                            <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 text-[10px] font-black text-slate-800">{h.referenceMonth}/{h.referenceYear}</td>
-                              <td className="px-4 py-3 text-right text-[10px] font-black text-slate-800 font-mono">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(h.unitPrice)}
-                              </td>
-                              <td className={`px-4 py-3 text-right text-[10px] font-black font-mono ${
-                                !h.variationPercent || h.variationPercent === 0 ? 'text-slate-400' : 
-                                h.variationPercent > 0 ? 'text-rose-600' : 'text-emerald-600'
-                              }`}>
-                                {h.variationPercent ? (h.variationPercent > 0 ? '+' : '') + h.variationPercent.toFixed(2) + '%' : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-slate-600 max-w-[200px] truncate" title={h.justification ?? undefined}>
-                                {h.justification || '-'}
-                              </td>
-                              <td className="px-4 py-3 text-[10px] font-bold text-slate-500">
-                                {format(parseISO(h.createdAt), 'dd/MM/yyyy HH:mm')}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+              </div>
 
-                <div className="p-6 border-t border-slate-100 bg-slate-50">
-                  <button 
-                    onClick={() => setIsPriceHistoryModalOpen(false)}
-                    className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
-                  >
-                    Fechar Histórico
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
+              <div className="p-6 border-t border-slate-100 bg-slate-50">
+                <button 
+                  onClick={() => setIsPriceHistoryModalOpen(false)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Fechar Histórico
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
