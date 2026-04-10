@@ -13,6 +13,7 @@ import {
   Wrench, 
   Timer,
   CheckCircle2,
+  Activity,
   X,
   ShieldCheck,
   ShieldAlert,
@@ -710,6 +711,45 @@ export default function RequestDetailsPage() {
         fetchRequest();
       } else {
         showNotification('error', `Erro ao processar ${authAction}`);
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', 'Erro de conexão');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEmAndamento = async () => {
+    if (!request) return;
+    setIsSaving(true);
+    
+    try {
+      const newEvent: TimelineEvent = {
+        date: new Date().toISOString(),
+        action: 'Status alterado para: Em Andamento',
+        user: 'Sistema',
+        type: 'auto'
+      };
+
+      const updatedFields: Partial<MaintenanceRequest> = {
+        status: 'Em Andamento',
+        statusColor: 'blue',
+        timeline: [newEvent, ...(request.timeline || [])]
+      };
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      
+      if (res.ok) {
+        setRequest({ ...request, ...updatedFields });
+        showNotification('success', 'Status alterado para Em Andamento');
+        fetchRequest();
+      } else {
+        showNotification('error', 'Erro ao alterar status');
       }
     } catch (error) {
       console.error(error);
@@ -1437,14 +1477,27 @@ export default function RequestDetailsPage() {
             </div>
 
             {/* Final Action */}
-            <button 
-              onClick={() => setIsConcluirModalOpen(true)}
-              disabled={request.status === 'Concluído'}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:shadow-none"
-            >
-              <CheckCircle2 size={20} />
-              {request.status === 'Concluído' ? 'Serviço Concluído' : 'Concluir Serviço'}
-            </button>
+            <div className="space-y-3">
+              {request.status !== 'Em Andamento' && request.status !== 'Concluído' && (
+                <button 
+                  onClick={handleEmAndamento}
+                  disabled={isSaving}
+                  className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                >
+                  <Activity size={20} />
+                  Em Andamento
+                </button>
+              )}
+              
+              <button 
+                onClick={() => setIsConcluirModalOpen(true)}
+                disabled={request.status === 'Concluído'}
+                className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:shadow-none"
+              >
+                <CheckCircle2 size={20} />
+                {request.status === 'Concluído' ? 'Serviço Concluído' : 'Concluir Serviço'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

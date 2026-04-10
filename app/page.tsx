@@ -152,6 +152,10 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [requestsWithDisplayId]);
 
+  const ongoingRequests = useMemo(() => {
+    return requestsWithDisplayId.filter(r => r.status === 'Em Andamento');
+  }, [requestsWithDisplayId, requests]);
+
   const STATUS_COLORS: Record<string, string> = {
     'Novo': '#F59E0B', 'Em Andamento': '#3B82F6',
     'Concluído': '#10B981', 'Negado': '#EF4444', 'Autorizado': '#64748B'
@@ -409,6 +413,67 @@ export default function Dashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${req.status === 'Novo' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>{req.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Ongoing Requests Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                <Activity className="text-blue-500" size={18} />
+                OS em Andamento
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Solicitações que estão sendo executadas no momento</p>
+            </div>
+            <Link href="/solicitacoes" className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition-all border border-slate-200">
+              Ver Todas <ChevronRight size={14} />
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">ID</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Unidade</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Profissional</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ongoingRequests.length === 0 ? (
+                  <tr><td colSpan={5} className="px-6 py-12 text-center italic text-slate-500 text-xs">Nenhuma OS em andamento no momento</td></tr>
+                ) : ongoingRequests.map((req) => (
+                  <tr key={req.id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="px-6 py-4 text-xs font-black text-blue-600 font-mono">{req.displayId}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs font-bold text-slate-900 truncate max-w-[300px]">{req.description}</p>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{req.type}</p>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-700">{format(parseISO(req.createdAt || req.date), 'dd/MM/yyyy')}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-700">{req.unit}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {req.professionals && req.professionals.length > 0 ? (
+                          <>
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-black uppercase">
+                              {req.professionals[0].name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight truncate max-w-[120px]">
+                              {req.professionals[0].name}
+                              {req.professionals.length > 1 && ` +${req.professionals.length - 1}`}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Não atribuído</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
