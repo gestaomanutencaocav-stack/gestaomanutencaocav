@@ -55,6 +55,7 @@ const getTypeColor = (type: string) => {
     case 'Climatização': return 'bg-slate-50 text-slate-900 border-slate-100';
     case 'Civil': return 'bg-emerald-50 text-slate-900 border-emerald-100';
     case 'Marcenaria': return 'bg-orange-50 text-slate-900 border-orange-100';
+    case 'Ar-condicionado': return 'bg-cyan-50 text-cyan-600 border-cyan-100';
     default: return 'bg-slate-50 text-slate-900 border-slate-100';
   }
 };
@@ -267,7 +268,7 @@ export default function RequestsPage() {
                 onChange={(e) => setFilterType(e.target.value)}
               >
                 <option value="Todos">Tipo (Todos)</option>
-                {['Civil', 'Hidráulico', 'Elétrico', 'Coberta', 'Pintura', 'Marcenaria'].map(t => (
+                {['Civil', 'Hidráulico', 'Elétrico', 'Coberta', 'Pintura', 'Marcenaria', 'Ar-condicionado'].map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
@@ -277,7 +278,7 @@ export default function RequestsPage() {
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="Todos">Status (Todos)</option>
-                {['Novo', 'Em Andamento', 'Autorizado', 'Concluído', 'Negado'].map(s => (
+                {['Novo', 'Em Andamento', 'Autorizado', 'Concluído', 'Negado', 'Não Contratual'].map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -368,12 +369,18 @@ export default function RequestsPage() {
                           <XCircle size={12} />
                           {req.status === 'Negado' ? 'Cancelado' : req.status}
                         </span>
+                      ) : req.status === 'Não Contratual' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200">
+                          <XCircle size={12} />
+                          Não Contratual
+                        </span>
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className={`h-1.5 w-1.5 rounded-full ${
                             req.status === 'Em Andamento' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' :
                             req.status === 'Novo' ? 'bg-amber-300' :
                             req.status === 'Autorizado' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
+                            req.status === 'Não Contratual' ? 'bg-slate-400' :
                             'bg-slate-300'
                           }`}></span>
                           <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{req.status}</span>

@@ -150,15 +150,16 @@ export default function Dashboard() {
       }))
       .sort((a, b) => b.diasEmAberto - a.diasEmAberto)
       .slice(0, 5);
-  }, [requestsWithDisplayId]);
+  }, [requestsWithDisplayId, requests]);
 
   const ongoingRequests = useMemo(() => {
     return requestsWithDisplayId.filter(r => r.status === 'Em Andamento');
-  }, [requestsWithDisplayId, requests]);
+  }, [requestsWithDisplayId]);
 
   const STATUS_COLORS: Record<string, string> = {
     'Novo': '#F59E0B', 'Em Andamento': '#3B82F6',
-    'Concluído': '#10B981', 'Negado': '#EF4444', 'Autorizado': '#64748B'
+    'Concluído': '#10B981', 'Negado': '#EF4444', 'Autorizado': '#64748B',
+    'Não Contratual': '#94A3B8'
   };
 
   if (loading) {

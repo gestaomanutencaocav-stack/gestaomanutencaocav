@@ -919,6 +919,7 @@ export default function RelatoriosPage() {
                       <option value="Coberta">Coberta</option>
                       <option value="Pintura">Pintura</option>
                       <option value="Marcenaria">Marcenaria</option>
+                      <option value="Ar-condicionado">Ar-condicionado</option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -930,6 +931,7 @@ export default function RelatoriosPage() {
                       <option value="Autorizado">Autorizado</option>
                       <option value="Concluído">Concluído</option>
                       <option value="Atrasado">Atrasado</option>
+                      <option value="Não Contratual">Não Contratual</option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -1044,7 +1046,12 @@ export default function RelatoriosPage() {
                                 <td className="px-6 py-4 text-xs font-bold text-slate-900">{req.unit}</td>
                                 <td className="px-6 py-4"><span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase tracking-widest">{req.type}</span></td>
                                 <td className="px-6 py-4">
-                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${req.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700' : req.status === 'Atrasado' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{req.status}</span>
+                                  <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                                    req.status === 'Concluído' ? 'bg-emerald-100 text-emerald-700' : 
+                                    req.status === 'Atrasado' ? 'bg-red-100 text-red-700' : 
+                                    req.status === 'Não Contratual' ? 'bg-slate-100 text-slate-600' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>{req.status}</span>
                                 </td>
                                 <td className="px-6 py-4 text-xs font-bold text-slate-700">{req.professional || <span className="italic opacity-50">Não atribuído</span>}</td>
                               </tr>

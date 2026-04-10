@@ -252,7 +252,15 @@ export default function RequestDetailsPage() {
   
   // Edit States
   const [isSaving, setIsSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(data => setCurrentUser(data))
+      .catch(() => {});
+  }, []);
   
   // New States
   const [newComment, setNewComment] = useState('');
@@ -363,7 +371,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date().toISOString(),
         action: newComment,
-        user: 'Usuário', // Ideally this should be the logged in user's name
+        user: currentUser?.email || 'Sistema',
         type: 'manual'
       };
 
@@ -683,8 +691,8 @@ export default function RequestDetailsPage() {
       const now = new Date();
       const newEvent: TimelineEvent = {
         date: now.toISOString(),
-        action: `Solicitação ${authAction} por ${authName} (${authPosition})`,
-        user: authName,
+        action: `Solicitação ${authAction} por ${authName} (${authPosition}). Urgência: ${authUrgency}. Justificativa: ${authJustification || 'N/A'}`,
+        user: currentUser?.email || 'Sistema',
         type: 'auto'
       };
 
@@ -728,7 +736,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date().toISOString(),
         action: 'Status alterado para: Em Andamento',
-        user: 'Sistema',
+        user: currentUser?.email || 'Sistema',
         type: 'auto'
       };
 
@@ -771,7 +779,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date(`${dataFinal}T${horaFinal}:00`).toISOString(),
         action: `Serviço concluído em ${dataFormatada} às ${horaFinal}`,
-        user: 'Sistema',
+        user: currentUser?.email || 'Sistema',
         type: 'auto'
       };
 
@@ -844,6 +852,7 @@ export default function RequestDetailsPage() {
                 request.status === 'Novo' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                 request.status === 'Autorizado' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                 request.status === 'Concluído' ? 'bg-emerald-500 text-white border-emerald-600' :
+                request.status === 'Não Contratual' ? 'bg-slate-100 text-slate-600 border-slate-200' :
                 'bg-slate-50 text-slate-700 border-slate-100'
               }`}>
                 {request.status} {request.status === 'Concluído' && request.dataFinalizacao && ` em ${format(new Date(request.dataFinalizacao + 'T12:00:00'), 'dd/MM/yyyy')} às ${request.horaFinalizacao}`}
@@ -1192,21 +1201,46 @@ export default function RequestDetailsPage() {
                     request.timeline.map((item, index) => (
                       <div key={index} className="relative pl-10">
                         <div className={`absolute left-0 top-1.5 h-4 w-4 rounded-full border-4 border-white ${index === 0 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-slate-200'}`}></div>
-                        <div className={`p-4 rounded-xl border ${item.type === 'manual' ? 'bg-amber-50/30 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
-                          <div className="flex justify-between items-start mb-1">
-                            <p className="text-[10px] text-slate-700 font-black font-mono uppercase">
-                              {new Date(item.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${item.type === 'manual' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-700'}`}>
-                              {item.type === 'manual' ? 'Comentário' : 'Sistema'}
-                            </span>
+                        {item.type === 'manual' ? (
+                          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 ml-2 shadow-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center text-[9px] font-black text-blue-700 border border-blue-300">
+                                {item.user?.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-blue-700 leading-none">{item.user}</span>
+                                {item.user && item.user.includes('@') && (
+                                  <span className="text-[8px] text-blue-400 font-bold">{item.user}</span>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-slate-400 ml-auto font-mono">
+                                {format(new Date(item.date), 'dd/MM HH:mm')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-800 font-medium leading-relaxed">{item.action}</p>
                           </div>
-                          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.action}</p>
-                          <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest mt-2 flex items-center gap-1">
-                            <User size={10} />
-                            Responsável: {item.user}
-                          </p>
-                        </div>
+                        ) : (
+                          <div className={`p-4 rounded-xl border bg-slate-50 border-slate-100`}>
+                            <div className="flex justify-between items-start mb-1">
+                              <p className="text-[10px] text-slate-700 font-black font-mono uppercase">
+                                {new Date(item.date).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 text-slate-700`}>
+                                Sistema
+                              </span>
+                            </div>
+                            <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{item.action}</p>
+                            <div className="text-[10px] text-slate-700 font-black uppercase tracking-widest mt-2 flex items-center gap-1">
+                              <User size={10} />
+                              <div className="flex flex-col">
+                                <span>Responsável: {item.user}</span>
+                                {item.user && item.user.includes('@') && (
+                                  <span className="text-[8px] text-slate-400 font-bold">{item.user}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
