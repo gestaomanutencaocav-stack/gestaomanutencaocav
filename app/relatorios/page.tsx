@@ -167,6 +167,8 @@ export default function RelatoriosPage() {
   const [filterType, setFilterType] = useState('Todos');
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterUnit, setFilterUnit] = useState('Todos');
+  const [filterMonth, setFilterMonth] = useState(0); // 0 = todos
+  const [filterYear, setFilterYear] = useState(0);   // 0 = todos
 
   const [inspPeriod, setInspPeriod] = useState('month');
   const [inspArea, setInspArea] = useState('Todos');
@@ -177,6 +179,9 @@ export default function RelatoriosPage() {
   const [customEndDate, setCustomEndDate] = useState('');
 
   const [contractFilterYear, setContractFilterYear] = useState('Todos');
+
+  const [filterMaterialMonth, setFilterMaterialMonth] = useState(0);
+  const [filterMaterialYear, setFilterMaterialYear] = useState(new Date().getFullYear());
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -221,9 +226,22 @@ export default function RelatoriosPage() {
       const typeMatch = filterType === 'Todos' || req.type === filterType;
       const statusMatch = filterStatus === 'Todos' || req.status === filterStatus;
       const unitMatch = filterUnit === 'Todos' || req.unit === filterUnit;
-      return typeMatch && statusMatch && unitMatch;
+
+      // Filtro de período
+      let periodMatch = true;
+      if (filterMonth > 0 || filterYear > 0) {
+        const reqDate = new Date(req.createdAt || req.date);
+        if (filterMonth > 0) {
+          periodMatch = periodMatch && (reqDate.getMonth() + 1 === filterMonth);
+        }
+        if (filterYear > 0) {
+          periodMatch = periodMatch && (reqDate.getFullYear() === filterYear);
+        }
+      }
+
+      return typeMatch && statusMatch && unitMatch && periodMatch;
     });
-  }, [requests, filterType, filterStatus, filterUnit]);
+  }, [requests, filterType, filterStatus, filterUnit, filterMonth, filterYear]);
 
   const units = useMemo(() => {
     const u = Array.from(new Set(requests.map(r => r.unit))).filter(Boolean);
@@ -605,6 +623,8 @@ export default function RelatoriosPage() {
       setFilterType('Todos');
       setFilterStatus('Todos');
       setFilterUnit('Todos');
+      setFilterMonth(0);
+      setFilterYear(0);
     } else if (activeTab === 'inspecoes') {
       setInspPeriod('month');
       setInspArea('Todos');
@@ -727,37 +747,46 @@ export default function RelatoriosPage() {
   // --- Materiais / Curva ABC Logic ---
   const curvaABC = useMemo(() => {
     if (!Array.isArray(materials) || materials.length === 0) return [];
-    
-    // 1. Calcular Valor Total em Estoque por Item
-    const itemsComValor = materials.map(item => ({
-      ...item,
-      valorEstoque: (Number(item.current_stock) || 0) * (Number(item.unit_price) || 0)
-    }));
 
-    // 2. Ordenar por Valor de Estoque (Decrescente)
-    const itemsOrdenados = [...itemsComValor].sort((a, b) => b.valorEstoque - a.valorEstoque);
-
-    // 3. Calcular Valor Total Geral
-    const valorTotalGeral = itemsOrdenados.reduce((sum, item) => sum + item.valorEstoque, 0);
-
-    // 4. Calcular Porcentagem Acumulada e Classificar
-    let acumulado = 0;
-    return itemsOrdenados.map(item => {
-      const percentual = (item.valorEstoque / valorTotalGeral) * 100;
-      acumulado += percentual;
-      
-      let classe: 'A' | 'B' | 'C' = 'C';
-      if (acumulado <= 80) classe = 'A';
-      else if (acumulado <= 95) classe = 'B';
+    const itemsComValor = materials.map(item => {
+      // Calcular consumo filtrado por mês/ano
+      const consumptionRecords = Array.isArray(item.consumptionRecords) ? item.consumptionRecords : [];
+      const consumoFiltrado = consumptionRecords
+        .filter((r: any) => {
+          const d = new Date(r.date);
+          const monthMatch = filterMaterialMonth === 0 || (d.getMonth() + 1 === filterMaterialMonth);
+          const yearMatch = d.getFullYear() === filterMaterialYear;
+          return monthMatch && yearMatch;
+        })
+        .reduce((sum: number, r: any) => sum + (Number(r.quantity) || 0), 0);
 
       return {
         ...item,
-        percentual,
-        percentualAcumulado: acumulado,
-        classe
+        // Mapear campos do banco para os campos usados nos cálculos
+        name: item.descricao || item.name || '',
+        code: item.codigo || item.code || '',
+        unit: item.unidadeMedida || item.unit || '',
+        unit_price: item.valorUnitario || item.unit_price || 0,
+        current_stock: item.saldoAtual || item.current_stock || 0,
+        average_monthly_consumption: item.averageMonthlyConsumption || item.average_monthly_consumption || 0,
+        consumoNoperiodo: consumoFiltrado,
+        valorEstoque: (Number(item.saldoAtual || item.current_stock) || 0) * (Number(item.valorUnitario || item.unit_price) || 0)
       };
     });
-  }, [materials]);
+
+    const itemsOrdenados = [...itemsComValor].sort((a, b) => b.valorEstoque - a.valorEstoque);
+    const valorTotalGeral = itemsOrdenados.reduce((sum, item) => sum + item.valorEstoque, 0);
+
+    let acumulado = 0;
+    return itemsOrdenados.map(item => {
+      const percentual = valorTotalGeral > 0 ? (item.valorEstoque / valorTotalGeral) * 100 : 0;
+      acumulado += percentual;
+      let classe: 'A' | 'B' | 'C' = 'C';
+      if (acumulado <= 80) classe = 'A';
+      else if (acumulado <= 95) classe = 'B';
+      return { ...item, percentual, percentualAcumulado: acumulado, classe };
+    });
+  }, [materials, filterMaterialMonth, filterMaterialYear]);
 
   const estoqueSeguranca = useMemo(() => {
     if (!Array.isArray(curvaABC) || curvaABC.length === 0) return [];
@@ -940,6 +969,40 @@ export default function RelatoriosPage() {
                       {units.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                   </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Mês</label>
+                    <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
+                      <option value={0}>Todos</option>
+                      <option value={1}>Janeiro</option>
+                      <option value={2}>Fevereiro</option>
+                      <option value={3}>Março</option>
+                      <option value={4}>Abril</option>
+                      <option value={5}>Maio</option>
+                      <option value={6}>Junho</option>
+                      <option value={7}>Julho</option>
+                      <option value={8}>Agosto</option>
+                      <option value={9}>Setembro</option>
+                      <option value={10}>Outubro</option>
+                      <option value={11}>Novembro</option>
+                      <option value={12}>Dezembro</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano</label>
+                    <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
+                      <option value={0}>Todos</option>
+                      <option value={2022}>2022</option>
+                      <option value={2023}>2023</option>
+                      <option value={2024}>2024</option>
+                      <option value={2025}>2025</option>
+                      <option value={2026}>2026</option>
+                    </select>
+                  </div>
+
                   <button onClick={clearFilters} className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">Limpar</button>
                 </div>
 
@@ -1484,6 +1547,43 @@ export default function RelatoriosPage() {
               </motion.div>
             ) : activeTab === 'materiais' ? (
               <motion.div key="materiais" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
+                  <div className="flex items-center gap-2 mr-2">
+                    <Filter size={18} className="text-slate-700" />
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtros de Consumo</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Mês</label>
+                    <select value={filterMaterialMonth} onChange={e => setFilterMaterialMonth(Number(e.target.value))}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
+                      <option value={0}>Todo Ano</option>
+                      <option value={1}>Janeiro</option>
+                      <option value={2}>Fevereiro</option>
+                      <option value={3}>Março</option>
+                      <option value={4}>Abril</option>
+                      <option value={5}>Maio</option>
+                      <option value={6}>Junho</option>
+                      <option value={7}>Julho</option>
+                      <option value={8}>Agosto</option>
+                      <option value={9}>Setembro</option>
+                      <option value={10}>Outubro</option>
+                      <option value={11}>Novembro</option>
+                      <option value={12}>Dezembro</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano</label>
+                    <select value={filterMaterialYear} onChange={e => setFilterMaterialYear(Number(e.target.value))}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50">
+                      {[2022,2023,2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={() => { setFilterMaterialMonth(0); setFilterMaterialYear(new Date().getFullYear()); }}
+                    className="mt-auto mb-1 text-xs font-bold text-slate-900 hover:text-amber-600 underline underline-offset-4 cursor-pointer transition-colors">
+                    Limpar
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
                     { title: 'Total de Itens', value: (curvaABC || []).length, icon: Briefcase, color: 'slate' },
@@ -1617,6 +1717,9 @@ export default function RelatoriosPage() {
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Pos.</th>
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Material</th>
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Valor Estoque</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">
+                            Consumo {filterMaterialMonth > 0 ? `${filterMaterialMonth}/${filterMaterialYear}` : filterMaterialYear}
+                          </th>
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">% do Total</th>
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">% Acumulada</th>
                           <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Classe</th>
@@ -1633,6 +1736,9 @@ export default function RelatoriosPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm font-black text-slate-900">{formatCurrency(item.valorEstoque)}</td>
+                            <td className="px-6 py-4 text-center text-xs font-bold text-amber-600">
+                              {item.consumoNoperiodo > 0 ? item.consumoNoperiodo : '-'}
+                            </td>
                             <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.percentual.toFixed(2)}%</td>
                             <td className="px-6 py-4 text-center text-xs font-bold text-slate-600">{item.percentualAcumulado.toFixed(2)}%</td>
                             <td className="px-6 py-4 text-center">
