@@ -11,9 +11,7 @@ export async function GET() {
     }
 
     const session = JSON.parse(authCookie.value);
-    
-    // Fallback emails since we can't modify the login logic to store them in the cookie yet
-    const email = session.email || (session.role === 'encarregado' ? 'darleson.oliveira@hotmail.com' : 'gestao@ufpe.br');
+    const email = session.email || '';
 
     return NextResponse.json({ 
       role: session.role,

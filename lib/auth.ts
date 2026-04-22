@@ -19,9 +19,9 @@ export async function getUserRole() {
   }
 }
 
-export async function login(role: 'encarregado' | 'gestao') {
+export async function login(role: 'encarregado' | 'gestao', email?: string) {
   const cookieStore = await cookies();
-  const session = JSON.stringify({ role, authenticated: true });
+  const session = JSON.stringify({ role, email: email || '', authenticated: true });
   
   cookieStore.set('auth_session', session, {
     httpOnly: true,

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     if (data.user) {
       const role = data.user.email === 'darleson.oliveira@hotmail.com' ? 'encarregado' : 'gestao';
-      await login(role);
+      await login(role, data.user.email);
       return NextResponse.json({ success: true });
     }
   } catch (err) {
