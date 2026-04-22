@@ -17,7 +17,7 @@ import {
   ClipboardCheck,
   FileText
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
 const navItems = [
@@ -34,18 +34,23 @@ const navItems = [
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  currentUser?: { email: string; role: string } | null;
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, currentUser }: SidebarProps) {
   const pathname = usePathname();
-  const [user, setUser] = React.useState<{ role: string } | null>(null);
+  const [user, setUser] = React.useState<{ role: string; email?: string } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/auth/me')
-      .then(res => res.json())
-      .then(data => setUser(data))
-      .catch(() => setUser(null));
-  }, []);
+    if (currentUser) {
+      setUser(currentUser);
+    } else {
+      fetch('/api/auth/me')
+        .then(res => res.json())
+        .then(data => setUser(data))
+        .catch(() => setUser(null));
+    }
+  }, [currentUser]);
 
   const sidebarContent = (
     <aside className="w-64 flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full">
@@ -97,10 +102,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold truncate text-slate-900 uppercase tracking-tight">
-              {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado de Manutenção' : 'Carregando...'}
+            <p className="text-xs font-black text-slate-900 uppercase tracking-widest truncate">
+              {user?.role === 'gestao' ? 'Gestor Predial' : user?.role === 'encarregado' ? 'Encarregado' : 'Carregando...'}
             </p>
-            <p className="text-[10px] text-slate-700 font-mono truncate">{user?.role || '...'}</p>
+            <p className="text-[10px] text-slate-500 font-bold truncate">
+              {user?.role || ''}
+            </p>
+            {user?.email && (
+              <p className="text-[9px] text-slate-400 font-medium truncate max-w-[140px]">
+                {user.email}
+              </p>
+            )}
           </div>
         </div>
       </div>

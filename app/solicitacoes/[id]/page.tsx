@@ -148,6 +148,7 @@ const PROFISSIONAIS_LISTA = [
   { name: 'MARCONI JOSÉ DOS SANTOS', role: 'PEDREIRO' },
   { name: 'MANOEL DOS SANTOS ALVES', role: 'PINTOR' },
   { name: 'DARLESON LUIZ ALVES DE OLIVEIRA', role: 'TEC. EDIFICAÇÕES' },
+  { name: 'MARINALDO DE SOUZA AMORIM', role: 'OFICIAL DE MANUTENÇÃO' },
 ];
 
 const getInitials = (name: string) => {
@@ -257,8 +258,8 @@ export default function RequestDetailsPage() {
 
   useEffect(() => {
     fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(data => setCurrentUser(data))
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setCurrentUser(data); })
       .catch(() => {});
   }, []);
   
@@ -351,7 +352,7 @@ export default function RequestDetailsPage() {
     const newEvent: TimelineEvent = {
       date: new Date().toISOString(),
       action,
-      user: authName || 'Usuário',
+      user: currentUser?.email ?? currentUser?.role ?? 'Sistema',
       type
     };
     
@@ -371,7 +372,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date().toISOString(),
         action: newComment,
-        user: currentUser?.email || 'Sistema',
+        user: currentUser?.email ?? currentUser?.role ?? 'Sistema',
         type: 'manual'
       };
 
@@ -456,7 +457,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date().toISOString(),
         action: `Adicionou ${files.length} foto(s)`,
-        user: 'Sistema',
+        user: currentUser?.email || currentUser?.role || 'Usuário',
         type: 'auto'
       };
       
@@ -692,7 +693,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: now.toISOString(),
         action: `Solicitação ${authAction} por ${authName} (${authPosition}). Urgência: ${authUrgency}. Justificativa: ${authJustification || 'N/A'}`,
-        user: currentUser?.email || 'Sistema',
+        user: currentUser?.email || currentUser?.role || 'Usuário',
         type: 'auto'
       };
 
@@ -736,7 +737,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date().toISOString(),
         action: 'Status alterado para: Em Andamento',
-        user: currentUser?.email || 'Sistema',
+        user: currentUser?.email || currentUser?.role || 'Usuário',
         type: 'auto'
       };
 
@@ -779,7 +780,7 @@ export default function RequestDetailsPage() {
       const newEvent: TimelineEvent = {
         date: new Date(`${dataFinal}T${horaFinal}:00`).toISOString(),
         action: `Serviço concluído em ${dataFormatada} às ${horaFinal}`,
-        user: currentUser?.email || 'Sistema',
+        user: currentUser?.email || currentUser?.role || 'Usuário',
         type: 'auto'
       };
 
@@ -881,7 +882,7 @@ export default function RequestDetailsPage() {
               {isSaving ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
               Salvar Alterações
             </button>
-            {userRole && request.status === 'Novo' && (
+            {userRole === 'gestao' && request.status === 'Novo' && (
               <div className="flex gap-2">
                 <button 
                   onClick={() => { setAuthAction('Autorizado'); setIsAuthModalOpen(true); }}

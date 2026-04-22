@@ -208,6 +208,10 @@ INSERT INTO professionals (name, specialty, registration, phone)
 SELECT 'Maria Santos', 'Hidráulica', '67890', '(81) 97777-6666'
 WHERE NOT EXISTS (SELECT 1 FROM professionals WHERE name = 'Maria Santos');
 
+INSERT INTO professionals (name, specialty, registration, phone)
+VALUES ('Marinaldo de Souza Amorim', 'Oficial de Manutenção', '', '')
+ON CONFLICT DO NOTHING;
+
 -- Insert initial inspections if not exists
 INSERT INTO inspections (name, area, periodicity, description, status)
 SELECT 'Inspeção Elétrica Mensal', 'Elétrica', 'mensal', 'Verificação de quadros e fiação', 'ativa'
