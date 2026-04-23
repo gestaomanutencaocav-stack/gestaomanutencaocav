@@ -844,8 +844,8 @@ export default function GestaoContratualPage() {
                       min="0"
                       className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="0,00"
-                      value={financialForm.payment_value || ''}
-                      onChange={e => setFinancialForm({ ...financialForm, payment_value: e.target.value })}
+                      value={financialForm.payment_value === 0 ? '' : financialForm.payment_value}
+                      onChange={e => setFinancialForm({ ...financialForm, payment_value: Number(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
@@ -863,8 +863,8 @@ export default function GestaoContratualPage() {
                       min="0"
                       className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="0,00"
-                      value={financialForm.materials_value || ''}
-                      onChange={e => setFinancialForm({ ...financialForm, materials_value: e.target.value })}
+                      value={financialForm.materials_value === 0 ? '' : financialForm.materials_value}
+                      onChange={e => setFinancialForm({ ...financialForm, materials_value: Number(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
@@ -882,8 +882,8 @@ export default function GestaoContratualPage() {
                       min="0"
                       className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="0,00"
-                      value={financialForm.materials_citl_value || ''}
-                      onChange={e => setFinancialForm({ ...financialForm, materials_citl_value: e.target.value })}
+                      value={financialForm.materials_citl_value === 0 ? '' : financialForm.materials_citl_value}
+                      onChange={e => setFinancialForm({ ...financialForm, materials_citl_value: Number(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
@@ -901,8 +901,8 @@ export default function GestaoContratualPage() {
                       min="0"
                       className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="0,00"
-                      value={financialForm.discounts || ''}
-                      onChange={e => setFinancialForm({ ...financialForm, discounts: e.target.value })}
+                      value={financialForm.discounts === 0 ? '' : financialForm.discounts}
+                      onChange={e => setFinancialForm({ ...financialForm, discounts: Number(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
