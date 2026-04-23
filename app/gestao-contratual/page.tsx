@@ -188,13 +188,19 @@ export default function GestaoContratualPage() {
 
   const handleAddFinancialRecord = async () => {
     try {
-      const total_invoice = (Number(financialForm.payment_value) || 0) + 
-                          (Number(financialForm.materials_value) || 0) + 
-                          (Number(financialForm.materials_citl_value) || 0);
-      const total_after_discounts = total_invoice - (Number(financialForm.discounts) || 0);
+      const payload = {
+        ...financialForm,
+        payment_value: Number(financialForm.payment_value) || 0,
+        materials_value: Number(financialForm.materials_value) || 0,
+        materials_citl_value: Number(financialForm.materials_citl_value) || 0,
+        discounts: Number(financialForm.discounts) || 0,
+        total_invoice: (Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0),
+        total_after_discounts: (Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0) - (Number(financialForm.discounts) || 0),
+      };
+
       const { data, error } = await supabase
         .from('financial_records')
-        .insert([{ ...financialForm, total_invoice, total_after_discounts }])
+        .insert([payload])
         .select();
       if (error) throw error;
       setFinancialRecords(sortByInvoice([data[0], ...financialRecords]));
@@ -202,6 +208,9 @@ export default function GestaoContratualPage() {
       setFinancialForm({
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
+        invoice_number: '',
+        process_number: '',
+        fiscal_note_number: '',
         payment_value: 0,
         materials_value: 0,
         materials_citl_value: 0,
@@ -821,21 +830,115 @@ export default function GestaoContratualPage() {
                   <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Nº Nota Fiscal</label>
                   <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Fato Gerador (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.payment_value ?? 0} onChange={e => setFinancialForm({...financialForm, payment_value: Number(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    Valor Fato Gerador
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={financialForm.payment_value || ''}
+                      onChange={e => setFinancialForm({ ...financialForm, payment_value: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Materiais (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.materials_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_value: Number(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    Valor Materiais
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={financialForm.materials_value || ''}
+                      onChange={e => setFinancialForm({ ...financialForm, materials_value: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor Mat + CITL (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.materials_citl_value ?? 0} onChange={e => setFinancialForm({...financialForm, materials_citl_value: Number(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    Valor Mat+CITL
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={financialForm.materials_citl_value || ''}
+                      onChange={e => setFinancialForm({ ...financialForm, materials_citl_value: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Descontos (R$)</label>
-                  <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.discounts ?? 0} onChange={e => setFinancialForm({...financialForm, discounts: Number(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    Descontos
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="0,00"
+                      value={financialForm.discounts || ''}
+                      onChange={e => setFinancialForm({ ...financialForm, discounts: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Preview do Total */}
+                <div className="col-span-2">
+                  {(financialForm.payment_value || financialForm.materials_citl_value || financialForm.discounts) && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-2">
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Preview do Total</p>
+                      <div className="flex justify-between text-xs font-bold text-slate-700">
+                        <span>Total Fatura (FG + Mat+CITL):</span>
+                        <span className="font-mono">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                            .format((Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold text-slate-700">
+                        <span>(-) Descontos:</span>
+                        <span className="font-mono text-rose-600">
+                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                            .format(Number(financialForm.discounts) || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm font-black text-slate-900 border-t border-amber-200 pt-2">
+                        <span>Total Líquido:</span>
+                        <span className="font-mono text-amber-600">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                            .format(
+                              (Number(financialForm.payment_value) || 0) +
+                              (Number(financialForm.materials_citl_value) || 0) -
+                              (Number(financialForm.discounts) || 0)
+                            )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">

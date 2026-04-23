@@ -14,6 +14,7 @@ import {
   Timer,
   CheckCircle2,
   Activity,
+  Ban,
   X,
   ShieldCheck,
   ShieldAlert,
@@ -768,6 +769,44 @@ export default function RequestDetailsPage() {
     }
   };
 
+  const handleNaoContratual = async () => {
+    if (!request?.id) return;
+    setIsSaving(true);
+    try {
+      const updatedTimeline = [
+        {
+          date: new Date().toISOString(),
+          action: 'Solicitação categorizada como Não Contratual — fora do escopo do contrato de manutenção.',
+          user: currentUser?.email || currentUser?.role || 'Sistema',
+          type: 'manual' as const
+        },
+        ...(request.timeline || [])
+      ];
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Não Contratual',
+          statusColor: 'slate',
+          timeline: updatedTimeline
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setRequest(data);
+        showNotification('success', 'Categorizada como Não Contratual');
+        fetchRequest();
+      }
+    } catch (error) {
+      console.error('Erro ao categorizar como Não Contratual:', error);
+      showNotification('error', 'Erro ao categorizar solicitação');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleConcluirServico = async () => {
     if (!request) return;
     setIsSaving(true);
@@ -882,6 +921,15 @@ export default function RequestDetailsPage() {
               {isSaving ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
               Salvar Alterações
             </button>
+            {request.status !== 'Não Contratual' && request.status !== 'Concluído' && (
+              <button
+                onClick={handleNaoContratual}
+                className="flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-slate-600/20"
+              >
+                <Ban size={16} />
+                Não Contratual
+              </button>
+            )}
             {userRole === 'gestao' && request.status === 'Novo' && (
               <div className="flex gap-2">
                 <button 
