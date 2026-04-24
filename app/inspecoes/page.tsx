@@ -46,7 +46,7 @@ import {
   parseISO
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Inspection, InspectionRecord, Professional } from '@/lib/store';
 
 const AREAS = ['Elétrica', 'Hidráulica', 'Civil', 'Ar Condicionado', 'Incêndio', 'Elevadores', 'Cobertura', 'Outros'];
@@ -74,6 +74,11 @@ export default function InspecoesPage() {
   const [newProfessional, setNewProfessional] = useState('');
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([]);
   const [executionProfessionals, setExecutionProfessionals] = useState<string[]>([]);
+  const [executionForm, setExecutionForm] = useState({
+    images: [] as string[],
+  });
+  
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -174,6 +179,37 @@ export default function InspecoesPage() {
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const validFiles = files.filter(f => {
+      const isValidType = ['image/png', 'image/jpeg', 'image/gif'].includes(f.type);
+      const isValidSize = f.size <= 5 * 1024 * 1024; // 5MB
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length !== files.length) {
+      alert('Alguns arquivos foram ignorados por exceder 5MB ou ter formato inválido.');
+    }
+
+    // Converter para base64 ou URL temporária para preview
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        setExecutionForm(prev => ({
+          ...prev,
+          images: [...(prev.images || []), base64]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Limpar o input para permitir re-upload do mesmo arquivo
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleRecordExecution = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedInspection) return;
@@ -190,7 +226,7 @@ export default function InspecoesPage() {
       professionals: executionProfessionals,
       executionStatus: formData.get('executionStatus') as any,
       observations: formData.get('observations') as string,
-      images: [] // Mock for now
+      images: executionForm.images
     };
 
     try {
@@ -1005,15 +1041,49 @@ export default function InspecoesPage() {
                     Evidências Fotográficas
                   </label>
                   <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Camera className="w-8 h-8 mb-3 text-slate-400" />
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                        <Camera className="w-8 h-8 mb-3 text-slate-400 mx-auto" />
                         <p className="mb-2 text-xs text-slate-700 font-bold uppercase tracking-widest">Clique para anexar fotos</p>
                         <p className="text-[10px] text-slate-700 uppercase font-mono">PNG, JPG ou GIF (MAX. 5MB)</p>
                       </div>
-                      <input type="file" className="hidden" multiple accept="image/*" />
-                    </label>
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/png,image/jpeg,image/gif"
+                      multiple
+                      onChange={handleImageUpload}
+                    />
                   </div>
+                  
+                  {executionForm.images && executionForm.images.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mt-3">
+                      {executionForm.images.map((img, idx) => (
+                        <div key={idx} className="relative group">
+                          <img
+                            src={img}
+                            alt={`Foto ${idx + 1}`}
+                            className="w-20 h-20 object-cover rounded-xl border border-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setExecutionForm(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== idx)
+                            }))}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-rose-500 text-white rounded-full text-[10px] font-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

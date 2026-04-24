@@ -104,7 +104,7 @@ interface ContractInfo {
 interface FinancialRecord {
   id: string;
   year: number;
-  month: string;
+  month: number;
   invoice_number: string;
   payment_value: number;
   materials_value: number;
@@ -114,6 +114,7 @@ interface FinancialRecord {
   total_after_discounts: number;
   fiscal_note: string;
   created_at?: string;
+  contract_id?: string;
 }
 
 interface Repactuacao {
@@ -159,6 +160,8 @@ export default function RelatoriosPage() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [records, setRecords] = useState<InspectionRecord[]>([]);
   const [contract, setContract] = useState<ContractInfo | null>(null);
+  const [contracts, setContracts] = useState<ContractInfo[]>([]);
+  const [selectedContractIdRelatorio, setSelectedContractIdRelatorio] = useState<string>('todos');
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -189,11 +192,11 @@ export default function RelatoriosPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [reqRes, inspRes, recRes, contractRes, financialRes, repactuacoesRes, materialsRes] = await Promise.all([
+        const [reqRes, inspRes, recRes, contractsRes, financialRes, repactuacoesRes, materialsRes] = await Promise.all([
           fetch('/api/solicitacoes'),
           fetch('/api/inspecoes'),
           fetch('/api/inspecoes/records'),
-          supabase.from('contract_info').select('*').single(),
+          supabase.from('contract_info').select('*').order('start_date', { ascending: false }),
           supabase.from('financial_records').select('*').order('year', { ascending: false }).order('month', { ascending: false }),
           supabase.from('repactuacoes').select('*').order('date', { ascending: false }),
           fetch('/api/materials?type=finalistico')
@@ -203,14 +206,17 @@ export default function RelatoriosPage() {
         const inspData = inspRes.ok ? await inspRes.json() : [];
         const recData = recRes.ok ? await recRes.json() : [];
         const materialsData = materialsRes.ok ? await materialsRes.json() : [];
-
+ 
         setRequests(Array.isArray(reqData) ? reqData : []);
         setInspections(Array.isArray(inspData) ? inspData : []);
         setRecords(Array.isArray(recData) ? recData : []);
         setMaterials(Array.isArray(materialsData) ? materialsData : []);
         
-        if (contractRes.data) setContract(contractRes.data);
-        if (financialRes.data) setFinancialRecords(financialRes.data);
+        if (contractsRes.data) {
+          setContracts(contractsRes.data);
+          setContract(contractsRes.data[0] || null);
+        }
+        if (financialRes.data) setFinancialRecords(financialRes.data.map(r => ({ ...r, month: Number(r.month) })));
         if (repactuacoesRes.data) setRepactuacoes(repactuacoesRes.data);
       } catch (err) {
         console.error('Erro ao buscar dados:', err);
@@ -635,6 +641,7 @@ export default function RelatoriosPage() {
       setCustomEndDate('');
     } else if (activeTab === 'gestao-contratual') {
       setContractFilterYear('Todos');
+      setSelectedContractIdRelatorio('todos');
     }
   };
 
@@ -642,9 +649,11 @@ export default function RelatoriosPage() {
   const filteredFinancialRecords = useMemo(() => {
     return financialRecords.filter(rec => {
       if (!rec || !rec.year) return false;
-      return contractFilterYear === 'Todos' || rec.year.toString() === contractFilterYear;
+      const yearMatch = contractFilterYear === 'Todos' || rec.year.toString() === contractFilterYear;
+      const contractMatch = selectedContractIdRelatorio === 'todos' || rec.contract_id === selectedContractIdRelatorio;
+      return yearMatch && contractMatch;
     });
-  }, [financialRecords, contractFilterYear]);
+  }, [financialRecords, contractFilterYear, selectedContractIdRelatorio]);
 
   const contractYears = useMemo(() => {
     const years = Array.from(new Set(financialRecords.filter(r => r && r.year).map(r => r.year.toString()))).sort((a, b) => b.localeCompare(a));
@@ -1396,6 +1405,21 @@ export default function RelatoriosPage() {
                       className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
                       {contractYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Contrato</label>
+                    <select 
+                      value={selectedContractIdRelatorio} 
+                      onChange={e => setSelectedContractIdRelatorio(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50 min-w-[200px]"
+                    >
+                      <option value="todos">Todos os Contratos</option>
+                      {contracts.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.contract_number} — {c.company_name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <button

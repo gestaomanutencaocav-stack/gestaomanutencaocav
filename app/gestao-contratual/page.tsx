@@ -41,6 +41,7 @@ interface ContractInfo {
   end_date: string;
   renewals_count: number;
   contracting_party: string;
+  status: 'Ativo' | 'Encerrado' | 'Suspenso';
 }
 
 interface FinancialRecord {
@@ -56,6 +57,7 @@ interface FinancialRecord {
   discounts: number;
   total_after_discounts: number;
   fiscal_note_number: string;
+  contract_id?: string;
 }
 
 interface Repactuacao {
@@ -69,6 +71,8 @@ interface Repactuacao {
 
 export default function GestaoContratualPage() {
   const [contract, setContract] = useState<ContractInfo | null>(null);
+  const [contracts, setContracts] = useState<ContractInfo[]>([]);
+  const [selectedContractId, setSelectedContractId] = useState<string>('todos');
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,23 +82,26 @@ export default function GestaoContratualPage() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
   const importFileRef = useRef<HTMLInputElement>(null);
-  const [contractForm, setContractForm] = useState<Partial<ContractInfo>>({
-    contract_number: '31/2021',
-    company_name: 'EMPRESA CLÓVIS DE BARROS LIMA CONSTRUÇÕES E INCORPORAÇÕES LTDA',
-    cnpj: '11.533.627/0001-24',
-    start_date: '2021-11-04',
-    end_date: '2026-11-04',
-    renewals_count: 5,
-    contracting_party: 'Centro Acadêmico da Vitória - CAV/UFPE'
-  });
   
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
+  const [isNewContractModalOpen, setIsNewContractModalOpen] = useState(false);
   const [isRepactuacaoModalOpen, setIsRepactuacaoModalOpen] = useState(false);
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<any[]>([]);
 
   const [financialFilter, setFinancialFilter] = useState({ year: '', month: '' });
   const [repactuacaoFilter, setRepactuacaoFilter] = useState({ year: '', status: '' });
+
+  const [contractForm, setContractForm] = useState<Partial<ContractInfo>>({
+    contract_number: '',
+    company_name: '',
+    cnpj: '',
+    start_date: '',
+    end_date: '',
+    renewals_count: 0,
+    contracting_party: '',
+    status: 'Ativo'
+  });
 
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
     year: new Date().getFullYear(),
@@ -131,21 +138,31 @@ export default function GestaoContratualPage() {
   const fetchFinancialRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const contractRes = await fetch('/api/contract-info');
-      if (contractRes.ok) {
-        const data = await contractRes.json();
-        setContract(data);
-        setContractForm({
-          id: data.id,
-          contract_number: data.contract_number ?? '31/2021',
-          company_name: data.company_name ?? 'EMPRESA CLÓVIS DE BARROS LIMA CONSTRUÇÕES E INCORPORAÇÕES LTDA',
-          cnpj: data.cnpj ?? '11.533.627/0001-24',
-          start_date: data.start_date ?? '2021-11-04',
-          end_date: data.end_date ?? '2026-11-04',
-          renewals_count: data.renewals_count ?? 5,
-          contracting_party: data.contracting_party ?? 'Centro Acadêmico da Vitória - CAV/UFPE'
-        });
+      const contractsRes = await supabase
+        .from('contract_info')
+        .select('*')
+        .order('start_date', { ascending: false });
+
+      if (contractsRes.data) {
+        setContracts(contractsRes.data);
+        const active = contractsRes.data.find(c => c.status === 'Ativo') || contractsRes.data[0];
+        if (active) {
+          setSelectedContractId(active.id);
+          setContract(active);
+          setContractForm({
+            id: active.id,
+            contract_number: active.contract_number ?? '',
+            company_name: active.company_name ?? '',
+            cnpj: active.cnpj ?? '',
+            start_date: active.start_date ?? '',
+            end_date: active.end_date ?? '',
+            renewals_count: active.renewals_count ?? 0,
+            contracting_party: active.contracting_party ?? '',
+            status: active.status ?? 'Ativo'
+          });
+        }
       }
+
       const { data: financialData } = await supabase.from('financial_records').select('*').order('invoice_number', { ascending: true });
       const { data: repactuacoesData } = await supabase.from('repactuacoes').select('*').order('date', { ascending: false });
       if (financialData) setFinancialRecords(sortByInvoice(financialData));
@@ -160,6 +177,18 @@ export default function GestaoContratualPage() {
   useEffect(() => {
     fetchFinancialRecords();
   }, [fetchFinancialRecords]);
+
+  useEffect(() => {
+    if (selectedContractId !== 'todos') {
+      const c = contracts.find(item => item.id === selectedContractId);
+      if (c) {
+        setContract(c);
+        setContractForm(c);
+      }
+    } else {
+      setContract(null);
+    }
+  }, [selectedContractId, contracts]);
 
   const handleSaveContract = async () => {
     setIsSaving(true);
@@ -190,6 +219,7 @@ export default function GestaoContratualPage() {
     try {
       const payload = {
         ...financialForm,
+        contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id),
         payment_value: Number(financialForm.payment_value) || 0,
         materials_value: Number(financialForm.materials_value) || 0,
         materials_citl_value: Number(financialForm.materials_citl_value) || 0,
@@ -320,6 +350,40 @@ export default function GestaoContratualPage() {
     reader.readAsArrayBuffer(file);
   };
 
+  const handleSaveNewContract = async () => {
+    if (!contractForm.contract_number || !contractForm.company_name) return;
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('contract_info')
+        .insert([contractForm])
+        .select()
+        .single();
+      if (error) throw error;
+      setContracts(prev => [data, ...prev]);
+      setSelectedContractId(data.id);
+      setIsNewContractModalOpen(false);
+      setContractForm({
+        contract_number: '', 
+        company_name: '', 
+        cnpj: '',
+        start_date: '', 
+        end_date: '', 
+        renewals_count: 0,
+        contracting_party: '', 
+        status: 'Ativo'
+      });
+      setNotification({ type: 'success', message: 'Novo contrato criado com sucesso!' });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (e) {
+      console.error('Erro ao salvar contrato:', e);
+      setNotification({ type: 'error', message: 'Erro ao salvar contrato.' });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const confirmImport = async () => {
     try {
       const parseValue = (val: any): number => {
@@ -345,6 +409,7 @@ export default function GestaoContratualPage() {
         const totalAfterFromSheet = parseValue(getField(row, ['TOTAL DA FATURA APÓS DESCONTOS', 'TOTAL DA FATURA APOS DESCONTOS', 'Total da Fatura após descontos', 'total_after_discounts']));
         const totalAfter = totalAfterFromSheet > 0 ? totalAfterFromSheet : total - discounts;
         return {
+          contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id),
           year: Number(getField(row, ['ANO', 'Ano', 'year']) || new Date().getFullYear()),
           month: Number(getField(row, ['MÊS', 'MES', 'Mês', 'month']) || new Date().getMonth() + 1),
           invoice_number: String(getField(row, ['NÚMERO DA FATURA', 'Número da Fatura', 'invoice_number'])).trim(),
@@ -431,8 +496,10 @@ export default function GestaoContratualPage() {
   };
 
   const filteredFinancial = financialRecords.filter(r => {
-    return (!financialFilter.year || r.year === Number(financialFilter.year)) &&
-           (!financialFilter.month || r.month === Number(financialFilter.month));
+    const yearMatch = !financialFilter.year || r.year === Number(financialFilter.year);
+    const monthMatch = !financialFilter.month || r.month === Number(financialFilter.month);
+    const contractMatch = selectedContractId === 'todos' || r.contract_id === selectedContractId;
+    return yearMatch && monthMatch && contractMatch;
   });
 
   const filteredRepactuacoes = repactuacoes.filter(r => {
@@ -475,7 +542,64 @@ export default function GestaoContratualPage() {
     <DashboardLayout title="Gestão Contratual">
       <div className="space-y-8" id="pdf-content">
         
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-wrap gap-4 items-center shadow-sm">
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-slate-700" />
+            <span className="text-xs font-black text-slate-700 uppercase tracking-widest">Filtrar Contrato</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Contrato</label>
+            <select
+              value={selectedContractId}
+              onChange={e => setSelectedContractId(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50 min-w-[200px]"
+            >
+              <option value="todos">Todos os Contratos</option>
+              {contracts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.contract_number} — {c.company_name} ({c.status})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedContractId === 'todos' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {contracts.map(c => (
+              <div 
+                key={c.id} 
+                className={`bg-white p-6 rounded-2xl border shadow-sm cursor-pointer hover:border-amber-400 transition-all ${c.status === 'Ativo' ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200'}`}
+                onClick={() => setSelectedContractId(c.id)}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-lg ${c.status === 'Ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+                      <Briefcase size={16} />
+                    </div>
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{c.contract_number}</span>
+                  </div>
+                  <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${c.status === 'Ativo' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Encerrado' ? 'bg-slate-200 text-slate-600' : 'bg-rose-100 text-rose-600'}`}>
+                    {c.status}
+                  </span>
+                </div>
+                <h3 className="text-sm font-black text-slate-900 line-clamp-2 min-h-[40px]">{c.company_name}</h3>
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    <Calendar size={12} />
+                    <span>{c.start_date ? format(parseISO(c.start_date), 'dd/MM/yy') : '-'} → {c.end_date ? format(parseISO(c.end_date), 'dd/MM/yy') : '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    <Building2 size={12} />
+                    <span className="truncate">{c.contracting_party}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500 rounded-lg text-white">
@@ -487,6 +611,13 @@ export default function GestaoContratualPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsNewContractModalOpen(true)}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
+              >
+                <Plus size={16} />
+                Novo Contrato
+              </button>
               <AnimatePresence>
                 {notification && (
                   <motion.div
@@ -722,6 +853,8 @@ export default function GestaoContratualPage() {
             )}
           </div>
         </section>
+        </>
+        )}
 
         <section className="space-y-4">
           <div className="flex justify-between items-center">
@@ -944,6 +1077,105 @@ export default function GestaoContratualPage() {
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                 <button onClick={() => setIsFinancialModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
                 <button onClick={handleAddFinancialRecord} className="flex-1 px-4 py-3 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20">Salvar Registro</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* New Contract Modal */}
+      <AnimatePresence>
+        {isNewContractModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsNewContractModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              <div className="bg-amber-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <h3 className="text-lg font-black text-amber-700 uppercase tracking-widest">Novo Contrato</h3>
+                <button onClick={() => setIsNewContractModalOpen(false)} className="text-slate-500 hover:text-slate-900"><X size={20} /></button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Número do Contrato</label>
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="Ex: 001/2026"
+                      value={contractForm.contract_number}
+                      onChange={e => setContractForm({...contractForm, contract_number: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</label>
+                    <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={contractForm.status}
+                      onChange={e => setContractForm({...contractForm, status: e.target.value as any})}>
+                      <option value="Ativo">Ativo</option>
+                      <option value="Encerrado">Encerrado</option>
+                      <option value="Suspenso">Suspenso</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Empresa Contratada</label>
+                  <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                    placeholder="Nome da empresa"
+                    value={contractForm.company_name}
+                    onChange={e => setContractForm({...contractForm, company_name: e.target.value})} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CNPJ</label>
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="00.000.000/0000-00"
+                      value={contractForm.cnpj}
+                      onChange={e => setContractForm({...contractForm, cnpj: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contratante</label>
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      placeholder="Ex: UFPE/CAV"
+                      value={contractForm.contracting_party}
+                      onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Início</label>
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={contractForm.start_date}
+                      onChange={e => setContractForm({...contractForm, start_date: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Fim</label>
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={contractForm.end_date}
+                      onChange={e => setContractForm({...contractForm, end_date: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nº Renovações</label>
+                    <input type="number" min="0" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
+                      value={contractForm.renewals_count}
+                      onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-3">
+                <button onClick={() => setIsNewContractModalOpen(false)}
+                  className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button onClick={handleSaveNewContract}
+                  disabled={!contractForm.contract_number || !contractForm.company_name || isSaving}
+                  className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50">
+                  {isSaving ? 'Salvando...' : 'Salvar Contrato'}
+                </button>
               </div>
             </motion.div>
           </div>
