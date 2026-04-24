@@ -701,7 +701,7 @@ export default function RelatoriosPage() {
       const year = d.getFullYear();
       const monthIdx = d.getMonth();
       const monthName = months[monthIdx];
-      const record = records.find(r => Number(r.year) === year && r.month === monthName);
+      const record = records.find(r => Number(r.year) === year && Number(r.month) === monthIdx + 1);
       data.push({
         name: `${monthName}/${year.toString().slice(-2)}`,
         valor: record ? (Number(record.total_after_discounts) || 0) : 0,
@@ -740,11 +740,12 @@ export default function RelatoriosPage() {
 
   const topInvoicesData = useMemo(() => {
     const records = filteredFinancialRecords || [];
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     return [...records]
       .sort((a, b) => (Number(b.total_after_discounts) || 0) - (Number(a.total_after_discounts) || 0))
       .slice(0, 5)
       .map(r => ({
-        name: `${r.month}/${r.year}`,
+        name: `${months[Number(r.month) - 1] || r.month}/${r.year}`,
         valor: Number(r.total_after_discounts) || 0
       }));
   }, [filteredFinancialRecords]);
