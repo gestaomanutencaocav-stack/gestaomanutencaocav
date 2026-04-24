@@ -103,6 +103,17 @@ export default function GestaoContratualPage() {
     status: 'Ativo'
   });
 
+  const [newContractForm, setNewContractForm] = useState({
+    contract_number: '',
+    company_name: '',
+    cnpj: '',
+    start_date: '',
+    end_date: '',
+    renewals_count: 0,
+    contracting_party: '',
+    status: 'Ativo' as 'Ativo' | 'Encerrado' | 'Suspenso'
+  });
+
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -351,19 +362,19 @@ export default function GestaoContratualPage() {
   };
 
   const handleSaveNewContract = async () => {
-    if (!contractForm.contract_number || !contractForm.company_name) return;
+    if (!newContractForm.contract_number || !newContractForm.company_name) return;
     setIsSaving(true);
     try {
       const { data, error } = await supabase
         .from('contract_info')
-        .insert([contractForm])
+        .insert([newContractForm])
         .select()
         .single();
       if (error) throw error;
       setContracts(prev => [data, ...prev]);
       setSelectedContractId(data.id);
       setIsNewContractModalOpen(false);
-      setContractForm({
+      setNewContractForm({
         contract_number: '', 
         company_name: '', 
         cnpj: '',
@@ -612,7 +623,19 @@ export default function GestaoContratualPage() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsNewContractModalOpen(true)}
+                onClick={() => {
+                  setNewContractForm({
+                    contract_number: '',
+                    company_name: '',
+                    cnpj: '',
+                    start_date: '',
+                    end_date: '',
+                    renewals_count: 0,
+                    contracting_party: '',
+                    status: 'Ativo'
+                  });
+                  setIsNewContractModalOpen(true);
+                }}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
               >
                 <Plus size={16} />
@@ -1104,14 +1127,14 @@ export default function GestaoContratualPage() {
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Número do Contrato</label>
                     <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="Ex: 001/2026"
-                      value={contractForm.contract_number}
-                      onChange={e => setContractForm({...contractForm, contract_number: e.target.value})} />
+                      value={newContractForm.contract_number}
+                      onChange={e => setNewContractForm({...newContractForm, contract_number: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</label>
                     <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={contractForm.status}
-                      onChange={e => setContractForm({...contractForm, status: e.target.value as any})}>
+                      value={newContractForm.status}
+                      onChange={e => setNewContractForm({...newContractForm, status: e.target.value as any})}>
                       <option value="Ativo">Ativo</option>
                       <option value="Encerrado">Encerrado</option>
                       <option value="Suspenso">Suspenso</option>
@@ -1123,8 +1146,8 @@ export default function GestaoContratualPage() {
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Empresa Contratada</label>
                   <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                     placeholder="Nome da empresa"
-                    value={contractForm.company_name}
-                    onChange={e => setContractForm({...contractForm, company_name: e.target.value})} />
+                    value={newContractForm.company_name}
+                    onChange={e => setNewContractForm({...newContractForm, company_name: e.target.value})} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1132,15 +1155,15 @@ export default function GestaoContratualPage() {
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CNPJ</label>
                     <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="00.000.000/0000-00"
-                      value={contractForm.cnpj}
-                      onChange={e => setContractForm({...contractForm, cnpj: e.target.value})} />
+                      value={newContractForm.cnpj}
+                      onChange={e => setNewContractForm({...newContractForm, cnpj: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contratante</label>
                     <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
                       placeholder="Ex: UFPE/CAV"
-                      value={contractForm.contracting_party}
-                      onChange={e => setContractForm({...contractForm, contracting_party: e.target.value})} />
+                      value={newContractForm.contracting_party}
+                      onChange={e => setNewContractForm({...newContractForm, contracting_party: e.target.value})} />
                   </div>
                 </div>
 
@@ -1148,20 +1171,20 @@ export default function GestaoContratualPage() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Início</label>
                     <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={contractForm.start_date}
-                      onChange={e => setContractForm({...contractForm, start_date: e.target.value})} />
+                      value={newContractForm.start_date}
+                      onChange={e => setNewContractForm({...newContractForm, start_date: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Fim</label>
                     <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={contractForm.end_date}
-                      onChange={e => setContractForm({...contractForm, end_date: e.target.value})} />
+                      value={newContractForm.end_date}
+                      onChange={e => setNewContractForm({...newContractForm, end_date: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nº Renovações</label>
                     <input type="number" min="0" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={contractForm.renewals_count}
-                      onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
+                      value={newContractForm.renewals_count}
+                      onChange={e => setNewContractForm({...newContractForm, renewals_count: Number(e.target.value)})} />
                   </div>
                 </div>
               </div>
@@ -1172,7 +1195,7 @@ export default function GestaoContratualPage() {
                   Cancelar
                 </button>
                 <button onClick={handleSaveNewContract}
-                  disabled={!contractForm.contract_number || !contractForm.company_name || isSaving}
+                  disabled={!newContractForm.contract_number || !newContractForm.company_name || isSaving}
                   className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50">
                   {isSaving ? 'Salvando...' : 'Salvar Contrato'}
                 </button>
