@@ -604,73 +604,128 @@ export default function RelatoriosPage() {
 
   const exportToPDF = async () => {
     if (!reportRef.current) {
-      alert('Conteúdo não encontrado para gerar PDF.');
+      alert('Conteúdo não encontrado.');
       return;
     }
 
     try {
-      // Garantir que o elemento está visível antes de capturar
-      const element = reportRef.current;
-      
-      const canvas = await html2canvas(element, {
-        scale: 1.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
+      // Esconder elementos que quebram o html2canvas
+      const fixedElements = document.querySelectorAll('[class*="fixed"], [class*="sticky"]');
+      const hiddenElements: { el: Element; display: string }[] = [];
+      fixedElements.forEach(el => {
+        const htmlEl = el as HTMLElement;
+        if (htmlEl.style) {
+          hiddenElements.push({ el, display: htmlEl.style.display });
+          htmlEl.style.display = 'none';
+        }
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const element = reportRef.current;
+
+      const canvas = await html2canvas(element, {
+        scale: 1.2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        removeContainer: true,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          // Remover elementos problemáticos do clone
+          const selects = clonedDoc.querySelectorAll('select');
+          selects.forEach(s => {
+            const div = clonedDoc.createElement('div');
+            div.textContent = s.value;
+            div.style.cssText = 'font-size:10px;font-weight:bold;padding:4px;border:1px solid #e2e8f0;border-radius:4px;';
+            s.parentNode?.replaceChild(div, s);
+          });
+          // Remover inputs e substituir por texto
+          const inputs = clonedDoc.querySelectorAll('input');
+          inputs.forEach(input => {
+            const span = clonedDoc.createElement('span');
+            span.textContent = input.value || input.placeholder || '';
+            span.style.cssText = 'font-size:10px;font-weight:bold;';
+            input.parentNode?.replaceChild(span, input);
+          });
+          // Remover botões
+          const buttons = clonedDoc.querySelectorAll('button');
+          buttons.forEach(btn => btn.remove());
+        }
+      });
+
+      // Restaurar elementos ocultos
+      hiddenElements.forEach(({ el, display }) => {
+        (el as HTMLElement).style.display = display;
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20; // margem de 10mm cada lado
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const margin = 8;
+      const contentWidth = pdfWidth - margin * 2;
+      const imgHeightMm = (canvas.height * contentWidth) / canvas.width;
 
       // Cabeçalho
-      pdf.setFontSize(14);
-      pdf.setTextColor(153, 27, 27);
-      pdf.text('CAV/UFPE — Relatório Gerencial de Manutenção', pdfWidth / 2, 12, { align: 'center' });
-      pdf.setFontSize(9);
-      pdf.setTextColor(71, 85, 105);
-      pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 18, { align: 'center' });
+      pdf.setFillColor(153, 27, 27);
+      pdf.rect(0, 0, pdfWidth, 20, 'F');
+      pdf.setFontSize(13);
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('CAV/UFPE — Relatório Gerencial de Manutenção Predial', pdfWidth / 2, 10, { align: 'center' });
+      pdf.setFontSize(8);
+      pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 16, { align: 'center' });
 
-      // Adicionar imagem paginando se necessário
-      let yPosition = 25;
-      let remainingHeight = imgHeight;
-      let sourceY = 0;
+      const startY = 24;
+      const pageContentHeight = pdfHeight - startY - 8;
+      const totalPages = Math.ceil(imgHeightMm / pageContentHeight);
 
-      while (remainingHeight > 0) {
-        const pageAvailable = pdfHeight - yPosition - 10;
-        const sliceHeight = Math.min(remainingHeight, pageAvailable);
-        const canvasSliceHeight = (sliceHeight * canvas.width) / imgWidth;
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
 
-        // Criar canvas para a fatia
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = canvasSliceHeight;
-        const ctx = sliceCanvas.getContext('2d');
+        const srcY = (page * pageContentHeight * canvas.height) / imgHeightMm;
+        const srcHeight = Math.min(
+          (pageContentHeight * canvas.height) / imgHeightMm,
+          canvas.height - srcY
+        );
+
+        // Criar slice do canvas para esta página
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = srcHeight;
+        const ctx = pageCanvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(canvas, 0, sourceY, canvas.width, canvasSliceHeight, 0, 0, canvas.width, canvasSliceHeight);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(canvas, 0, srcY, canvas.width, srcHeight, 0, 0, canvas.width, srcHeight);
         }
 
-        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 10, yPosition, imgWidth, sliceHeight);
+        const sliceHeight = (srcHeight * contentWidth) / canvas.width;
+        pdf.addImage(
+          pageCanvas.toDataURL('image/jpeg', 0.85),
+          'JPEG',
+          margin,
+          page === 0 ? startY : 8,
+          contentWidth,
+          sliceHeight
+        );
 
-        remainingHeight -= sliceHeight;
-        sourceY += canvasSliceHeight;
-
-        if (remainingHeight > 0) {
-          pdf.addPage();
-          yPosition = 10;
-        }
+        // Rodapé
+        pdf.setFontSize(7);
+        pdf.setTextColor(148, 163, 184);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(
+          `Página ${page + 1} de ${totalPages} — Sistema Integrado de Gestão de Manutenção Predial — CAV/UFPE`,
+          pdfWidth / 2,
+          pdfHeight - 3,
+          { align: 'center' }
+        );
       }
 
       const tabName = activeTab === 'solicitacoes' ? 'Solicitacoes'
@@ -679,9 +734,10 @@ export default function RelatoriosPage() {
         : 'Materiais';
 
       pdf.save(`Relatorio_${tabName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      alert('Erro ao gerar PDF. Verifique o console para mais detalhes.');
+
+    } catch (error: any) {
+      console.error('Erro detalhado ao gerar PDF:', error);
+      alert(`Erro ao gerar PDF: ${error?.message || 'Erro desconhecido'}. Tente novamente ou use a exportação Excel.`);
     }
   };
 
