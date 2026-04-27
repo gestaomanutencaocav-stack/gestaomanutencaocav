@@ -721,7 +721,7 @@ export default function RelatoriosPage() {
         pdf.setTextColor(148, 163, 184);
         pdf.setFont('helvetica', 'normal');
         pdf.text(
-          `Página ${page + 1} de ${totalPages} — Sistema Integrado de Gestão de Manutenção Predial — CAV/UFPE`,
+          `Página ${page + 1} de ${totalPages} — Sistema Integrado de Gestão de Manutenção Predial e Contratos — CAV/UFPE`,
           pdfWidth / 2,
           pdfHeight - 3,
           { align: 'center' }

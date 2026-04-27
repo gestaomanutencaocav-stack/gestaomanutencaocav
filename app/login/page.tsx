@@ -60,7 +60,7 @@ src="https://qziaddfqzdmgvylfqbun.supabase.co/storage/v1/object/public/public-as
             priority
           />
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-relaxed px-4">
-            Sistema Integrado de Gestão de Manutenção Predial
+            Sistema Integrado de Gestão de Manutenção Predial e Contratos
           </p>
         </div>
 
