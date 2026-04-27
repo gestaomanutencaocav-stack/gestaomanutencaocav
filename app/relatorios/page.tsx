@@ -99,6 +99,7 @@ interface ContractInfo {
   end_date: string;
   renewals_count: number;
   contracting_party: string;
+  status: string;
 }
 
 interface FinancialRecord {
@@ -106,6 +107,7 @@ interface FinancialRecord {
   year: number;
   month: number;
   invoice_number: string;
+  process_number?: string;
   payment_value: number;
   materials_value: number;
   materials_citl_value: number;
@@ -508,23 +510,33 @@ export default function RelatoriosPage() {
       XLSX.writeFile(workbook, `Relatorio_Inspecoes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } else if (activeTab === 'gestao-contratual') {
       const workbook = XLSX.utils.book_new();
-      if (contract) {
+
+      // Aba 1 — Dados do Contrato selecionado
+      const selectedContract = selectedContractIdRelatorio !== 'todos'
+        ? contracts.find(c => c.id === selectedContractIdRelatorio)
+        : contracts.find(c => c.status === 'Ativo') || contracts[0];
+
+      if (selectedContract) {
         const contractData = [{
-          'Contrato nº': contract.contract_number,
-          'Empresa': contract.company_name,
-          'CNPJ': contract.cnpj,
-          'Início': contract.start_date,
-          'Fim': contract.end_date,
-          'Renovações': contract.renewals_count,
-          'Contratante': contract.contracting_party
+          'Contrato nº': selectedContract.contract_number,
+          'Empresa': selectedContract.company_name,
+          'CNPJ': selectedContract.cnpj,
+          'Início': selectedContract.start_date,
+          'Fim': selectedContract.end_date,
+          'Status': selectedContract.status,
+          'Renovações': selectedContract.renewals_count,
+          'Contratante': selectedContract.contracting_party
         }];
         const wsContract = XLSX.utils.json_to_sheet(contractData);
         XLSX.utils.book_append_sheet(workbook, wsContract, "Dados do Contrato");
       }
-      const wsFinancial = XLSX.utils.json_to_sheet(financialRecords.map(r => ({
+
+      // Aba 2 — Execução Financeira filtrada
+      const wsFinancial = XLSX.utils.json_to_sheet(filteredFinancialRecords.map(r => ({
         'Ano': r.year,
         'Mês': r.month,
         'Fatura nº': r.invoice_number,
+        'Nº Processo': r.process_number || '-',
         'Valor Pagamento': r.payment_value,
         'Materiais': r.materials_value,
         'Materiais + CITL': r.materials_citl_value,
@@ -534,14 +546,17 @@ export default function RelatoriosPage() {
         'Nota Fiscal': r.fiscal_note
       })));
       XLSX.utils.book_append_sheet(workbook, wsFinancial, "Execução Financeira");
+
+      // Aba 3 — Resumo Anual
       const wsSummary = XLSX.utils.json_to_sheet(yearlyCompositionData.map(row => ({
         'Ano': row.year,
         'Total Executado': row.total,
         'Materiais': row.materiais,
         'Descontos': row.descontos,
-        'Média Mensal': row.total / 12
+        'Média Mensal': (row.total / 12).toFixed(2)
       })));
       XLSX.utils.book_append_sheet(workbook, wsSummary, "Resumo Anual");
+
       XLSX.writeFile(workbook, `Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } else if (activeTab === 'materiais') {
       const workbook = XLSX.utils.book_new();
@@ -588,40 +603,86 @@ export default function RelatoriosPage() {
   };
 
   const exportToPDF = async () => {
-    if (!reportRef.current) return;
-    const prevShowAllRequests = showAllRequests;
-    const prevShowAllRecords = showAllRecords;
-    if (activeTab === 'solicitacoes') setShowAllRequests(true);
-    else setShowAllRecords(true);
-    setTimeout(async () => {
-      try {
-        const canvas = await html2canvas(reportRef.current!, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.setFontSize(18);
-        pdf.setTextColor(153, 27, 27);
-        pdf.text('CAV/UFPE', pdfWidth / 2, 15, { align: 'center' });
-        pdf.setFontSize(10);
-        pdf.setTextColor(71, 85, 105);
-        pdf.text('Relatório Gerencial de Manutenção Predial', pdfWidth / 2, 22, { align: 'center' });
-        pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 27, { align: 'center' });
-        let position = 35;
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        pdf.save(`Relatorio_${activeTab === 'solicitacoes' ? 'Manutencao' : activeTab === 'inspecoes' ? 'Inspecoes' : 'Contratual'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-      } catch (error) {
-        console.error('Erro ao gerar PDF:', error);
-      } finally {
-        setShowAllRequests(prevShowAllRequests);
-        setShowAllRecords(prevShowAllRecords);
+    if (!reportRef.current) {
+      alert('Conteúdo não encontrado para gerar PDF.');
+      return;
+    }
+
+    try {
+      // Garantir que o elemento está visível antes de capturar
+      const element = reportRef.current;
+      
+      const canvas = await html2canvas(element, {
+        scale: 1.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // margem de 10mm cada lado
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Cabeçalho
+      pdf.setFontSize(14);
+      pdf.setTextColor(153, 27, 27);
+      pdf.text('CAV/UFPE — Relatório Gerencial de Manutenção', pdfWidth / 2, 12, { align: 'center' });
+      pdf.setFontSize(9);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pdfWidth / 2, 18, { align: 'center' });
+
+      // Adicionar imagem paginando se necessário
+      let yPosition = 25;
+      let remainingHeight = imgHeight;
+      let sourceY = 0;
+
+      while (remainingHeight > 0) {
+        const pageAvailable = pdfHeight - yPosition - 10;
+        const sliceHeight = Math.min(remainingHeight, pageAvailable);
+        const canvasSliceHeight = (sliceHeight * canvas.width) / imgWidth;
+
+        // Criar canvas para a fatia
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = canvasSliceHeight;
+        const ctx = sliceCanvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(canvas, 0, sourceY, canvas.width, canvasSliceHeight, 0, 0, canvas.width, canvasSliceHeight);
+        }
+
+        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 10, yPosition, imgWidth, sliceHeight);
+
+        remainingHeight -= sliceHeight;
+        sourceY += canvasSliceHeight;
+
+        if (remainingHeight > 0) {
+          pdf.addPage();
+          yPosition = 10;
+        }
       }
-    }, 500);
+
+      const tabName = activeTab === 'solicitacoes' ? 'Solicitacoes'
+        : activeTab === 'inspecoes' ? 'Inspecoes'
+        : activeTab === 'gestao-contratual' ? 'Contratual'
+        : 'Materiais';
+
+      pdf.save(`Relatorio_${tabName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar PDF. Verifique o console para mais detalhes.');
+    }
   };
 
   const clearFilters = () => {
@@ -674,8 +735,12 @@ export default function RelatoriosPage() {
     const discountPercentage = totalExecuted > 0 ? (totalDiscounts / (totalExecuted + totalDiscounts)) * 100 : 0;
     
     let remainingDays = 0;
-    if (contract?.end_date) {
-      remainingDays = differenceInDays(safeParseDate(contract.end_date), new Date());
+    const selectedContract = selectedContractIdRelatorio !== 'todos'
+      ? contracts.find(c => c.id === selectedContractIdRelatorio)
+      : contracts.find(c => c.status === 'Ativo') || contracts[0];
+
+    if (selectedContract?.end_date) {
+      remainingDays = differenceInDays(safeParseDate(selectedContract.end_date), new Date());
     }
 
     return {
@@ -689,7 +754,7 @@ export default function RelatoriosPage() {
       discountPercentage,
       remainingDays: Math.max(0, remainingDays)
     };
-  }, [filteredFinancialRecords, contract]);
+  }, [filteredFinancialRecords, contracts, selectedContractIdRelatorio]);
 
   const monthlyEvolutionData = useMemo(() => {
     const records = filteredFinancialRecords || [];
