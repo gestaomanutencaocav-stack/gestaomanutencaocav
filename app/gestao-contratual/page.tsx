@@ -476,15 +476,22 @@ export default function GestaoContratualPage() {
       setSelectedContractId(data.id);
       setIsNewContractModalOpen(false);
       setNewContractForm({
-        contract_number: '', 
-        company_name: '', 
-        cnpj: '',
-        start_date: '', 
-        end_date: '', 
-        renewals_count: 0,
-        contracting_party: '', 
-        status: 'Ativo'
-      });
+  contract_number: '',
+  company_name: '',
+  cnpj: '',
+  start_date: '',
+  end_date: '',
+  renewals_count: 0,
+  contracting_party: '',
+  status: 'Ativo',
+  gestor_contrato: '',
+  gestor_substituto: '',
+  fiscal_tecnico: '',
+  fiscal_tecnico_sub: '',
+  fiscal_administrativo: '',
+  fiscal_admin_sub: '',
+  portaria_designacao: ''
+});
       setNotification({ type: 'success', message: 'Novo contrato criado com sucesso!' });
       setTimeout(() => setNotification(null), 5000);
     } catch (e) {
