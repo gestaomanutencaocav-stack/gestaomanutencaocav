@@ -851,11 +851,20 @@ export default function GestaoContratualPage() {
                     <RefreshCw size={10} />
                     {Math.max(0, (contract?.renewals_count || 0) - contractRenewals.filter(r => r.contract_id === (selectedContractId !== 'todos' ? selectedContractId : contract?.id) && r.status === 'Concluída').length)} Restantes
                   </div>
-                  {isEditingContract && (
-                    <div className="ml-2">
-                      <input type="number" className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
-                    </div>
-                  )}
+                 {isEditingContract && (
+  <div className="ml-2 flex flex-col gap-1">
+    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+      Total Previsto
+    </label>
+    <input
+      type="number"
+      min="0"
+      className="w-20 bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+      value={contractForm.renewals_count ?? 0}
+      onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})}
+    />
+  </div>
+)}
                 </div>
               </div>
             </div>
