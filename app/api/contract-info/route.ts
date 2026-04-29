@@ -23,7 +23,14 @@ export async function GET() {
         start_date: '2021-11-04',
         end_date: '2026-11-04',
         renewals_count: 5,
-        contracting_party: 'Centro Acadêmico da Vitória - CAV/UFPE'
+        contracting_party: 'Centro Acadêmico da Vitória - CAV/UFPE',
+        gestor_contrato: '',
+        gestor_substituto: '',
+        fiscal_tecnico: '',
+        fiscal_tecnico_sub: '',
+        fiscal_administrativo: '',
+        fiscal_admin_sub: '',
+        portaria_designacao: ''
       });
     }
 
@@ -42,6 +49,7 @@ export async function POST(request: Request) {
     const { data: existing } = await supabase
       .from('contract_info')
       .select('id')
+      .eq('id', body.id || '')
       .limit(1)
       .single();
 
@@ -58,6 +66,14 @@ export async function POST(request: Request) {
           end_date: body.end_date,
           renewals_count: body.renewals_count,
           contracting_party: body.contracting_party,
+          status: body.status,
+          gestor_contrato: body.gestor_contrato,
+          gestor_substituto: body.gestor_substituto,
+          fiscal_tecnico: body.fiscal_tecnico,
+          fiscal_tecnico_sub: body.fiscal_tecnico_sub,
+          fiscal_administrativo: body.fiscal_administrativo,
+          fiscal_admin_sub: body.fiscal_admin_sub,
+          portaria_designacao: body.portaria_designacao,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id)
@@ -76,7 +92,15 @@ export async function POST(request: Request) {
           start_date: body.start_date,
           end_date: body.end_date,
           renewals_count: body.renewals_count,
-          contracting_party: body.contracting_party
+          contracting_party: body.contracting_party,
+          status: body.status || 'Ativo',
+          gestor_contrato: body.gestor_contrato,
+          gestor_substituto: body.gestor_substituto,
+          fiscal_tecnico: body.fiscal_tecnico,
+          fiscal_tecnico_sub: body.fiscal_tecnico_sub,
+          fiscal_administrativo: body.fiscal_administrativo,
+          fiscal_admin_sub: body.fiscal_admin_sub,
+          portaria_designacao: body.portaria_designacao
         }])
         .select()
         .single();

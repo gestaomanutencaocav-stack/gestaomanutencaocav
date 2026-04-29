@@ -22,7 +22,9 @@ import {
   Filter,
   CheckCircle2,
   Clock,
-  Briefcase
+  Briefcase,
+  Users,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -42,6 +44,13 @@ interface ContractInfo {
   renewals_count: number;
   contracting_party: string;
   status: 'Ativo' | 'Encerrado' | 'Suspenso';
+  gestor_contrato?: string;
+  gestor_substituto?: string;
+  fiscal_tecnico?: string;
+  fiscal_tecnico_sub?: string;
+  fiscal_administrativo?: string;
+  fiscal_admin_sub?: string;
+  portaria_designacao?: string;
 }
 
 interface FinancialRecord {
@@ -62,11 +71,24 @@ interface FinancialRecord {
 
 interface Repactuacao {
   id: string;
+  contract_id?: string;
   process_number: string;
   year: number;
-  date: string;
+  periodo_data_base: string;
+  valor_repactuacao: number;
+  termo_apostila: string;
   triggering_factor: string;
   status: 'Em Análise' | 'Aprovado' | 'Negado' | 'Aguardando Documentação' | 'Concluído';
+}
+
+interface ContractRenewal {
+  id: string;
+  contract_id: string;
+  numero_processo: string;
+  ano: string;
+  termo_aditivo: string;
+  status: 'Em Andamento' | 'Concluída' | 'Cancelada' | 'Pendente';
+  descricao: string;
 }
 
 export default function GestaoContratualPage() {
@@ -75,6 +97,7 @@ export default function GestaoContratualPage() {
   const [selectedContractId, setSelectedContractId] = useState<string>('todos');
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [repactuacoes, setRepactuacoes] = useState<Repactuacao[]>([]);
+  const [contractRenewals, setContractRenewals] = useState<ContractRenewal[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -86,11 +109,13 @@ export default function GestaoContratualPage() {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isNewContractModalOpen, setIsNewContractModalOpen] = useState(false);
   const [isRepactuacaoModalOpen, setIsRepactuacaoModalOpen] = useState(false);
+  const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<any[]>([]);
 
   const [financialFilter, setFinancialFilter] = useState({ year: '', month: '' });
   const [repactuacaoFilter, setRepactuacaoFilter] = useState({ year: '', status: '' });
+  const [renewalFilter, setRenewalFilter] = useState({ year: '', status: '' });
 
   const [contractForm, setContractForm] = useState<Partial<ContractInfo>>({
     contract_number: '',
@@ -100,7 +125,14 @@ export default function GestaoContratualPage() {
     end_date: '',
     renewals_count: 0,
     contracting_party: '',
-    status: 'Ativo'
+    status: 'Ativo',
+    gestor_contrato: '',
+    gestor_substituto: '',
+    fiscal_tecnico: '',
+    fiscal_tecnico_sub: '',
+    fiscal_administrativo: '',
+    fiscal_admin_sub: '',
+    portaria_designacao: ''
   });
 
   const [newContractForm, setNewContractForm] = useState({
@@ -111,7 +143,14 @@ export default function GestaoContratualPage() {
     end_date: '',
     renewals_count: 0,
     contracting_party: '',
-    status: 'Ativo' as 'Ativo' | 'Encerrado' | 'Suspenso'
+    status: 'Ativo' as 'Ativo' | 'Encerrado' | 'Suspenso',
+    gestor_contrato: '',
+    gestor_substituto: '',
+    fiscal_tecnico: '',
+    fiscal_tecnico_sub: '',
+    fiscal_administrativo: '',
+    fiscal_admin_sub: '',
+    portaria_designacao: ''
   });
 
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
@@ -128,9 +167,19 @@ export default function GestaoContratualPage() {
   const [repactuacaoForm, setRepactuacaoForm] = useState<Partial<Repactuacao>>({
     process_number: '',
     year: new Date().getFullYear(),
-    date: new Date().toISOString().split('T')[0],
+    periodo_data_base: '',
+    valor_repactuacao: 0,
+    termo_apostila: '',
     status: 'Em Análise',
     triggering_factor: ''
+  });
+
+  const [renewalForm, setRenewalForm] = useState<Partial<ContractRenewal>>({
+    numero_processo: '',
+    ano: new Date().getFullYear().toString(),
+    termo_aditivo: '',
+    status: 'Em Andamento',
+    descricao: ''
   });
 
   const sortByInvoice = (records: FinancialRecord[]) => {
@@ -169,15 +218,25 @@ export default function GestaoContratualPage() {
             end_date: active.end_date ?? '',
             renewals_count: active.renewals_count ?? 0,
             contracting_party: active.contracting_party ?? '',
-            status: active.status ?? 'Ativo'
+            status: active.status ?? 'Ativo',
+            gestor_contrato: active.gestor_contrato ?? '',
+            gestor_substituto: active.gestor_substituto ?? '',
+            fiscal_tecnico: active.fiscal_tecnico ?? '',
+            fiscal_tecnico_sub: active.fiscal_tecnico_sub ?? '',
+            fiscal_administrativo: active.fiscal_administrativo ?? '',
+            fiscal_admin_sub: active.fiscal_admin_sub ?? '',
+            portaria_designacao: active.portaria_designacao ?? ''
           });
         }
       }
 
       const { data: financialData } = await supabase.from('financial_records').select('*').order('invoice_number', { ascending: true });
-      const { data: repactuacoesData } = await supabase.from('repactuacoes').select('*').order('date', { ascending: false });
+      const { data: repactuacoesData } = await supabase.from('repactuacoes').select('*').order('created_at', { ascending: false });
+      const { data: renewalsData } = await supabase.from('contract_renewals').select('*').order('created_at', { ascending: false });
+      
       if (financialData) setFinancialRecords(sortByInvoice(financialData));
       if (repactuacoesData) setRepactuacoes(repactuacoesData);
+      if (renewalsData) setContractRenewals(renewalsData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -290,16 +349,58 @@ export default function GestaoContratualPage() {
     }
   };
 
+  const handleAddRenewal = async () => {
+    try {
+      const payload = {
+        ...renewalForm,
+        contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id)
+      };
+      
+      const { data, error } = await supabase.from('contract_renewals').insert([payload]).select();
+      if (error) throw error;
+      setContractRenewals([data[0], ...contractRenewals]);
+      setIsRenewalModalOpen(false);
+      setRenewalForm({
+        numero_processo: '',
+        ano: new Date().getFullYear().toString(),
+        termo_aditivo: '',
+        status: 'Em Andamento',
+        descricao: ''
+      });
+    } catch (error) {
+      console.error('Error adding renewal:', error);
+    }
+  };
+
+  const handleDeleteRenewal = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta renovação?')) return;
+    try {
+      const { error } = await supabase.from('contract_renewals').delete().eq('id', id);
+      if (error) throw error;
+      setContractRenewals(contractRenewals.filter(r => r.id !== id));
+    } catch (error) {
+      console.error('Error deleting renewal:', error);
+    }
+  };
+
   const handleAddRepactuacao = async () => {
     try {
-      const { data, error } = await supabase.from('repactuacoes').insert([repactuacaoForm]).select();
+      const payload = {
+        ...repactuacaoForm,
+        contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id)
+      };
+      
+      const { data, error } = await supabase.from('repactuacoes').insert([payload]).select();
       if (error) throw error;
       setRepactuacoes([data[0], ...repactuacoes]);
       setIsRepactuacaoModalOpen(false);
       setRepactuacaoForm({
         year: new Date().getFullYear(),
-        date: new Date().toISOString().split('T')[0],
-        status: 'Em Análise'
+        periodo_data_base: '',
+        valor_repactuacao: 0,
+        termo_apostila: '',
+        status: 'Em Análise',
+        triggering_factor: ''
       });
     } catch (error) {
       console.error('Error adding repactuacao:', error);
@@ -727,13 +828,20 @@ export default function GestaoContratualPage() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
-                <div className="flex items-center gap-3">
-                  {isEditingContract ? (
-                    <input type="number" className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
-                  ) : (
-                    <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">{contract?.renewals_count}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                    <RefreshCw size={10} />
+                    {contractRenewals.filter(r => r.contract_id === (selectedContractId !== 'todos' ? selectedContractId : contract?.id) && r.status === 'Concluída').length} Realizadas
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                    <RefreshCw size={10} />
+                    {Math.max(0, (contract?.renewals_count || 0) - contractRenewals.filter(r => r.contract_id === (selectedContractId !== 'todos' ? selectedContractId : contract?.id) && r.status === 'Concluída').length)} Restantes
+                  </div>
+                  {isEditingContract && (
+                    <div className="ml-2">
+                      <input type="number" className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
+                    </div>
                   )}
-                  <span className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Restantes</span>
                 </div>
               </div>
             </div>
@@ -755,6 +863,87 @@ export default function GestaoContratualPage() {
                 <p className="text-[10px] text-slate-900 font-medium leading-relaxed">
                   Contrato de prestação de serviços de manutenção predial preventiva e corretiva, com fornecimento de materiais e mão de obra.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-8 pb-8">
+            <div className="pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-3 mb-6">
+                <Users className="text-amber-500" size={20} />
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Equipe de Gestão e Fiscalização</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gestor do Contrato</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.gestor_contrato ?? ''} onChange={e => setContractForm({...contractForm, gestor_contrato: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.gestor_contrato || '-'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gestor Substituto</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.gestor_substituto ?? ''} onChange={e => setContractForm({...contractForm, gestor_substituto: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.gestor_substituto || '-'}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fiscal Técnico</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.fiscal_tecnico ?? ''} onChange={e => setContractForm({...contractForm, fiscal_tecnico: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.fiscal_tecnico || '-'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fiscal Técnico Substituto</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.fiscal_tecnico_sub ?? ''} onChange={e => setContractForm({...contractForm, fiscal_tecnico_sub: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.fiscal_tecnico_sub || '-'}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fiscal Administrativo</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.fiscal_administrativo ?? ''} onChange={e => setContractForm({...contractForm, fiscal_administrativo: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.fiscal_administrativo || '-'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fiscal Administrativo Substituto</label>
+                      {isEditingContract ? (
+                        <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.fiscal_admin_sub ?? ''} onChange={e => setContractForm({...contractForm, fiscal_admin_sub: e.target.value})} />
+                      ) : (
+                        <p className="text-xs font-black text-slate-900">{contract?.fiscal_admin_sub || '-'}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Portaria de Designação</label>
+                    {isEditingContract ? (
+                      <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.portaria_designacao ?? ''} onChange={e => setContractForm({...contractForm, portaria_designacao: e.target.value})} />
+                    ) : (
+                      <p className="text-xs font-black text-slate-900">{contract?.portaria_designacao || '-'}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -909,12 +1098,15 @@ export default function GestaoContratualPage() {
             </select>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Processo</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano/Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Período / Data Base</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Termo de Apostila</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Fato Gerador</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
@@ -924,13 +1116,27 @@ export default function GestaoContratualPage() {
                 {filteredRepactuacoes.map((rep) => (
                   <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4"><span className="text-xs font-black text-slate-900">{rep.process_number}</span></td>
+                    <td className="px-6 py-4"><span className="text-xs font-black text-slate-900">{rep.year}</span></td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-black text-slate-900">{rep.year}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{format(parseISO(rep.date), 'dd/MM/yyyy')}</span>
+                      <div className="flex items-center gap-2">
+                        <Calendar size={12} className="text-amber-500" />
+                        <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">{rep.periodo_data_base || '-'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4"><p className="text-xs font-medium text-slate-700 max-w-md">{rep.triggering_factor}</p></td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-emerald-600">
+                          {rep.valor_repactuacao?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <FileText size={12} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest truncate max-w-[100px]">{rep.termo_apostila || '-'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4"><p className="text-xs font-medium text-slate-700 max-w-xs truncate">{rep.triggering_factor}</p></td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[rep.status]}`}>{rep.status}</span>
                     </td>
@@ -945,6 +1151,86 @@ export default function GestaoContratualPage() {
             </table>
             {filteredRepactuacoes.length === 0 && (
               <div className="py-12 text-center text-slate-700 italic text-xs">Nenhuma repactuação encontrada.</div>
+            )}
+          </div>
+        </section>
+
+        {/* Renovações Contratuais Section */}
+        <section className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                <RefreshCw className="text-amber-500" size={24} />Renovações Contratuais
+              </h2>
+              <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Termos Aditivos</p>
+            </div>
+            <button onClick={() => setIsRenewalModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">
+              <Plus size={16} />Nova Renovação
+            </button>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter size={16} className="text-slate-900" />
+              <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Filtros:</span>
+            </div>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalFilter.year} onChange={e => setRenewalFilter({...renewalFilter, year: e.target.value})}>
+              <option value="">Todos os Anos</option>
+              {Array.from(new Set(contractRenewals.map(r => r.ano))).sort().map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <select className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalFilter.status} onChange={e => setRenewalFilter({...renewalFilter, status: e.target.value as any})}>
+              <option value="">Todos os Status</option>
+              <option value="Em Andamento">Em Andamento</option>
+              <option value="Concluída">Concluída</option>
+              <option value="Cancelada">Cancelada</option>
+              <option value="Pendente">Pendente</option>
+            </select>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Processo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ano</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Termo Aditivo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {contractRenewals
+                  .filter(r => (selectedContractId === 'todos' || r.contract_id === selectedContractId))
+                  .filter(r => !renewalFilter.year || r.ano === renewalFilter.year)
+                  .filter(r => !renewalFilter.status || r.status === renewalFilter.status)
+                  .map((ren) => (
+                  <tr key={ren.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4"><span className="text-xs font-black text-slate-900">{ren.numero_processo}</span></td>
+                    <td className="px-6 py-4"><span className="text-xs font-black text-slate-900">{ren.ano}</span></td>
+                    <td className="px-6 py-4"><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">{ren.termo_aditivo || '-'}</span></td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        ren.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' :
+                        ren.status === 'Em Andamento' ? 'bg-amber-100 text-amber-700' :
+                        ren.status === 'Cancelada' ? 'bg-rose-100 text-rose-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>{ren.status}</span>
+                    </td>
+                    <td className="px-6 py-4"><p className="text-xs font-medium text-slate-700 max-w-xs truncate">{ren.descricao}</p></td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => handleDeleteRenewal(ren.id)} className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {contractRenewals.filter(r => (selectedContractId === 'todos' || r.contract_id === selectedContractId)).length === 0 && (
+              <div className="py-12 text-center text-slate-700 italic text-xs">Nenhuma renovação encontrada.</div>
             )}
           </div>
         </section>
@@ -1229,9 +1515,22 @@ export default function GestaoContratualPage() {
                     <input type="number" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.year ?? new Date().getFullYear()} onChange={e => setRepactuacaoForm({...repactuacaoForm, year: Number(e.target.value)})} />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Período / Data Base</label>
+                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: 2024/2025" value={repactuacaoForm.periodo_data_base ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, periodo_data_base: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Valor da Repactuação</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">R$</span>
+                      <input type="number" className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.valor_repactuacao ?? 0} onChange={e => setRepactuacaoForm({...repactuacaoForm, valor_repactuacao: Number(e.target.value)})} />
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Data</label>
-                  <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={repactuacaoForm.date ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, date: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Termo de Apostila</label>
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: Apostila nº 01/2026" value={repactuacaoForm.termo_apostila ?? ''} onChange={e => setRepactuacaoForm({...repactuacaoForm, termo_apostila: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
@@ -1247,6 +1546,57 @@ export default function GestaoContratualPage() {
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                 <button onClick={() => setIsRepactuacaoModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
                 <button onClick={handleAddRepactuacao} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">Salvar Repactuação</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Renewal Modal */}
+      <AnimatePresence>
+        {isRenewalModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRenewalModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+                <div>
+                  <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">Nova Renovação</h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Termo Aditivo</p>
+                </div>
+                <button onClick={() => setIsRenewalModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors"><X size={20} /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Nº Processo</label>
+                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.numero_processo ?? ''} onChange={e => setRenewalForm({...renewalForm, numero_processo: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Ano</label>
+                    <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.ano ?? ''} onChange={e => setRenewalForm({...renewalForm, ano: e.target.value})} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Termo Aditivo</label>
+                  <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: Termo Aditivo nº 01/2026" value={renewalForm.termo_aditivo ?? ''} onChange={e => setRenewalForm({...renewalForm, termo_aditivo: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
+                  <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.status ?? 'Em Andamento'} onChange={e => setRenewalForm({...renewalForm, status: e.target.value as any})}>
+                    <option value="Em Andamento">Em Andamento</option>
+                    <option value="Concluída">Concluída</option>
+                    <option value="Cancelada">Cancelada</option>
+                    <option value="Pendente">Pendente</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Descrição / Justificativa</label>
+                  <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50 resize-none" value={renewalForm.descricao ?? ''} onChange={e => setRenewalForm({...renewalForm, descricao: e.target.value})} />
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+                <button onClick={() => setIsRenewalModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                <button onClick={handleAddRenewal} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">Salvar Renovação</button>
               </div>
             </motion.div>
           </div>
