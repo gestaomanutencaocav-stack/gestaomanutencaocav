@@ -733,15 +733,22 @@ export default function GestaoContratualPage() {
               <button
                 onClick={() => {
                   setNewContractForm({
-                    contract_number: '',
-                    company_name: '',
-                    cnpj: '',
-                    start_date: '',
-                    end_date: '',
-                    renewals_count: 0,
-                    contracting_party: '',
-                    status: 'Ativo'
-                  });
+  contract_number: '',
+  company_name: '',
+  cnpj: '',
+  start_date: '',
+  end_date: '',
+  renewals_count: 0,
+  contracting_party: '',
+  status: 'Ativo',
+  gestor_contrato: '',
+  gestor_substituto: '',
+  fiscal_tecnico: '',
+  fiscal_tecnico_sub: '',
+  fiscal_administrativo: '',
+  fiscal_admin_sub: '',
+  portaria_designacao: ''
+});
                   setIsNewContractModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
