@@ -17,7 +17,8 @@ import {
   LineChart,
   Line,
   AreaChart,
-  Area
+  Area,
+  ComposedChart
 } from 'recharts';
 import { 
   Download, 
@@ -284,6 +285,261 @@ function KPIProdutividadeProfissional({ requests }: { requests: MaintenanceReque
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function GraficoDinamicoSolicitacoes({ requests }: { requests: MaintenanceRequest[] }) {
+  const [filterMonth, setFilterMonth] = useState(0);
+  const [filterYear, setFilterYear] = useState(0);
+  const [filterType, setFilterType] = useState('Todas');
+  const [activeTab, setActiveTab] = useState<'categoria' | 'evolucao'>('categoria');
+
+  const years = useMemo(() => {
+    const yrs = new Set<number>();
+    requests.forEach(req => {
+      const date = new Date(req.createdAt || req.date);
+      if (!isNaN(date.getFullYear())) yrs.add(date.getFullYear());
+    });
+    return Array.from(yrs).sort((a, b) => b - a);
+  }, [requests]);
+
+  const types = useMemo(() => {
+    const tps = new Set<string>();
+    requests.forEach(req => {
+      if (req.type) tps.add(req.type);
+    });
+    return Array.from(tps).sort();
+  }, [requests]);
+
+  const filteredData = useMemo(() => {
+    return requests.filter(req => {
+      const date = new Date(req.createdAt || req.date);
+      const monthMatch = filterMonth === 0 || (date.getMonth() + 1 === filterMonth);
+      const yearMatch = filterYear === 0 || (date.getFullYear() === filterYear);
+      const typeMatch = filterType === 'Todas' || req.type === filterType;
+      return monthMatch && yearMatch && typeMatch;
+    });
+  }, [requests, filterMonth, filterYear, filterType]);
+
+  const stats = useMemo(() => {
+    const total = filteredData.length;
+    const completed = filteredData.filter(r => r.status === 'Concluído' || r.status === 'Autorizado').length;
+    const inProgress = filteredData.filter(r => r.status === 'Em Andamento' || r.status === 'Novo').length;
+    const completedPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const inProgressPercent = total > 0 ? Math.round((inProgress / total) * 100) : 0;
+
+    return { total, completed, inProgress, completedPercent, inProgressPercent };
+  }, [filteredData]);
+
+  const chartByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredData.forEach(req => {
+      counts[req.type] = (counts[req.type] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredData]);
+
+  const chartByEvolution = useMemo(() => {
+    const data: Record<string, { name: string; concluida: number; emAndamento: number; outros: number; total: number }> = {};
+    
+    // Sort requests by date first to have chronological evolution
+    const sorted = [...filteredData].sort((a, b) => 
+      new Date(a.createdAt || a.date).getTime() - new Date(b.createdAt || b.date).getTime()
+    );
+
+    sorted.forEach(req => {
+      const date = new Date(req.createdAt || req.date);
+      const key = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      const name = format(date, 'MMM/yy', { locale: ptBR });
+      
+      if (!data[key]) {
+        data[key] = { name, concluida: 0, emAndamento: 0, outros: 0, total: 0 };
+      }
+      
+      data[key].total += 1;
+      if (req.status === 'Concluído' || req.status === 'Autorizado') {
+        data[key].concluida += 1;
+      } else if (req.status === 'Em Andamento' || req.status === 'Novo') {
+        data[key].emAndamento += 1;
+      } else {
+        data[key].outros += 1;
+      }
+    });
+
+    return Object.values(data);
+  }, [filteredData]);
+
+  const clearFilters = () => {
+    setFilterMonth(0);
+    setFilterYear(0);
+    setFilterType('Todas');
+  };
+
+  return (
+    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+            <BarChart3 className="text-amber-500" size={20} /> Análise Dinâmica de Solicitações
+          </h3>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Gráficos interativos com filtros personalizados</p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <select 
+            value={filterMonth} 
+            onChange={e => setFilterMonth(Number(e.target.value))}
+            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+          >
+            <option value={0}>Mês: Todos</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>{format(new Date(2024, i, 1), 'MMMM', { locale: ptBR })}</option>
+            ))}
+          </select>
+
+          <select 
+            value={filterYear} 
+            onChange={e => setFilterYear(Number(e.target.value))}
+            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+          >
+            <option value={0}>Ano: Todos</option>
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+
+          <select 
+            value={filterType} 
+            onChange={e => setFilterType(e.target.value)}
+            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+          >
+            <option value="Todas">Categoria: Todas</option>
+            {types.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          <button 
+            onClick={clearFilters}
+            className="px-3 py-2 text-[10px] font-black text-slate-400 hover:text-amber-600 uppercase tracking-widest transition-colors"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-slate-50 border border-slate-100 rounded-xl"
+        >
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total no Período</p>
+          <p className="text-2xl font-black text-slate-900 mt-1">{stats.total}</p>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Concluídas</p>
+            <span className="text-[9px] font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-md">{stats.completedPercent}%</span>
+          </div>
+          <p className="text-2xl font-black text-slate-900 mt-1">{stats.completed}</p>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-4 bg-amber-50 border border-amber-100 rounded-xl"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Em Aberto</p>
+            <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-md">{stats.inProgressPercent}%</span>
+          </div>
+          <p className="text-2xl font-black text-slate-900 mt-1">{stats.inProgress}</p>
+        </motion.div>
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+          <button 
+            onClick={() => setActiveTab('categoria')}
+            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+              activeTab === 'categoria' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Por Categoria
+          </button>
+          <button 
+            onClick={() => setActiveTab('evolucao')}
+            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+              activeTab === 'evolucao' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Evolução Mensal
+          </button>
+        </div>
+
+        <div className="h-96 w-full pt-4">
+          {filteredData.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
+              <BarChart3 size={48} strokeWidth={1} />
+              <p className="text-sm font-bold uppercase tracking-widest">Nenhuma solicitação encontrada para os filtros selecionados.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              {activeTab === 'categoria' ? (
+                <BarChart data={chartByCategory}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
+                    angle={-30}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff' }}
+                    itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                    cursor={{ fill: '#f8fafc' }}
+                  />
+                  <Bar dataKey="total" fill="#f59e0b" barSize={36} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              ) : (
+                <ComposedChart data={chartByEvolution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
+                  />
+                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff' }}
+                    itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                  <Bar yAxisId="left" dataKey="concluida" name="Concluídas" stackId="a" fill="#10b981" barSize={30} radius={[0, 0, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="emAndamento" name="Em Andamento" stackId="a" fill="#f59e0b" />
+                  <Bar yAxisId="left" dataKey="outros" name="Outros" stackId="a" fill="#94a3b8" radius={[6, 6, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="total" name="Total Acumulado" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }} />
+                </ComposedChart>
+              )}
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1310,6 +1566,7 @@ export default function RelatoriosPage() {
                 </div>
 
                 <KPIProdutividadeProfissional requests={filteredRequests} />
+                <GraficoDinamicoSolicitacoes requests={filteredRequests} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
