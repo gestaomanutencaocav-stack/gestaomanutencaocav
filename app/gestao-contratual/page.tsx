@@ -91,6 +91,44 @@ interface ContractRenewal {
   descricao: string;
 }
 
+type ContractStatus = 'Ativo' | 'Encerrado' | 'Suspenso';
+
+interface ContractFormType {
+  contract_number: string;
+  company_name: string;
+  cnpj: string;
+  start_date: string;
+  end_date: string;
+  renewals_count: number;
+  contracting_party: string;
+  status: ContractStatus;
+  gestor_contrato: string;
+  gestor_substituto: string;
+  fiscal_tecnico: string;
+  fiscal_tecnico_sub: string;
+  fiscal_administrativo: string;
+  fiscal_admin_sub: string;
+  portaria_designacao: string;
+}
+
+const EMPTY_CONTRACT_FORM: ContractFormType = {
+  contract_number: '',
+  company_name: '',
+  cnpj: '',
+  start_date: '',
+  end_date: '',
+  renewals_count: 0,
+  contracting_party: '',
+  status: 'Ativo',
+  gestor_contrato: '',
+  gestor_substituto: '',
+  fiscal_tecnico: '',
+  fiscal_tecnico_sub: '',
+  fiscal_administrativo: '',
+  fiscal_admin_sub: '',
+  portaria_designacao: ''
+};
+
 export default function GestaoContratualPage() {
   const [contract, setContract] = useState<ContractInfo | null>(null);
   const [contracts, setContracts] = useState<ContractInfo[]>([]);
@@ -135,23 +173,7 @@ export default function GestaoContratualPage() {
     portaria_designacao: ''
   });
 
-  const [newContractForm, setNewContractForm] = useState({
-    contract_number: '',
-    company_name: '',
-    cnpj: '',
-    start_date: '',
-    end_date: '',
-    renewals_count: 0,
-    contracting_party: '',
-    status: 'Ativo' as 'Ativo' | 'Encerrado' | 'Suspenso',
-    gestor_contrato: '',
-    gestor_substituto: '',
-    fiscal_tecnico: '',
-    fiscal_tecnico_sub: '',
-    fiscal_administrativo: '',
-    fiscal_admin_sub: '',
-    portaria_designacao: ''
-  });
+  const [newContractForm, setNewContractForm] = useState<ContractFormType>(EMPTY_CONTRACT_FORM);
 
   const [financialForm, setFinancialForm] = useState<Partial<FinancialRecord>>({
     year: new Date().getFullYear(),
@@ -475,16 +497,7 @@ export default function GestaoContratualPage() {
       setContracts(prev => [data, ...prev]);
       setSelectedContractId(data.id);
       setIsNewContractModalOpen(false);
-      setNewContractForm({
-        contract_number: '', 
-        company_name: '', 
-        cnpj: '',
-        start_date: '', 
-        end_date: '', 
-        renewals_count: 0,
-        contracting_party: '', 
-        status: 'Ativo'
-      });
+      setNewContractForm(EMPTY_CONTRACT_FORM);
       setNotification({ type: 'success', message: 'Novo contrato criado com sucesso!' });
       setTimeout(() => setNotification(null), 5000);
     } catch (e) {
@@ -725,16 +738,7 @@ export default function GestaoContratualPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  setNewContractForm({
-                    contract_number: '',
-                    company_name: '',
-                    cnpj: '',
-                    start_date: '',
-                    end_date: '',
-                    renewals_count: 0,
-                    contracting_party: '',
-                    status: 'Ativo'
-                  });
+                  setNewContractForm(EMPTY_CONTRACT_FORM);
                   setIsNewContractModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
