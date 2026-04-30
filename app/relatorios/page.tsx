@@ -27,6 +27,7 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   TrendingUp,
+  TrendingDown,
   FileText,
   CheckCircle2,
   AlertCircle,
@@ -61,6 +62,7 @@ interface MaintenanceRequest {
   type: string;
   status: string;
   professional: string | null;
+  professionals?: Array<{ name: string; role: string }> | null;
 }
 
 interface Inspection {
@@ -133,6 +135,158 @@ const SLATE_COLOR = '#64748b';
 const AMBER_COLOR = '#f59e0b';
 const EMERALD_COLOR = '#10b981';
 const RED_COLOR = '#ef4444';
+
+function KPIProdutividadeProfissional({ requests }: { requests: MaintenanceRequest[] }) {
+  const [showAll, setShowAll] = useState(false);
+
+  const stats = useMemo(() => {
+    const profStats: Record<string, { 
+      name: string; 
+      total: number; 
+      completed: number; 
+      inProgress: number; 
+      pending: number; 
+    }> = {};
+
+    requests.forEach(req => {
+      const names = new Set<string>();
+      
+      // Extract from professionals array
+      if (req.professionals && Array.isArray(req.professionals)) {
+        req.professionals.forEach(p => {
+          if (p.name && p.name.trim()) names.add(p.name.trim());
+        });
+      }
+      
+      // Fallback to professional string
+      if (req.professional) {
+        req.professional.split(',').forEach(p => {
+          const name = p.split('—')[0].trim();
+          if (name) names.add(name);
+        });
+      }
+
+      names.forEach(name => {
+        if (!profStats[name]) {
+          profStats[name] = { name, total: 0, completed: 0, inProgress: 0, pending: 0 };
+        }
+        
+        profStats[name].total += 1;
+        if (req.status === 'Concluído' || req.status === 'Autorizado') {
+          profStats[name].completed += 1;
+        } else if (req.status === 'Em Andamento' || req.status === 'Novo') {
+          profStats[name].inProgress += 1;
+        } else {
+          profStats[name].pending += 1;
+        }
+      });
+    });
+
+    const list = Object.values(profStats).map(s => ({
+      ...s,
+      completionRate: s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0
+    })).sort((a, b) => b.total - a.total);
+
+    const maxDemand = list.length > 0 ? list[0] : null;
+    const minDemand = list.length > 0 ? list[list.length - 1] : null;
+
+    return { list, maxDemand, minDemand };
+  }, [requests]);
+
+  if (stats.list.length === 0) return null;
+
+  return (
+    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+            <Activity className="text-amber-500" size={20} /> Produtividade por Profissional
+          </h3>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Ranking de desempenho e carga de trabalho</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {stats.maxDemand && (
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }} 
+            animate={{ opacity: 1, x: 0 }}
+            className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-4"
+          >
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+              <TrendingUp size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Maior Demanda</p>
+              <p className="text-lg font-black text-slate-900">{stats.maxDemand.name}</p>
+              <p className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">{stats.maxDemand.total} Serviços atribuídos</p>
+            </div>
+          </motion.div>
+        )}
+        {stats.minDemand && stats.minDemand !== stats.maxDemand && (
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }} 
+            animate={{ opacity: 1, x: 0 }}
+            className="p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-4"
+          >
+            <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
+              <TrendingDown size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Menor Demanda</p>
+              <p className="text-lg font-black text-slate-900">{stats.minDemand.name}</p>
+              <p className="text-xs font-bold text-rose-600 uppercase tracking-tighter">{stats.minDemand.total} Serviços atribuídos</p>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        {(showAll ? stats.list : stats.list.slice(0, 5)).map((prof, idx) => (
+          <motion.div 
+            key={prof.name}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05 }}
+            className="space-y-2"
+          >
+            <div className="flex justify-between items-end">
+              <div>
+                <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{prof.name}</span>
+                <div className="flex gap-3 mt-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{prof.total} Total</span>
+                  <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">{prof.completed} Concluídos</span>
+                  <span className="text-[9px] font-bold text-amber-600 uppercase tracking-widest">{prof.inProgress} Em Andamento</span>
+                </div>
+              </div>
+              <span className="text-xs font-black text-amber-600">{prof.completionRate}%</span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${prof.completionRate}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="h-full bg-amber-500"
+              />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {stats.list.length > 5 && (
+        <div className="pt-4 flex justify-center">
+          <button 
+            onClick={() => setShowAll(!showAll)}
+            className="text-xs font-black text-amber-600 hover:text-amber-700 uppercase tracking-widest flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            {showAll ? 'Ver menos' : 'Ver todos os profissionais'} 
+            <ChevronDown size={16} className={`transition-transform duration-300 ${showAll ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function RelatoriosPage() {
   const formatDate = (dateStr: string) => {
@@ -1154,6 +1308,8 @@ export default function RelatoriosPage() {
                     </motion.div>
                   ))}
                 </div>
+
+                <KPIProdutividadeProfissional requests={filteredRequests} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
