@@ -293,6 +293,7 @@ function GraficoDinamicoSolicitacoes({ requests }: { requests: MaintenanceReques
   const [filterMonth, setFilterMonth] = useState(0);
   const [filterYear, setFilterYear] = useState(0);
   const [filterType, setFilterType] = useState('Todas');
+  const [filterProfissional, setFilterProfissional] = useState('Todos');
   const [activeTab, setActiveTab] = useState<'categoria' | 'evolucao'>('categoria');
 
   const years = useMemo(() => {
@@ -312,15 +313,50 @@ function GraficoDinamicoSolicitacoes({ requests }: { requests: MaintenanceReques
     return Array.from(tps).sort();
   }, [requests]);
 
+  const profissionais = useMemo(() => {
+    const set = new Set<string>();
+    requests.forEach(req => {
+      // Fonte 1: campo professionals (jsonb array)
+      if (Array.isArray(req.professionals)) {
+        req.professionals.forEach(p => {
+          if (p?.name && p.name !== 'NULL' && p.name !== 'EMPTY') {
+            set.add(p.name.trim());
+          }
+        });
+      }
+      // Fonte 2: fallback campo professional (text)
+      if (req.professional && req.professional !== 'NULL' && req.professional !== 'EMPTY') {
+        req.professional.split(',').forEach(p => {
+          const name = p.split('—')[0].trim();
+          if (name) set.add(name);
+        });
+      }
+    });
+    return ['Todos', ...Array.from(set).sort()];
+  }, [requests]);
+
   const filteredData = useMemo(() => {
     return requests.filter(req => {
       const date = new Date(req.createdAt || req.date);
       const monthMatch = filterMonth === 0 || (date.getMonth() + 1 === filterMonth);
       const yearMatch = filterYear === 0 || (date.getFullYear() === filterYear);
       const typeMatch = filterType === 'Todas' || req.type === filterType;
-      return monthMatch && yearMatch && typeMatch;
+      const profMatch = filterProfissional === 'Todos' || (() => {
+        // Verificar campo professionals (jsonb)
+        if (Array.isArray(req.professionals)) {
+          return req.professionals.some(p => p?.name?.trim() === filterProfissional);
+        }
+        // Fallback campo professional (text)
+        if (req.professional) {
+          return req.professional.split(',').some(p => 
+            p.split('—')[0].trim() === filterProfissional
+          );
+        }
+        return false;
+      })();
+      return monthMatch && yearMatch && typeMatch && profMatch;
     });
-  }, [requests, filterMonth, filterYear, filterType]);
+  }, [requests, filterMonth, filterYear, filterType, filterProfissional]);
 
   const stats = useMemo(() => {
     const total = filteredData.length;
@@ -376,6 +412,7 @@ function GraficoDinamicoSolicitacoes({ requests }: { requests: MaintenanceReques
     setFilterMonth(0);
     setFilterYear(0);
     setFilterType('Todas');
+    setFilterProfissional('Todos');
   };
 
   return (
@@ -419,6 +456,16 @@ function GraficoDinamicoSolicitacoes({ requests }: { requests: MaintenanceReques
             <option value="Todas">Categoria: Todas</option>
             {types.map(t => (
               <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+
+          <select 
+            value={filterProfissional} 
+            onChange={e => setFilterProfissional(e.target.value)}
+            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+          >
+            {profissionais.map(p => (
+              <option key={p} value={p}>{p}</option>
             ))}
           </select>
 
@@ -1568,25 +1615,7 @@ export default function RelatoriosPage() {
                 <KPIProdutividadeProfissional requests={filteredRequests} />
                 <GraficoDinamicoSolicitacoes requests={filteredRequests} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-8">
-                      <BarChart3 size={20} className="text-blue-600" />
-                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm">Demandas por Categoria</h3>
-                    </div>
-                    <div className="h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={typeData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700 }} itemStyle={{ color: '#fff' }} cursor={{ fill: '#f1f5f9' }} />
-                          <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={40} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 gap-8">
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-8">
                       <PieChartIcon size={20} className="text-emerald-600" />
