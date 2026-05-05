@@ -1,19 +1,32 @@
-import { NextResponse, NextRequest } from 'next/server';
+// middleware.ts — colocar na RAIZ do projeto (ao lado de next.config.js)
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+const GESTAO_ONLY_ROUTES = [
+  '/gestao-contratual',
+  '/relatorios',
+  '/materiais-finalisticos',
+];
 
 export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth_session');
-  const { pathname } = request.nextUrl;
 
-  const isAuthenticated = !!authCookie?.value;
-
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
-    if (isAuthenticated && pathname === '/login') {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-    return NextResponse.next();
+  // Sem sessão → redireciona para login
+  if (!authCookie?.value) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (!isAuthenticated) {
+  try {
+    const session = JSON.parse(authCookie.value);
+    const path = request.nextUrl.pathname;
+
+    const isRestricted = GESTAO_ONLY_ROUTES.some(route => path.startsWith(route));
+
+    // Rota restrita acessada por encarregado → redireciona para home
+    if (isRestricted && session.role !== 'gestao') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  } catch {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -22,6 +35,8 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.ico|.*\\.webp|.*\\.woff|.*\\.woff2|.*\\.ttf).*)',
+    '/gestao-contratual/:path*',
+    '/relatorios/:path*',
+    '/materiais-finalisticos/:path*',
   ],
 };
