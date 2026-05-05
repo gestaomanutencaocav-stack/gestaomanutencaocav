@@ -42,6 +42,7 @@ interface ContractInfo {
   start_date: string;
   end_date: string;
   renewals_count: number;
+  renewal_periodicity?: 'mensal' | 'bimestral' | 'trimestral' | 'semestral' | 'anual';
   contracting_party: string;
   status: 'Ativo' | 'Encerrado' | 'Suspenso';
   gestor_contrato?: string;
@@ -51,6 +52,9 @@ interface ContractInfo {
   fiscal_administrativo?: string;
   fiscal_admin_sub?: string;
   portaria_designacao?: string;
+  lei_contratacao?: string;
+  hipotese_legal?: string;
+  tipo_contratacao?: string;
 }
 
 interface FinancialRecord {
@@ -89,6 +93,8 @@ interface ContractRenewal {
   termo_aditivo: string;
   status: 'Em Andamento' | 'Concluída' | 'Cancelada' | 'Pendente';
   descricao: string;
+  data_inicio?: string;
+  data_fim?: string;
 }
 
 type ContractStatus = 'Ativo' | 'Encerrado' | 'Suspenso';
@@ -151,6 +157,9 @@ export default function GestaoContratualPage() {
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<any[]>([]);
 
+  // Estado para edição de renovação
+  const [editingRenewal, setEditingRenewal] = useState<ContractRenewal | null>(null);
+
   const [financialFilter, setFinancialFilter] = useState({ year: '', month: '' });
   const [repactuacaoFilter, setRepactuacaoFilter] = useState({ year: '', status: '' });
   const [renewalFilter, setRenewalFilter] = useState({ year: '', status: '' });
@@ -162,6 +171,7 @@ export default function GestaoContratualPage() {
     start_date: '',
     end_date: '',
     renewals_count: 0,
+    renewal_periodicity: 'anual',
     contracting_party: '',
     status: 'Ativo',
     gestor_contrato: '',
@@ -170,7 +180,10 @@ export default function GestaoContratualPage() {
     fiscal_tecnico_sub: '',
     fiscal_administrativo: '',
     fiscal_admin_sub: '',
-    portaria_designacao: ''
+    portaria_designacao: '',
+    lei_contratacao: '',
+    hipotese_legal: '',
+    tipo_contratacao: '',
   });
 
   const [newContractForm, setNewContractForm] = useState<ContractFormType>(EMPTY_CONTRACT_FORM);
@@ -186,6 +199,7 @@ export default function GestaoContratualPage() {
     materials_citl_value: 0,
     discounts: 0
   });
+
   const [repactuacaoForm, setRepactuacaoForm] = useState<Partial<Repactuacao>>({
     process_number: '',
     year: new Date().getFullYear(),
@@ -201,7 +215,9 @@ export default function GestaoContratualPage() {
     ano: new Date().getFullYear().toString(),
     termo_aditivo: '',
     status: 'Em Andamento',
-    descricao: ''
+    descricao: '',
+    data_inicio: '',
+    data_fim: '',
   });
 
   const sortByInvoice = (records: FinancialRecord[]) => {
@@ -239,6 +255,7 @@ export default function GestaoContratualPage() {
             start_date: active.start_date ?? '',
             end_date: active.end_date ?? '',
             renewals_count: active.renewals_count ?? 0,
+            renewal_periodicity: active.renewal_periodicity ?? 'anual',
             contracting_party: active.contracting_party ?? '',
             status: active.status ?? 'Ativo',
             gestor_contrato: active.gestor_contrato ?? '',
@@ -247,7 +264,10 @@ export default function GestaoContratualPage() {
             fiscal_tecnico_sub: active.fiscal_tecnico_sub ?? '',
             fiscal_administrativo: active.fiscal_administrativo ?? '',
             fiscal_admin_sub: active.fiscal_admin_sub ?? '',
-            portaria_designacao: active.portaria_designacao ?? ''
+            portaria_designacao: active.portaria_designacao ?? '',
+            lei_contratacao: active.lei_contratacao ?? '',
+            hipotese_legal: active.hipotese_legal ?? '',
+            tipo_contratacao: active.tipo_contratacao ?? '',
           });
         }
       }
@@ -371,26 +391,61 @@ export default function GestaoContratualPage() {
     }
   };
 
+  // Abrir modal de edição de renovação
+  const handleEditRenewal = (renewal: ContractRenewal) => {
+    setEditingRenewal(renewal);
+    setRenewalForm({
+      numero_processo: renewal.numero_processo,
+      ano: renewal.ano,
+      termo_aditivo: renewal.termo_aditivo,
+      status: renewal.status,
+      descricao: renewal.descricao,
+      data_inicio: renewal.data_inicio || '',
+      data_fim: renewal.data_fim || '',
+    });
+    setIsRenewalModalOpen(true);
+  };
+
   const handleAddRenewal = async () => {
     try {
+      const contractId = selectedContractId !== 'todos'
+        ? selectedContractId
+        : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id);
+
       const payload = {
         ...renewalForm,
-        contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id)
+        contract_id: contractId,
       };
-      
-      const { data, error } = await supabase.from('contract_renewals').insert([payload]).select();
-      if (error) throw error;
-      setContractRenewals([data[0], ...contractRenewals]);
+
+      if (editingRenewal) {
+        // Edição de renovação existente
+        const { data, error } = await supabase
+          .from('contract_renewals')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', editingRenewal.id)
+          .select();
+        if (error) throw error;
+        setContractRenewals(contractRenewals.map(r => r.id === editingRenewal.id ? data[0] : r));
+      } else {
+        // Nova renovação
+        const { data, error } = await supabase.from('contract_renewals').insert([payload]).select();
+        if (error) throw error;
+        setContractRenewals([data[0], ...contractRenewals]);
+      }
+
       setIsRenewalModalOpen(false);
+      setEditingRenewal(null);
       setRenewalForm({
         numero_processo: '',
         ano: new Date().getFullYear().toString(),
         termo_aditivo: '',
         status: 'Em Andamento',
-        descricao: ''
+        descricao: '',
+        data_inicio: '',
+        data_fim: '',
       });
     } catch (error) {
-      console.error('Error adding renewal:', error);
+      console.error('Error saving renewal:', error);
     }
   };
 
@@ -407,16 +462,32 @@ export default function GestaoContratualPage() {
 
   const handleAddRepactuacao = async () => {
     try {
+      const contractId = selectedContractId !== 'todos'
+        ? selectedContractId
+        : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id);
+
+      if (!contractId) {
+        alert('Selecione um contrato antes de adicionar uma repactuação.');
+        return;
+      }
+
       const payload = {
-        ...repactuacaoForm,
-        contract_id: selectedContractId !== 'todos' ? selectedContractId : (contracts.find(c => c.status === 'Ativo')?.id || contracts[0]?.id)
+        process_number: repactuacaoForm.process_number || '',
+        year: repactuacaoForm.year || new Date().getFullYear(),
+        periodo_data_base: repactuacaoForm.periodo_data_base || '',
+        valor_repactuacao: Number(repactuacaoForm.valor_repactuacao) || 0,
+        termo_apostila: repactuacaoForm.termo_apostila || '',
+        triggering_factor: repactuacaoForm.triggering_factor || '',
+        status: repactuacaoForm.status || 'Em Análise',
+        contract_id: contractId,
       };
-      
+
       const { data, error } = await supabase.from('repactuacoes').insert([payload]).select();
       if (error) throw error;
       setRepactuacoes([data[0], ...repactuacoes]);
       setIsRepactuacaoModalOpen(false);
       setRepactuacaoForm({
+        process_number: '',
         year: new Date().getFullYear(),
         periodo_data_base: '',
         valor_repactuacao: 0,
@@ -424,8 +495,12 @@ export default function GestaoContratualPage() {
         status: 'Em Análise',
         triggering_factor: ''
       });
-    } catch (error) {
+      setNotification({ type: 'success', message: 'Repactuação adicionada com sucesso!' });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (error: any) {
       console.error('Error adding repactuacao:', error);
+      setNotification({ type: 'error', message: `Erro ao salvar repactuação: ${error.message}` });
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -832,7 +907,7 @@ export default function GestaoContratualPage() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1 block">Renovações Contratuais</label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
                   <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest">
                     <RefreshCw size={10} />
                     {contractRenewals.filter(r => r.contract_id === (selectedContractId !== 'todos' ? selectedContractId : contract?.id) && r.status === 'Concluída').length} Realizadas
@@ -841,12 +916,36 @@ export default function GestaoContratualPage() {
                     <RefreshCw size={10} />
                     {Math.max(0, (contract?.renewals_count || 0) - contractRenewals.filter(r => r.contract_id === (selectedContractId !== 'todos' ? selectedContractId : contract?.id) && r.status === 'Concluída').length)} Restantes
                   </div>
-                  {isEditingContract && (
-                    <div className="ml-2">
-                      <input type="number" className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.renewals_count ?? 0} onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})} />
+                  {contract?.renewal_periodicity && !isEditingContract && (
+                    <div className="flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                      <RefreshCw size={10} />{contract.renewal_periodicity}
                     </div>
                   )}
                 </div>
+                {isEditingContract && (
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Previsto</label>
+                      <input type="number" min="0"
+                        className="w-20 bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        value={contractForm.renewals_count ?? 0}
+                        onChange={e => setContractForm({...contractForm, renewals_count: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Periodicidade</label>
+                      <select className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        value={contractForm.renewal_periodicity ?? 'anual'}
+                        onChange={e => setContractForm({...contractForm, renewal_periodicity: e.target.value as any})}>
+                        <option value="mensal">Mensal</option>
+                        <option value="bimestral">Bimestral</option>
+                        <option value="trimestral">Trimestral</option>
+                        <option value="semestral">Semestral</option>
+                        <option value="anual">Anual</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -945,6 +1044,69 @@ export default function GestaoContratualPage() {
                       <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={contractForm.portaria_designacao ?? ''} onChange={e => setContractForm({...contractForm, portaria_designacao: e.target.value})} />
                     ) : (
                       <p className="text-xs font-black text-slate-900">{contract?.portaria_designacao || '-'}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Enquadramento Legal — Lei 14.133/2021 */}
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <FileText className="text-amber-500" size={20} />
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Enquadramento Legal</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Lei da Contratação</label>
+                    {isEditingContract ? (
+                      <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        value={contractForm.lei_contratacao ?? ''}
+                        onChange={e => setContractForm({...contractForm, lei_contratacao: e.target.value})}>
+                        <option value="">Selecione...</option>
+                        <option value="Lei nº 14.133/2021">Lei nº 14.133/2021</option>
+                        <option value="Lei nº 8.666/1993">Lei nº 8.666/1993</option>
+                        <option value="Lei nº 10.520/2002">Lei nº 10.520/2002</option>
+                        <option value="Lei nº 13.303/2016">Lei nº 13.303/2016</option>
+                      </select>
+                    ) : (
+                      <p className="text-xs font-black text-slate-900">{contract?.lei_contratacao || '-'}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Hipótese Legal</label>
+                    {isEditingContract ? (
+                      <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        value={contractForm.hipotese_legal ?? ''}
+                        onChange={e => setContractForm({...contractForm, hipotese_legal: e.target.value})}>
+                        <option value="">Selecione...</option>
+                        <option value="Art. 75, inciso II (Dispensa - até R$ 59.906,25)">Art. 75, inc. II — Dispensa (até R$ 59.906,25)</option>
+                        <option value="Art. 74, inciso I (Inexigibilidade - Exclusividade)">Art. 74, inc. I — Inexigibilidade (Exclusividade)</option>
+                        <option value="Art. 74, inciso II (Inexigibilidade - Profissional)">Art. 74, inc. II — Inexigibilidade (Profissional)</option>
+                        <option value="Art. 28, inciso I (Concorrência)">Art. 28, inc. I — Concorrência</option>
+                        <option value="Art. 28, inciso II (Pregão)">Art. 28, inc. II — Pregão</option>
+                        <option value="Art. 29, inciso I (Concorrência Internacional)">Art. 29, inc. I — Concorrência Internacional</option>
+                        <option value="Outro">Outro</option>
+                      </select>
+                    ) : (
+                      <p className="text-xs font-black text-slate-900">{contract?.hipotese_legal || '-'}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tipo de Contratação</label>
+                    {isEditingContract ? (
+                      <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50"
+                        value={contractForm.tipo_contratacao ?? ''}
+                        onChange={e => setContractForm({...contractForm, tipo_contratacao: e.target.value})}>
+                        <option value="">Selecione...</option>
+                        <option value="Serviço Continuado">Serviço Continuado</option>
+                        <option value="Serviço Não Continuado">Serviço Não Continuado</option>
+                        <option value="Fornecimento">Fornecimento</option>
+                        <option value="Obra">Obra</option>
+                        <option value="Locação">Locação</option>
+                        <option value="Consultoria">Consultoria</option>
+                      </select>
+                    ) : (
+                      <p className="text-xs font-black text-slate-900">{contract?.tipo_contratacao || '-'}</p>
                     )}
                   </div>
                 </div>
@@ -1168,7 +1330,7 @@ export default function GestaoContratualPage() {
               </h2>
               <p className="text-xs text-slate-900 font-bold uppercase tracking-widest">Acompanhamento de Termos Aditivos</p>
             </div>
-            <button onClick={() => setIsRenewalModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">
+            <button onClick={() => { setEditingRenewal(null); setRenewalForm({ numero_processo: '', ano: new Date().getFullYear().toString(), termo_aditivo: '', status: 'Em Andamento', descricao: '', data_inicio: '', data_fim: '' }); setIsRenewalModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">
               <Plus size={16} />Nova Renovação
             </button>
           </div>
@@ -1225,9 +1387,14 @@ export default function GestaoContratualPage() {
                     </td>
                     <td className="px-6 py-4"><p className="text-xs font-medium text-slate-700 max-w-xs truncate">{ren.descricao}</p></td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => handleDeleteRenewal(ren.id)} className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
+                        <button onClick={() => handleEditRenewal(ren)} className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Editar">
+                          <Edit2 size={15} />
+                        </button>
+                        <button onClick={() => handleDeleteRenewal(ren.id)} className="p-2 text-slate-800 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Excluir">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1277,111 +1444,48 @@ export default function GestaoContratualPage() {
                   <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/50" value={financialForm.fiscal_note_number ?? ''} onChange={e => setFinancialForm({...financialForm, fiscal_note_number: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Valor Fato Gerador
-                  </label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Fato Gerador</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="0,00"
-                      value={financialForm.payment_value === 0 ? '' : financialForm.payment_value}
-                      onChange={e => setFinancialForm({ ...financialForm, payment_value: Number(e.target.value) || 0 })}
-                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">R$</span>
+                    <input type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="0,00" value={financialForm.payment_value === 0 ? '' : financialForm.payment_value} onChange={e => setFinancialForm({ ...financialForm, payment_value: Number(e.target.value) || 0 })} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Valor Materiais
-                  </label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Materiais</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="0,00"
-                      value={financialForm.materials_value === 0 ? '' : financialForm.materials_value}
-                      onChange={e => setFinancialForm({ ...financialForm, materials_value: Number(e.target.value) || 0 })}
-                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">R$</span>
+                    <input type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="0,00" value={financialForm.materials_value === 0 ? '' : financialForm.materials_value} onChange={e => setFinancialForm({ ...financialForm, materials_value: Number(e.target.value) || 0 })} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Valor Mat+CITL
-                  </label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Mat+CITL</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="0,00"
-                      value={financialForm.materials_citl_value === 0 ? '' : financialForm.materials_citl_value}
-                      onChange={e => setFinancialForm({ ...financialForm, materials_citl_value: Number(e.target.value) || 0 })}
-                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">R$</span>
+                    <input type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="0,00" value={financialForm.materials_citl_value === 0 ? '' : financialForm.materials_citl_value} onChange={e => setFinancialForm({ ...financialForm, materials_citl_value: Number(e.target.value) || 0 })} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Descontos
-                  </label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descontos</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="0,00"
-                      value={financialForm.discounts === 0 ? '' : financialForm.discounts}
-                      onChange={e => setFinancialForm({ ...financialForm, discounts: Number(e.target.value) || 0 })}
-                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs pointer-events-none">R$</span>
+                    <input type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="0,00" value={financialForm.discounts === 0 ? '' : financialForm.discounts} onChange={e => setFinancialForm({ ...financialForm, discounts: Number(e.target.value) || 0 })} />
                   </div>
                 </div>
-
-                {/* Preview do Total */}
                 <div className="col-span-2">
                   {(financialForm.payment_value || financialForm.materials_citl_value || financialForm.discounts) && (
                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-2">
                       <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Preview do Total</p>
                       <div className="flex justify-between text-xs font-bold text-slate-700">
                         <span>Total Fatura (FG + Mat+CITL):</span>
-                        <span className="font-mono">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                            .format((Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0))}
-                        </span>
+                        <span className="font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0))}</span>
                       </div>
                       <div className="flex justify-between text-xs font-bold text-slate-700">
                         <span>(-) Descontos:</span>
-                        <span className="font-mono text-rose-600">
-                          -{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                            .format(Number(financialForm.discounts) || 0)}
-                        </span>
+                        <span className="font-mono text-rose-600">-{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(financialForm.discounts) || 0)}</span>
                       </div>
                       <div className="flex justify-between text-sm font-black text-slate-900 border-t border-amber-200 pt-2">
                         <span>Total Líquido:</span>
-                        <span className="font-mono text-amber-600">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                            .format(
-                              (Number(financialForm.payment_value) || 0) +
-                              (Number(financialForm.materials_citl_value) || 0) -
-                              (Number(financialForm.discounts) || 0)
-                            )}
-                        </span>
+                        <span className="font-mono text-amber-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((Number(financialForm.payment_value) || 0) + (Number(financialForm.materials_citl_value) || 0) - (Number(financialForm.discounts) || 0))}</span>
                       </div>
                     </div>
                   )}
@@ -1400,93 +1504,59 @@ export default function GestaoContratualPage() {
       <AnimatePresence>
         {isNewContractModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsNewContractModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
-              
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsNewContractModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
               <div className="bg-amber-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <h3 className="text-lg font-black text-amber-700 uppercase tracking-widest">Novo Contrato</h3>
                 <button onClick={() => setIsNewContractModalOpen(false)} className="text-slate-500 hover:text-slate-900"><X size={20} /></button>
               </div>
-
               <div className="p-6 overflow-y-auto space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Número do Contrato</label>
-                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="Ex: 001/2026"
-                      value={newContractForm.contract_number}
-                      onChange={e => setNewContractForm({...newContractForm, contract_number: e.target.value})} />
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: 001/2026" value={newContractForm.contract_number} onChange={e => setNewContractForm({...newContractForm, contract_number: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</label>
-                    <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={newContractForm.status}
-                      onChange={e => setNewContractForm({...newContractForm, status: e.target.value as any})}>
+                    <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" value={newContractForm.status} onChange={e => setNewContractForm({...newContractForm, status: e.target.value as any})}>
                       <option value="Ativo">Ativo</option>
                       <option value="Encerrado">Encerrado</option>
                       <option value="Suspenso">Suspenso</option>
                     </select>
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Empresa Contratada</label>
-                  <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                    placeholder="Nome da empresa"
-                    value={newContractForm.company_name}
-                    onChange={e => setNewContractForm({...newContractForm, company_name: e.target.value})} />
+                  <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Nome da empresa" value={newContractForm.company_name} onChange={e => setNewContractForm({...newContractForm, company_name: e.target.value})} />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CNPJ</label>
-                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="00.000.000/0000-00"
-                      value={newContractForm.cnpj}
-                      onChange={e => setNewContractForm({...newContractForm, cnpj: e.target.value})} />
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="00.000.000/0000-00" value={newContractForm.cnpj} onChange={e => setNewContractForm({...newContractForm, cnpj: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contratante</label>
-                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="Ex: UFPE/CAV"
-                      value={newContractForm.contracting_party}
-                      onChange={e => setNewContractForm({...newContractForm, contracting_party: e.target.value})} />
+                    <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: UFPE/CAV" value={newContractForm.contracting_party} onChange={e => setNewContractForm({...newContractForm, contracting_party: e.target.value})} />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Início</label>
-                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={newContractForm.start_date}
-                      onChange={e => setNewContractForm({...newContractForm, start_date: e.target.value})} />
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" value={newContractForm.start_date} onChange={e => setNewContractForm({...newContractForm, start_date: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Fim</label>
-                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={newContractForm.end_date}
-                      onChange={e => setNewContractForm({...newContractForm, end_date: e.target.value})} />
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" value={newContractForm.end_date} onChange={e => setNewContractForm({...newContractForm, end_date: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nº Renovações</label>
-                    <input type="number" min="0" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50"
-                      value={newContractForm.renewals_count}
-                      onChange={e => setNewContractForm({...newContractForm, renewals_count: Number(e.target.value)})} />
+                    <input type="number" min="0" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500/50" value={newContractForm.renewals_count} onChange={e => setNewContractForm({...newContractForm, renewals_count: Number(e.target.value)})} />
                   </div>
                 </div>
               </div>
-
               <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-3">
-                <button onClick={() => setIsNewContractModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">
-                  Cancelar
-                </button>
-                <button onClick={handleSaveNewContract}
-                  disabled={!newContractForm.contract_number || !newContractForm.company_name || isSaving}
-                  className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50">
+                <button onClick={() => setIsNewContractModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">Cancelar</button>
+                <button onClick={handleSaveNewContract} disabled={!newContractForm.contract_number || !newContractForm.company_name || isSaving} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50">
                   {isSaving ? 'Salvando...' : 'Salvar Contrato'}
                 </button>
               </div>
@@ -1556,18 +1626,18 @@ export default function GestaoContratualPage() {
         )}
       </AnimatePresence>
 
-      {/* Renewal Modal */}
+      {/* Renewal Modal — Nova ou Editar */}
       <AnimatePresence>
         {isRenewalModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRenewalModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsRenewalModalOpen(false); setEditingRenewal(null); }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
             <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg relative z-10 overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
                 <div>
-                  <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">Nova Renovação</h3>
+                  <h3 className="text-lg font-black tracking-tight uppercase text-amber-700">{editingRenewal ? 'Editar Renovação' : 'Nova Renovação'}</h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Termo Aditivo</p>
                 </div>
-                <button onClick={() => setIsRenewalModalOpen(false)} className="text-slate-700 hover:text-slate-900 transition-colors"><X size={20} /></button>
+                <button onClick={() => { setIsRenewalModalOpen(false); setEditingRenewal(null); }} className="text-slate-700 hover:text-slate-900 transition-colors"><X size={20} /></button>
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1584,6 +1654,16 @@ export default function GestaoContratualPage() {
                   <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Termo Aditivo</label>
                   <input className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" placeholder="Ex: Termo Aditivo nº 01/2026" value={renewalForm.termo_aditivo ?? ''} onChange={e => setRenewalForm({...renewalForm, termo_aditivo: e.target.value})} />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Data Início</label>
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.data_inicio ?? ''} onChange={e => setRenewalForm({...renewalForm, data_inicio: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Data Fim</label>
+                    <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.data_fim ?? ''} onChange={e => setRenewalForm({...renewalForm, data_fim: e.target.value})} />
+                  </div>
+                </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Status</label>
                   <select className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/50" value={renewalForm.status ?? 'Em Andamento'} onChange={e => setRenewalForm({...renewalForm, status: e.target.value as any})}>
@@ -1599,8 +1679,8 @@ export default function GestaoContratualPage() {
                 </div>
               </div>
               <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
-                <button onClick={() => setIsRenewalModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
-                <button onClick={handleAddRenewal} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">Salvar Renovação</button>
+                <button onClick={() => { setIsRenewalModalOpen(false); setEditingRenewal(null); }} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all">Cancelar</button>
+                <button onClick={handleAddRenewal} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20">{editingRenewal ? 'Salvar Alterações' : 'Salvar Renovação'}</button>
               </div>
             </motion.div>
           </div>
