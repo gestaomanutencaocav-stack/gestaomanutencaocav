@@ -21,14 +21,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
 const navItems = [
-  { name: 'Painel', icon: LayoutDashboard, href: '/' },
-  { name: 'Solicitações', icon: ClipboardList, href: '/solicitacoes' },
-  { name: 'Rotinas de Inspeções', icon: ClipboardCheck, href: '/inspecoes' },
-  { name: 'Agenda', icon: Calendar, href: '/agenda' },
-  { name: 'Materiais em Estoque', icon: Box, href: '/materiais' },
-  { name: 'Materiais Finalísticos', icon: FileSpreadsheet, href: '/materiais-finalisticos' },
-  { name: 'Gestão Contratual', icon: FileText, href: '/gestao-contratual' },
-  { name: 'Relatórios', icon: BarChart3, href: '/relatorios' },
+  { name: 'Painel',                icon: LayoutDashboard, href: '/',                        roles: ['gestao', 'encarregado'] },
+  { name: 'Solicitações',          icon: ClipboardList,   href: '/solicitacoes',             roles: ['gestao', 'encarregado'] },
+  { name: 'Rotinas de Inspeções',  icon: ClipboardCheck,  href: '/inspecoes',                roles: ['gestao', 'encarregado'] },
+  { name: 'Agenda',                icon: Calendar,        href: '/agenda',                   roles: ['gestao', 'encarregado'] },
+  { name: 'Materiais em Estoque',  icon: Box,             href: '/materiais',                roles: ['gestao', 'encarregado'] },
+  { name: 'Materiais Finalísticos',icon: FileSpreadsheet, href: '/materiais-finalisticos',   roles: ['gestao'] },
+  { name: 'Gestão Contratual',     icon: FileText,        href: '/gestao-contratual',        roles: ['gestao'] },
+  { name: 'Relatórios',            icon: BarChart3,       href: '/relatorios',               roles: ['gestao'] },
 ];
 
 interface SidebarProps {
@@ -52,6 +52,11 @@ export default function Sidebar({ isOpen, onClose, currentUser }: SidebarProps) 
     }
   }, [currentUser]);
 
+  // Filtra os itens de navegação com base no role do usuário
+  const visibleNavItems = navItems.filter(item =>
+    !user?.role || item.roles.includes(user.role)
+  );
+
   const sidebarContent = (
     <aside className="w-64 flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full">
       <div className="p-6 flex items-center justify-between">
@@ -70,7 +75,7 @@ export default function Sidebar({ isOpen, onClose, currentUser }: SidebarProps) 
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
