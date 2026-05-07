@@ -398,7 +398,7 @@ export default function RequestsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {userRole && req.status === 'Novo' && (
+                        {userRole && (req.status === 'Novo' || req.status === 'Pendente') && (
                           <div className="flex gap-1 mr-2">
                             <button 
                               onClick={() => { 
