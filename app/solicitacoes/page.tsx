@@ -278,7 +278,7 @@ export default function RequestsPage() {
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
                 <option value="Todos">Status (Todos)</option>
-              {['Pendente', 'Em Andamento', 'Autorizado', 'Concluído', 'Negado', 'Não Contratual'].map(s => (
+             {['Novo', 'Em Andamento', 'Autorizado', 'Concluído', 'Negado', 'Não Contratual'].map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
