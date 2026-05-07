@@ -930,7 +930,7 @@ export default function RequestDetailsPage() {
                 Não Contratual
               </button>
             )}
-            {userRole === 'gestao' && request.status === 'Novo' && (
+            {userRole === 'gestao' && request.status === 'Pendente' && (
               <div className="flex gap-2">
                 <button 
                   onClick={() => { setAuthAction('Autorizado'); setIsAuthModalOpen(true); }}
