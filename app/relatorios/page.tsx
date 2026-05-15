@@ -2061,7 +2061,36 @@ const custoPorDemandaData = useMemo(() => {
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Dias para Vencimento</p>
                     <p className="text-lg font-black text-slate-900 font-mono">{contractKPIs.remainingDays}</p>
                   </div>
-                </div>
+                </div>{/* Custo por Demanda — mês atual */}
+{(() => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const currentPoint = custoPorDemandaData.find(
+    d => d.name.startsWith(
+      ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][now.getMonth()]
+    )
+  );
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="size-9 rounded-xl bg-violet-600 text-white flex items-center justify-center">
+          <TrendingUp size={16} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mês atual</span>
+      </div>
+      <p className="text-2xl font-black text-slate-900">
+        {formatCurrency(currentPoint?.custoPorDemanda || 0)}
+      </p>
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
+        Custo por Demanda
+      </p>
+      <p className="text-xs text-slate-400 mt-1">
+        {currentPoint?.totalDemandas || 0} demandas · {formatCurrency(currentPoint?.totalLiquido || 0)} líquido
+      </p>
+    </div>
+  );
+})()}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Evolução de Faturamento (24 meses)</h3>
