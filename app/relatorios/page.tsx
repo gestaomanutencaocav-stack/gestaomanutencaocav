@@ -1303,7 +1303,41 @@ export default function RelatoriosPage() {
       };
     });
   }, [filteredFinancialRecords]);
+// --- Indicador: Custo por Demanda ---
+const custoPorDemandaData = useMemo(() => {
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const now = new Date();
+  const data = [];
 
+  for (let i = 11; i >= 0; i--) {
+    const d = subMonths(now, i);
+    const year = d.getFullYear();
+    const monthIdx = d.getMonth(); // 0-based
+    const monthNum = monthIdx + 1; // 1-based
+
+    const financialRecord = filteredFinancialRecords.find(
+      r => Number(r.year) === year && Number(r.month) === monthNum
+    );
+
+    const totalLiquido = financialRecord ? Number(financialRecord.total_after_discounts) || 0 : 0;
+
+    const totalDemandas = requests.filter(req => {
+      const reqDate = new Date(req.createdAt || req.date);
+      return reqDate.getFullYear() === year && reqDate.getMonth() === monthIdx;
+    }).length;
+
+    const custoPorDemanda = totalDemandas > 0 ? totalLiquido / totalDemandas : 0;
+
+    data.push({
+      name: `${months[monthIdx]}/${year.toString().slice(-2)}`,
+      totalLiquido,
+      totalDemandas,
+      custoPorDemanda: Math.round(custoPorDemanda * 100) / 100,
+    });
+  }
+
+  return data;
+}, [filteredFinancialRecords, requests]);
   const invoiceComponentData = useMemo(() => {
     const records = filteredFinancialRecords || [];
     const totalPayment = records.reduce((sum, r) => sum + (Number(r.payment_value) || 0), 0);
