@@ -1013,7 +1013,16 @@ export default function RelatoriosPage() {
         'Média Mensal': (row.total / 12).toFixed(2)
       })));
       XLSX.utils.book_append_sheet(workbook, wsSummary, "Resumo Anual");
-
+// Aba: Custo por Demanda
+const wsCusto = XLSX.utils.json_to_sheet(
+  custoPorDemandaData.map(row => ({
+    'Mês': row.name,
+    'Total Líquido (R$)': row.totalLiquido,
+    'Total Demandas': row.totalDemandas,
+    'Custo por Demanda (R$)': row.custoPorDemanda,
+  }))
+);
+XLSX.utils.book_append_sheet(workbook, wsCusto, "Custo por Demanda");
       XLSX.writeFile(workbook, `Relatorio_Contratual_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } else if (activeTab === 'materiais') {
       const workbook = XLSX.utils.book_new();
