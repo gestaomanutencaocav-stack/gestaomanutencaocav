@@ -2118,11 +2118,12 @@ const custoPorDemandaData = useMemo(() => {
         <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700 }} />
         <YAxis yAxisId="custo" orientation="left" tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
         <YAxis yAxisId="demandas" orientation="right" tick={{ fontSize: 10 }} allowDecimals={false} />
-        <Tooltip formatter={(value: number, name: string) => {
-          if (name === 'custoPorDemanda') return [formatCurrency(value), 'Custo/Demanda'];
-          if (name === 'totalDemandas') return [value, 'Demandas'];
-          return [formatCurrency(value), 'Total Líquido'];
-        }} />
+       <Tooltip formatter={(value, name) => {
+  const v = Number(value) || 0;
+  if (name === 'custoPorDemanda') return [formatCurrency(v), 'Custo/Demanda'];
+  if (name === 'totalDemandas') return [v, 'Demandas'];
+  return [formatCurrency(v), 'Total Líquido'];
+}} />
         <Legend formatter={(value) =>
           value === 'custoPorDemanda' ? 'Custo por Demanda (R$)'
           : value === 'totalDemandas' ? 'Nº Demandas'
