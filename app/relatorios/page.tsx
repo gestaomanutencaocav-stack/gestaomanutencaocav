@@ -2091,7 +2091,64 @@ const custoPorDemandaData = useMemo(() => {
     </div>
   );
 })()}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+{/* Custo por Demanda — Evolução Mensal */}
+<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
+  <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+    <h3 className="font-black text-slate-900 uppercase tracking-widest text-sm flex items-center gap-2">
+      <TrendingUp size={16} className="text-violet-600" />
+      Custo Unitário por Demanda — Evolução Mensal
+    </h3>
+    <p className="text-xs text-slate-500 mt-1">
+      Total Líquido do contrato 31/21 ÷ Total de demandas abertas no mês
+    </p>
+  </div>
+  <div className="p-6">
+    <ResponsiveContainer width="100%" height={280}>
+      <ComposedChart data={custoPorDemandaData}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700 }} />
+        <YAxis yAxisId="custo" orientation="left" tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
+        <YAxis yAxisId="demandas" orientation="right" tick={{ fontSize: 10 }} allowDecimals={false} />
+        <Tooltip formatter={(value: number, name: string) => {
+          if (name === 'custoPorDemanda') return [formatCurrency(value), 'Custo/Demanda'];
+          if (name === 'totalDemandas') return [value, 'Demandas'];
+          return [formatCurrency(value), 'Total Líquido'];
+        }} />
+        <Legend formatter={(value) =>
+          value === 'custoPorDemanda' ? 'Custo por Demanda (R$)'
+          : value === 'totalDemandas' ? 'Nº Demandas'
+          : 'Total Líquido (R$)'
+        } />
+        <Bar yAxisId="demandas" dataKey="totalDemandas" fill="#e2e8f0" radius={[4,4,0,0]} name="totalDemandas" />
+        <Line yAxisId="custo" type="monotone" dataKey="custoPorDemanda" stroke="#7c3aed" strokeWidth={2.5} dot={{ fill: '#7c3aed', r: 4 }} name="custoPorDemanda" />
+        <Line yAxisId="custo" type="monotone" dataKey="totalLiquido" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="totalLiquido" />
+      </ComposedChart>
+    </ResponsiveContainer>
+
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            <th className="px-4 py-3 font-black uppercase tracking-widest text-slate-600">Mês</th>
+            <th className="px-4 py-3 font-black uppercase tracking-widest text-slate-600 text-right">Total Líquido</th>
+            <th className="px-4 py-3 font-black uppercase tracking-widest text-slate-600 text-right">Demandas</th>
+            <th className="px-4 py-3 font-black uppercase tracking-widest text-slate-600 text-right">Custo/Demanda</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {custoPorDemandaData.filter(d => d.totalLiquido > 0 || d.totalDemandas > 0).map((row, i) => (
+            <tr key={i} className="hover:bg-slate-50">
+              <td className="px-4 py-2.5 font-bold text-slate-700">{row.name}</td>
+              <td className="px-4 py-2.5 text-right text-slate-600">{row.totalLiquido > 0 ? formatCurrency(row.totalLiquido) : '—'}</td>
+              <td className="px-4 py-2.5 text-right text-slate-600">{row.totalDemandas}</td>
+              <td className="px-4 py-2.5 text-right font-black text-violet-700">{row.custoPorDemanda > 0 ? formatCurrency(row.custoPorDemanda) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Evolução de Faturamento (24 meses)</h3>
                     <div className="h-[300px]">
