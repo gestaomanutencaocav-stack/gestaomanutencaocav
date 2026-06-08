@@ -74,6 +74,9 @@ export async function POST(request: Request) {
           fiscal_administrativo: body.fiscal_administrativo,
           fiscal_admin_sub: body.fiscal_admin_sub,
           portaria_designacao: body.portaria_designacao,
+          lei_contratacao: body.lei_contratacao,
+          hipotese_legal: body.hipotese_legal,
+          tipo_contratacao: body.tipo_contratacao,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id)
