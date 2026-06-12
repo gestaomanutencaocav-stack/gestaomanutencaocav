@@ -1315,20 +1315,24 @@ XLSX.utils.book_append_sheet(workbook, wsCusto, "Custo por Demanda");
 // --- Indicador: Custo por Demanda ---
 const custoPorDemandaData = useMemo(() => {
   const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const now = new Date();
   const data = [];
 
-  for (let i = 11; i >= 0; i--) {
-    const d = subMonths(now, i);
-    const year = d.getFullYear();
-    const monthIdx = d.getMonth(); // 0-based
-    const monthNum = monthIdx + 1; // 1-based
+  // Ordena por year desc, month desc e pega os últimos 12 registros com fatura
+  const sortedRecords = [...(filteredFinancialRecords || [])]
+    .filter(r => r && r.year && r.month)
+    .sort((a, b) => {
+      if (Number(b.year) !== Number(a.year)) return Number(b.year) - Number(a.year);
+      return Number(b.month) - Number(a.month);
+    });
 
-    const financialRecord = filteredFinancialRecords.find(
-      r => Number(r.year) === year && Number(r.month) === monthNum
-    );
+  const last12 = sortedRecords.slice(0, 12).reverse();
 
-    const totalLiquido = financialRecord ? Number(financialRecord.total_after_discounts) || 0 : 0;
+  for (const financialRecord of last12) {
+    const year = Number(financialRecord.year);
+    const monthNum = Number(financialRecord.month);
+    const monthIdx = monthNum - 1;
+
+    const totalLiquido = Number(financialRecord.total_after_discounts) || 0;
 
     const totalDemandas = requests.filter(req => {
       const reqDate = new Date(req.createdAt || req.date);
@@ -1341,7 +1345,7 @@ const custoPorDemandaData = useMemo(() => {
       name: `${months[monthIdx]}/${year.toString().slice(-2)}`,
       totalLiquido,
       totalDemandas,
-      custoPorDemanda: Math.round(custoPorDemanda * 100) / 100,
+      custoPorDemanda,
     });
   }
 
