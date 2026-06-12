@@ -1316,7 +1316,7 @@ XLSX.utils.book_append_sheet(workbook, wsCusto, "Custo por Demanda");
 const custoPorDemandaData = useMemo(() => {
   const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const data = [];
-console.log('DEBUG:', filteredFinancialRecords.length, sortedRecords?.length);
+console.log('DEBUG:', filteredFinancialRecords.length);
   // Ordena por year desc, month desc e pega os últimos 12 registros com fatura
   const sortedRecords = [...(filteredFinancialRecords || [])]
     .filter(r => r && r.year && r.month)
