@@ -2075,31 +2075,29 @@ const custoPorDemandaData = useMemo(() => {
                     <p className="text-lg font-black text-slate-900 font-mono">{contractKPIs.remainingDays}</p>
                   </div>
                 </div>{/* Custo por Demanda — mês atual */}
+{/* Custo por Demanda — última fatura */}
 {(() => {
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-  const currentPoint = custoPorDemandaData.find(
-    d => d.name.startsWith(
-      ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][now.getMonth()]
-    )
-  );
+  const lastPoint = custoPorDemandaData.length > 0
+    ? custoPorDemandaData[custoPorDemandaData.length - 1]
+    : null;
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="size-9 rounded-xl bg-violet-600 text-white flex items-center justify-center">
           <TrendingUp size={16} />
         </div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mês atual</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          {lastPoint ? lastPoint.name : 'Mês anterior'}
+        </span>
       </div>
       <p className="text-2xl font-black text-slate-900">
-        {formatCurrency(currentPoint?.custoPorDemanda || 0)}
+        {formatCurrency(lastPoint?.custoPorDemanda || 0)}
       </p>
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
         Custo por Demanda
       </p>
       <p className="text-xs text-slate-400 mt-1">
-        {currentPoint?.totalDemandas || 0} demandas · {formatCurrency(currentPoint?.totalLiquido || 0)} líquido
+        {lastPoint?.totalDemandas || 0} demandas · {formatCurrency(lastPoint?.totalLiquido || 0)} líquido
       </p>
     </div>
   );
