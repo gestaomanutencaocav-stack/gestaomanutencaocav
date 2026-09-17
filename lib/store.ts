@@ -405,13 +405,48 @@ export const updateMaterial = async (id: string, updates: Partial<Material>) => 
   return mapMaterial(data);
 };
 
+// Colunas usadas pelo Dashboard e pela lista de Solicitações.
+// Propositalmente NÃO inclui: images, documents, timeline, checklist,
+// details, observacao, authorized_justification — colunas jsonb/texto
+// longo que só são exibidas na tela de detalhe de uma OS individual
+// (ver getRequestById). Em 462 OS, a coluna "images" sozinha somava
+// ~27 MB de fotos em base64, baixados do banco a cada carregamento
+// do Dashboard/Solicitações mesmo sem serem exibidos ali — essa era
+// a causa da lentidão do sistema.
+const REQUEST_LIST_COLUMNS = [
+  'id',
+  'description',
+  'unit',
+  'responsible_server',
+  'date',
+  'created_at',
+  'type',
+  'status',
+  'status_color',
+  'professional',
+  'professionals',
+  'avatar',
+  'authorized_by',
+  'authorized_position',
+  'urgency',
+  'matricula_siape',
+  'email_solicitante',
+  'tombamento',
+  'modelo_equipamento',
+  'tipo_equipamento',
+  'btus',
+  'hora_finalizacao',
+  'data_finalizacao',
+  'servidor_repassou',
+].join(', ');
+
 export const getRequests = async () => {
   try {
     const { data, error } = await supabase
       .from('requests')
-      .select('*')
+      .select(REQUEST_LIST_COLUMNS)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       if (error.code === '42P01') {
         console.error('CRITICAL: Table "requests" does not exist in Supabase. Please run the SQL script in supabase_setup.sql.');
