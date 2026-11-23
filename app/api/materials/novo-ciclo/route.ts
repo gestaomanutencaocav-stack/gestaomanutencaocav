@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { parse, parseISO, isValid } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
+export const maxDuration = 60;
+
 interface ConsumptionRecord {
   date: string;
   quantity: number;
@@ -25,6 +27,18 @@ interface NovoCicloBody {
   cicloFimAnterior: string; // yyyy-MM-dd
   items: ItemPayload[];
 }
+
+interface MaterialRow {
+  id: string;
+  saldo_inicial: number | string | null;
+  saldo_atual: number | string | null;
+  valor_unitario: number | string | null;
+  consumption_records: ConsumptionRecord[] | null;
+  ciclo_inicio: string | null;
+  ciclos_anteriores: CicloAnterior[] | null;
+}
+
+const CHUNK_SIZE = 25;
 
 function parseRecordDate(value: string): Date | null {
   if (!value) return null;
@@ -58,18 +72,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 });
     }
 
-    let atualizados = 0;
+    // 1) Busca todos os materiais de uma vez
+    const ids = body.items.map((i) => i.id);
+    const { data, error } = await supabase
+      .from('materials')
+      .select('id, saldo_inicial, saldo_atual, valor_unitario, consumption_records, ciclo_inicio, ciclos_anteriores')
+      .in('id', ids)
+      .eq('type', 'finalistico');
+    if (error) throw error;
+
+    const rows = (data ?? []) as MaterialRow[];
+    const rowById = new Map<string, MaterialRow>(rows.map((r) => [r.id, r]));
+
+    // 2) Monta as atualizações (ignora itens que já estão neste ciclo)
+    let ignorados = 0;
+    const updates: { id: string; payload: Record<string, unknown> }[] = [];
 
     for (const item of body.items) {
-      const { data: m, error } = await supabase
-        .from('materials')
-        .select('*')
-        .eq('id', item.id)
-        .eq('type', 'finalistico')
-        .single();
-      if (error || !m) continue;
+      const m = rowById.get(item.id);
+      if (!m) continue;
 
-      const records: ConsumptionRecord[] = Array.isArray(m.consumption_records) ? m.consumption_records : [];
+      if (m.ciclo_inicio === body.cicloInicio) {
+        ignorados += 1;
+        continue;
+      }
+
+      const records = Array.isArray(m.consumption_records) ? m.consumption_records : [];
       const consumidoNoCiclo = records.reduce((acc, r) => {
         const d = parseRecordDate(r.date);
         return d && d >= inicio ? acc + Number(r.quantity || 0) : acc;
@@ -86,9 +114,9 @@ export async function POST(request: Request) {
       const novoSaldoAtual = item.novoSaldoInicial - consumidoNoCiclo;
       const valorUnit = Number(m.valor_unitario || 0);
 
-      const { error: upErr } = await supabase
-        .from('materials')
-        .update({
+      updates.push({
+        id: item.id,
+        payload: {
           saldo_inicial: item.novoSaldoInicial,
           quantidade_geral: item.novoSaldoInicial,
           saldo_atual: novoSaldoAtual,
@@ -96,13 +124,25 @@ export async function POST(request: Request) {
           ciclo_inicio: body.cicloInicio,
           ciclos_anteriores: anteriores,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', item.id);
-
-      if (!upErr) atualizados += 1;
+        },
+      });
     }
 
-    return NextResponse.json({ atualizados, total: body.items.length });
+    // 3) Executa em lotes paralelos
+    let atualizados = 0;
+    let falhas = 0;
+    for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+      const chunk = updates.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.all(
+        chunk.map((u) => supabase.from('materials').update(u.payload).eq('id', u.id))
+      );
+      for (const res of results) {
+        if (res.error) falhas += 1;
+        else atualizados += 1;
+      }
+    }
+
+    return NextResponse.json({ atualizados, ignorados, falhas, total: body.items.length });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erro desconhecido';
     return NextResponse.json({ error: message }, { status: 500 });
