@@ -26,10 +26,11 @@ import {
   Download,
   Save,
   Plus,
-  ClipboardList
+  ClipboardList,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, parse, isValid, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   LineChart, 
@@ -95,6 +96,14 @@ function getRecordMonthYear(r: ConsumptionRecord): { month: number | null; year:
   return { month: null, year: null };
 }
 
+function getRecordDate(r: ConsumptionRecord): Date | null {
+  if (!r.date) return null;
+  const iso = parseISO(r.date);
+  if (isValid(iso)) return iso;
+  const br = parse(r.date, 'dd/MM/yyyy', new Date());
+  return isValid(br) ? br : null;
+}
+
 export default function MaterialsManager({ title, description, type }: MaterialsManagerProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +151,12 @@ export default function MaterialsManager({ title, description, type }: Materials
   const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
   const [correctionHistory, setCorrectionHistory] = useState<any[]>([]);
   const [isApplyingCorrection, setIsApplyingCorrection] = useState(false);
+
+  // Novo ciclo contratual (reinício de saldo)
+  const [isCicloModalOpen, setIsCicloModalOpen] = useState(false);
+  const [cicloInicio, setCicloInicio] = useState('04/11/2026');
+  const [cicloSaldos, setCicloSaldos] = useState<Record<string, string>>({});
+  const [isApplyingCiclo, setIsApplyingCiclo] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -472,6 +487,60 @@ export default function MaterialsManager({ title, description, type }: Materials
     } catch (e) { console.error(e); }
   };
 
+  const cicloInicioDate = useMemo(() => {
+    if (cicloInicio.length !== 10) return null;
+    const d = parse(cicloInicio, 'dd/MM/yyyy', new Date());
+    return isValid(d) ? d : null;
+  }, [cicloInicio]);
+
+  const openCicloModal = () => {
+    const init: Record<string, string> = {};
+    materials.forEach(m => { if (m.id) init[m.id] = String(m.quantidadeGeral || m.saldoInicial || 0); });
+    setCicloSaldos(init);
+    setCicloInicio('04/11/2026');
+    setIsCicloModalOpen(true);
+  };
+
+  const getConsumoNoCiclo = (m: Material): number => {
+    if (!cicloInicioDate || !Array.isArray(m.consumptionRecords)) return 0;
+    return m.consumptionRecords.reduce((acc, r) => {
+      const d = getRecordDate(r);
+      return d && d >= cicloInicioDate ? acc + r.quantity : acc;
+    }, 0);
+  };
+
+  const handleApplyCiclo = async () => {
+    if (!cicloInicioDate || isApplyingCiclo) return;
+    const items = materials
+      .filter(m => m.id)
+      .map(m => ({ id: m.id as string, novoSaldoInicial: Number(String(cicloSaldos[m.id as string] ?? '0').replace(',', '.')) }))
+      .filter(i => !isNaN(i.novoSaldoInicial) && i.novoSaldoInicial >= 0);
+    setIsApplyingCiclo(true);
+    try {
+      const res = await fetch('/api/materials/novo-ciclo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cicloInicio: format(cicloInicioDate, 'yyyy-MM-dd'),
+          cicloFimAnterior: format(subDays(cicloInicioDate, 1), 'yyyy-MM-dd'),
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchMaterials();
+        setIsCicloModalOpen(false);
+        alert(`Novo ciclo iniciado. ${data.atualizados} de ${data.total} itens atualizados.`);
+      } else {
+        alert(`Erro: ${data.error || 'Desconhecido'}`);
+      }
+    } catch {
+      alert('Erro de conexão ao iniciar novo ciclo.');
+    } finally {
+      setIsApplyingCiclo(false);
+    }
+  };
+
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const mesesFull = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -485,6 +554,12 @@ export default function MaterialsManager({ title, description, type }: Materials
           <p className="text-slate-800 font-bold mt-1">{description}</p>
         </div>
         <div className="flex gap-2">
+          {type === 'finalistico' && (
+            <button onClick={openCicloModal} disabled={loading || materials.length === 0} className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50">
+              <RefreshCw size={18} />
+              <span>Novo Ciclo Contratual</span>
+            </button>
+          )}
           <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx,.xls,.csv" />
           <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-50 shadow-sm disabled:opacity-50">
             <Upload size={18} className={isUploading ? 'animate-bounce' : 'text-amber-600'} />
@@ -917,6 +992,99 @@ export default function MaterialsManager({ title, description, type }: Materials
               <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-3">
                 <button onClick={()=>setIsPreviewModalOpen(false)} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">Fechar</button>
                 <button onClick={()=>{setIsPreviewModalOpen(false);setIsConfirmModalOpen(true);}} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20">Aplicar</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== MODAL NOVO CICLO CONTRATUAL ===== */}
+      <AnimatePresence>
+        {isCicloModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !isApplyingCiclo && setIsCicloModalOpen(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Novo Ciclo Contratual</h3>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Reinicia o saldo dos materiais finalísticos. O histórico de consumo é preservado.</p>
+                </div>
+                <button onClick={() => !isApplyingCiclo && setIsCicloModalOpen(false)} className="text-slate-500 hover:text-slate-900 transition-colors"><X size={20} /></button>
+              </div>
+
+              <div className="px-6 py-4 border-b border-slate-100 bg-amber-50/40 shrink-0 flex flex-wrap items-end gap-4">
+                <div className="w-48">
+                  <label className="block text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Início do ciclo (dd/mm/aaaa)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="04/11/2026"
+                    className={`w-full bg-white border rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none font-mono ${cicloInicioDate ? 'border-slate-200' : 'border-rose-300'}`}
+                    value={cicloInicio}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+                      let out = digits;
+                      if (digits.length > 4) out = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+                      else if (digits.length > 2) out = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                      setCicloInicio(out);
+                    }}
+                  />
+                </div>
+                <p className="flex-1 min-w-[260px] text-[10px] text-slate-700 font-bold">
+                  Novo saldo inicial por item (padrão: quantitativo contratado). O saldo atual será o novo saldo inicial menos as saídas lançadas a partir da data de início.
+                </p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-slate-50 z-10">
+                    <tr className="border-b border-slate-200">
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Código</th>
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">Descrição</th>
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Saldo atual (ciclo anterior)</th>
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Novo saldo inicial</th>
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Consumo desde o início</th>
+                      <th className="px-4 py-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Saldo resultante</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {materials.map(m => {
+                      const novo = Number(String(cicloSaldos[m.id || ''] ?? '0').replace(',', '.')) || 0;
+                      const consumo = getConsumoNoCiclo(m);
+                      const resultante = novo - consumo;
+                      return (
+                        <tr key={m.id || m.codigo}>
+                          <td className="px-4 py-2 text-xs font-black text-amber-600 font-mono">{m.codigo}</td>
+                          <td className="px-4 py-2 text-xs font-bold text-slate-900">{m.descricao}</td>
+                          <td className="px-4 py-2 text-center text-xs font-black text-slate-700 font-mono">{m.saldoAtual}</td>
+                          <td className="px-4 py-2 text-center">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="w-24 bg-white border border-slate-200 rounded px-2 py-1 text-center text-xs font-bold focus:ring-2 focus:ring-amber-500/50 text-slate-900 outline-none font-mono"
+                              value={cicloSaldos[m.id || ''] ?? ''}
+                              onChange={e => setCicloSaldos(prev => ({ ...prev, [m.id || '']: e.target.value }))}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-center text-xs font-black text-slate-700 font-mono">{consumo}</td>
+                          <td className={`px-4 py-2 text-center text-xs font-black font-mono ${resultante < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{resultante}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3 shrink-0">
+                <button onClick={() => setIsCicloModalOpen(false)} disabled={isApplyingCiclo} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
+                <button
+                  onClick={() => { if (confirm(`Confirma o início do novo ciclo em ${cicloInicio}? O saldo atual de todos os itens será recalculado.`)) handleApplyCiclo(); }}
+                  disabled={!cicloInicioDate || isApplyingCiclo}
+                  className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {isApplyingCiclo ? 'Aplicando...' : 'Iniciar Novo Ciclo'}
+                </button>
               </div>
             </motion.div>
           </div>
